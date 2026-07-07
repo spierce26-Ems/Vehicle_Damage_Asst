@@ -56,12 +56,20 @@ final class CaptureViewModel: ObservableObject {
     private let motionManager = CMMotionManager()
     private let locationManager = CLLocationManager()
 
+    /// NOTE(AI Developer): `storage`/`cameraService` default to `nil` here
+    /// (rather than `= .shared` / `= CameraService()` directly in the
+    /// parameter list) because default-argument expressions are evaluated
+    /// in a non-isolated context under Swift 6 strict concurrency, and
+    /// both `StorageService.shared` and `CameraService.init()` are
+    /// `@MainActor`-isolated. Resolving the actual default inside the
+    /// (MainActor-isolated) init body avoids the "Call to main
+    /// actor-isolated ... from synchronous nonisolated context" error.
     init(forensicCase: ForensicCase,
-         storage: StorageService = .shared,
-         cameraService: CameraService = CameraService()) {
+         storage: StorageService? = nil,
+         cameraService: CameraService? = nil) {
         self.forensicCase = forensicCase
-        self.storage = storage
-        self.cameraService = cameraService
+        self.storage = storage ?? .shared
+        self.cameraService = cameraService ?? CameraService()
         startSensors()
     }
 

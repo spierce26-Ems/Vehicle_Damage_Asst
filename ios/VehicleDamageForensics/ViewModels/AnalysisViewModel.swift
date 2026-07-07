@@ -25,9 +25,14 @@ final class AnalysisViewModel: ObservableObject {
     private let pdfGenerator = PDFReportGenerator()
     private let storage: StorageService
 
-    init(forensicCase: ForensicCase, storage: StorageService = .shared) {
+    /// NOTE(AI Developer): `storage` defaults to `nil` rather than
+    /// `= .shared` directly in the parameter list -- see the identical
+    /// note in CaptureViewModel.init for why (Swift 6 strict concurrency:
+    /// default-argument expressions are evaluated in a non-isolated
+    /// context, but `StorageService.shared` is `@MainActor`-isolated).
+    init(forensicCase: ForensicCase, storage: StorageService? = nil) {
         self.forensicCase = forensicCase
-        self.storage = storage
+        self.storage = storage ?? .shared
         self.matchResult = forensicCase.matchResult
         self.reportURL = forensicCase.reportURL
     }

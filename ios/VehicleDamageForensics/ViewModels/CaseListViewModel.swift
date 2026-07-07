@@ -24,8 +24,13 @@ final class CaseListViewModel: ObservableObject {
     private let storage: StorageService
     private var cancellables: Set<AnyCancellable> = []
 
-    init(storage: StorageService = .shared) {
-        self.storage = storage
+    /// NOTE(AI Developer): `storage` defaults to `nil` rather than
+    /// `= .shared` directly in the parameter list -- see the identical
+    /// note in CaptureViewModel.init for why (Swift 6 strict concurrency:
+    /// default-argument expressions are evaluated in a non-isolated
+    /// context, but `StorageService.shared` is `@MainActor`-isolated).
+    init(storage: StorageService? = nil) {
+        self.storage = storage ?? .shared
         bind()
     }
 
