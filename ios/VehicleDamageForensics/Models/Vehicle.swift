@@ -1,5 +1,5 @@
 // Vehicle.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Vehicle model with role, specs, damage zones, and captured photos
 
 import Foundation

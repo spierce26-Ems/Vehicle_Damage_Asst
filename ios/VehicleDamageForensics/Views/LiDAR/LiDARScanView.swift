@@ -1,5 +1,5 @@
 // LiDARScanView.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Hosts an ARView for LiDAR scene reconstruction, displays coverage
 // progress, and saves the scan back into the case when complete.
 

@@ -1,5 +1,5 @@
 // CaseListViewModel.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Drives the dashboard / case list screen. Loads all persisted cases,
 // supports search, filtering, deletion, and "new case" creation.
 

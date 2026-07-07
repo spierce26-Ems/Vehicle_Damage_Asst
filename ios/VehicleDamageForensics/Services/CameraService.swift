@@ -1,5 +1,5 @@
 // CameraService.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // AVFoundation camera wrapper with sensor-guided capture and 30-shot protocol
 
 import AVFoundation

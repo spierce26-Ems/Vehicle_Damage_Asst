@@ -1,5 +1,5 @@
 // VehicleDamageForensicsApp.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Main app entry point with AppDelegate integration
 
 import SwiftUI

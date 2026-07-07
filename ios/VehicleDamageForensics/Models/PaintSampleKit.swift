@@ -1,5 +1,5 @@
 // PaintSampleKit.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 //
 // NOTE(AI Developer): STUB / SCHEMA RESERVATION ONLY — 2026-07.
 //

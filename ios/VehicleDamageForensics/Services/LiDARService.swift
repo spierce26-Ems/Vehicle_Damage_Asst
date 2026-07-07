@@ -1,5 +1,5 @@
 // LiDARService.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // ARKit LiDAR depth scanning service — produces depth maps and 3D meshes
 // for forensic-grade dimensional analysis of damaged vehicles.
 

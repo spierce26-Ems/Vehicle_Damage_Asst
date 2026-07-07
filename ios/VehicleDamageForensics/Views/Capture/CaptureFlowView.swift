@@ -1,5 +1,5 @@
 // CaptureFlowView.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Top-level capture screen. Coordinates the 30-shot protocol, role
 // switching (victim → suspect), and the hand-off to LiDAR scanning.
 
@@ -99,7 +99,7 @@ struct AnalysisRunnerView: View {
     var body: some View {
         VStack(spacing: 24) {
             if viewModel.isRunning {
-                ProgressView("Running forensic analysis…")
+                ProgressView("Running correlation analysis…")
                     .progressViewStyle(.circular)
             } else if viewModel.matchResult != nil {
                 MatchResultsView(forensicCase: viewModel.forensicCase)

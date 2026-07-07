@@ -1,5 +1,5 @@
 // StorageService.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // File-based case persistence using Codable + FileManager.
 // Cases are stored as individual JSON documents in the app's
 // Documents/Cases directory so they can be exported, shared, or

@@ -1,5 +1,5 @@
 // MatchScoreCalculator.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // The multi-factor scoring engine. Consumes a fully-populated case
 // (victim + suspect vehicle data, photos, LiDAR scans) and produces
 // a final `MatchResult` with per-factor breakdown, weighted composite

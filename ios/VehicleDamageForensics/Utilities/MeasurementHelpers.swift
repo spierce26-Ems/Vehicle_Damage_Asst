@@ -1,5 +1,5 @@
 // MeasurementHelpers.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Unit conversions and measurement utilities. Forensic reports must be
 // presented in both metric and imperial units, with preserved precision.
 

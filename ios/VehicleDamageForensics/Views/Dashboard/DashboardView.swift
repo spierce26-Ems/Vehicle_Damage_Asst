@@ -1,5 +1,5 @@
 // DashboardView.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Main case-list dashboard. NavigationStack-based so each row pushes
 // into either a capture flow (in-progress) or a results view (analyzed).
 
@@ -22,7 +22,7 @@ struct DashboardView: View {
                     caseList
                 }
             }
-            .navigationTitle("Forensic Cases")
+            .navigationTitle("Cases")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -58,7 +58,7 @@ struct DashboardView: View {
                 .foregroundStyle(.secondary)
             Text("No cases yet")
                 .font(.title2.bold())
-            Text("Tap + to start a forensic case.")
+            Text("Tap + to start a new case.")
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

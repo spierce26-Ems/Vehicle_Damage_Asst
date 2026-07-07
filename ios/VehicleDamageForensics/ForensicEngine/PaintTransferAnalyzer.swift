@@ -1,5 +1,5 @@
 // PaintTransferAnalyzer.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Computes a 0-100 paint-transfer match score between two damage zones
 // using perceptual color distance (CIEDE2000) plus heuristic checks for
 // foreign-paint reciprocity and material transfer.

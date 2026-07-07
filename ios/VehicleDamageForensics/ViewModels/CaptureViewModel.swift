@@ -1,5 +1,5 @@
 // CaptureViewModel.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Drives the 30-shot guided photo capture protocol. Tracks shot
 // progress, exposes the next required photo type, and handles the
 // hand-off to the camera + LiDAR services.

@@ -1,5 +1,5 @@
 // PDFReportGenerator.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Generates an investigative documentation PDF summary of a case using
 // PDFKit + UIGraphicsPDFRenderer. Includes case header, vehicle details,
 // per-factor breakdown, photos, and chain-of-custody trail.

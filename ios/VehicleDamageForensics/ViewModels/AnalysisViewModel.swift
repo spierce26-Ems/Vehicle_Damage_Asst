@@ -1,5 +1,5 @@
 // AnalysisViewModel.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Runs the multi-factor matching engine against a case and exposes
 // the results to the UI. Also drives PDF report generation.
 

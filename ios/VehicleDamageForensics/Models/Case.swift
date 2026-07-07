@@ -1,5 +1,5 @@
 // Case.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Core case data model
 
 import Foundation

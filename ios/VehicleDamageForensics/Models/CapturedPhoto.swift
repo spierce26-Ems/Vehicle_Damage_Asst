@@ -1,5 +1,5 @@
 // CapturedPhoto.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Photo model with full forensic metadata, GPS, sensor data
 
 import Foundation

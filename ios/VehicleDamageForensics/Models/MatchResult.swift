@@ -1,5 +1,5 @@
 // MatchResult.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Match result model — composite score + per-factor breakdown
 
 import Foundation

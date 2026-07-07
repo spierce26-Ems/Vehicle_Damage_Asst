@@ -1,5 +1,5 @@
 // CaptureCameraView.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Wraps an AVCaptureSession into a SwiftUI view via UIViewRepresentable.
 // Provides a live preview, a shutter button binding, and a callback
 // that returns a captured UIImage to the caller.

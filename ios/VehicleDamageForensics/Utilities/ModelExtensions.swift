@@ -1,5 +1,5 @@
 // ModelExtensions.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Convenience conformances and helpers we need across views & view-models.
 // These are kept separate from the canonical model files so the underlying
 // data contracts in Models/ remain pure value-type definitions.

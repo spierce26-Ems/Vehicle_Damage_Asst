@@ -1,5 +1,5 @@
 // ColorAnalysis.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // RGB ↔ CIE Lab conversion + Delta E formulas (CIE76 + CIEDE2000).
 // All math follows the public CIE specifications. Used by
 // PaintTransferAnalyzer to produce perceptually-uniform color

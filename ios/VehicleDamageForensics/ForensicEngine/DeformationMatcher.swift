@@ -1,5 +1,5 @@
 // DeformationMatcher.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Extracts damage-shape signatures using the Vision framework
 // (VNDetectContoursRequest) and scores how closely two contours match.
 // Like puzzle-piece matching: an outward-deformation on the suspect

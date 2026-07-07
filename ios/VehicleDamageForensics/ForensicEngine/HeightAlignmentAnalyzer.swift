@@ -1,5 +1,5 @@
 // HeightAlignmentAnalyzer.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Compares the height-from-ground of damage zones on both vehicles.
 // Two vehicles can only have collided if the bumper / strike heights
 // overlap within real-world tolerance (~2 inches).

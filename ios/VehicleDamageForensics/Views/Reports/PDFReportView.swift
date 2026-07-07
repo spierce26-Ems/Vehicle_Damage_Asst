@@ -1,5 +1,5 @@
 // PDFReportView.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Embeds a PDFKit view to preview a generated forensic report and
 // offers a share action to AirDrop / Mail / Save it.
 

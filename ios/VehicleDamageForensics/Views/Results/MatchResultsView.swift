@@ -1,5 +1,5 @@
 // MatchResultsView.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Score breakdown screen with composite correlation score, per-factor bars,
 // recommendations, and a "Generate PDF Report" action.
 //

@@ -1,5 +1,5 @@
 // SensorGuidanceOverlay.swift
-// Vehicle Damage Forensic Matcher
+// Vehicle Damage Investigation Assistant
 // Real-time HUD overlay rendering pitch / roll / distance feedback to
 // help the operator hold the camera correctly for forensic-grade shots.
 
