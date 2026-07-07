@@ -10,6 +10,7 @@ struct DashboardView: View {
     @StateObject private var viewModel = CaseListViewModel()
     @State private var showingNewCase = false
     @State private var newCaseRoute: ForensicCase?
+    @State private var editingCase: ForensicCase?
 
     var body: some View {
         NavigationStack {
@@ -53,6 +54,11 @@ struct DashboardView: View {
             .navigationDestination(item: $newCaseRoute) { c in
                 CaptureFlowView(forensicCase: c)
             }
+            .sheet(item: $editingCase) { c in
+                EditCaseSheet(forensicCase: c) { updated in
+                    Task { await viewModel.updateCase(updated) }
+                }
+            }
         }
     }
 
@@ -76,6 +82,14 @@ struct DashboardView: View {
             ForEach(viewModel.filteredCases) { c in
                 NavigationLink(value: c) {
                     CaseRow(forensicCase: c)
+                }
+                .swipeActions(edge: .leading) {
+                    Button {
+                        editingCase = c
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    .tint(.blue)
                 }
             }
             .onDelete { idx in

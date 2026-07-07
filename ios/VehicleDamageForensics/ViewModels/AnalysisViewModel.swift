@@ -76,6 +76,20 @@ final class AnalysisViewModel: ObservableObject {
         }
     }
 
+    /// Apply case-level edits made via `EditCaseSheet` from the Results
+    /// screen. NOTE(AI Developer): Added per Sean's decision (2026-07) so
+    /// a case can still be corrected/updated (name, address, suspect
+    /// vehicle info, etc.) after analysis/reporting — e.g. a witness calls
+    /// back with a suspect plate number after the report was already
+    /// generated. Does not re-run analysis or invalidate the existing
+    /// `matchResult`/`reportURL`; those are separate, explicit actions.
+    func applyEdits(_ updated: ForensicCase) async {
+        var updated = updated
+        updated.recordAudit(.caseEdited)
+        forensicCase = updated
+        await storage.save(forensicCase)
+    }
+
     // MARK: Computed presentation data
 
     /// NOTE(AI Developer): Renamed from `verdictText`/`verdictString` per

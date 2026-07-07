@@ -90,6 +90,15 @@ final class CaseListViewModel: ObservableObject {
         return newCase
     }
 
+    /// Persist edits made via `EditCaseSheet` from the Dashboard. Records
+    /// a `.caseEdited` audit entry before saving so the chain-of-custody
+    /// log reflects every post-creation change, not just creation itself.
+    func updateCase(_ updated: ForensicCase) async {
+        var updated = updated
+        updated.recordAudit(.caseEdited)
+        await storage.save(updated)
+    }
+
     /// Permanently remove a case from disk.
     func deleteCase(_ id: UUID) {
         storage.delete(caseID: id)

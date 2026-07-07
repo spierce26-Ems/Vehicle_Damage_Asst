@@ -10,6 +10,7 @@ struct CaptureFlowView: View {
     @StateObject private var viewModel: CaptureViewModel
     @State private var showLiDAR = false
     @State private var showAnalysis = false
+    @State private var showEditCase = false
 
     init(forensicCase: ForensicCase) {
         _viewModel = StateObject(wrappedValue: CaptureViewModel(forensicCase: forensicCase))
@@ -24,11 +25,25 @@ struct CaptureFlowView: View {
         }
         .navigationTitle(viewModel.captureRole.displayName + " Vehicle")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showEditCase = true
+                } label: {
+                    Image(systemName: "pencil.circle")
+                }
+            }
+        }
         .navigationDestination(isPresented: $showLiDAR) {
             LiDARScanView(viewModel: viewModel)
         }
         .navigationDestination(isPresented: $showAnalysis) {
             AnalysisRunnerView(forensicCase: viewModel.forensicCase)
+        }
+        .sheet(isPresented: $showEditCase) {
+            EditCaseSheet(forensicCase: viewModel.forensicCase) { updated in
+                Task { await viewModel.applyEdits(updated) }
+            }
         }
     }
 

@@ -14,6 +14,7 @@ import SwiftUI
 struct MatchResultsView: View {
     @StateObject private var viewModel: AnalysisViewModel
     @State private var showShareSheet = false
+    @State private var showEditCase = false
 
     init(forensicCase: ForensicCase) {
         _viewModel = StateObject(wrappedValue: AnalysisViewModel(forensicCase: forensicCase))
@@ -33,6 +34,13 @@ struct MatchResultsView: View {
         .navigationTitle("Correlation Results")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showEditCase = true
+                } label: {
+                    Image(systemName: "pencil.circle")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     viewModel.generateReport()
@@ -45,6 +53,11 @@ struct MatchResultsView: View {
         .sheet(isPresented: $showShareSheet) {
             if let url = viewModel.reportURL {
                 ActivityShareSheet(items: [url])
+            }
+        }
+        .sheet(isPresented: $showEditCase) {
+            EditCaseSheet(forensicCase: viewModel.forensicCase) { updated in
+                Task { await viewModel.applyEdits(updated) }
             }
         }
         .task {

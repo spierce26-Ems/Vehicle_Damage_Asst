@@ -119,6 +119,19 @@ final class CaptureViewModel: ObservableObject {
         statusMessage = "Capturing suspect vehicle. Maintain consistent angle and distance."
     }
 
+    /// Apply case-level edits made via `EditCaseSheet` (case name/type,
+    /// incident details, victim/suspect vehicle info) while a capture is
+    /// in progress. NOTE(AI Developer): Added per Sean's decision
+    /// (2026-07) so investigators can record suspect vehicle details
+    /// (make/model/plate from a witness, say) as soon as they're known,
+    /// without waiting for suspect photo capture to begin.
+    func applyEdits(_ updated: ForensicCase) async {
+        var updated = updated
+        updated.recordAudit(.caseEdited)
+        forensicCase = updated
+        await storage.save(forensicCase)
+    }
+
     // MARK: Sensor monitoring
 
     private func startSensors() {
