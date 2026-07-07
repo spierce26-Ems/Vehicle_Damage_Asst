@@ -152,6 +152,10 @@ VehicleDamageForensics/
 - `demo/images/` — smaller demo pair
 - `PROJECT_BRIEF.md` — original goal doc
 - `COMPLETE_FILE_MANIFEST.md` — line-by-line file inventory
+- `PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` — **deferred** feature spec for a
+  paid paint-sample lab-analysis + DNA-kit-style tracking system (2026-07).
+  Schema reserved (`PaintSampleKit.swift`, `DamageZone.paintSampleKit`),
+  nothing else built yet. Read this before touching that area.
 
 ---
 

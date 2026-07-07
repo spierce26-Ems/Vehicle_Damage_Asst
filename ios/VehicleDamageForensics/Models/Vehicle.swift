@@ -112,6 +112,17 @@ struct DamageZone: Identifiable, Codable, Equatable {
     var impactAngleDegrees: Double?
     var transferDirection: TransferDirection?
 
+    /// NOTE(AI Developer): Schema reservation only — 2026-07. Not created,
+    /// mutated, or displayed anywhere yet. Reserves the slot for the future
+    /// "send a physical paint sample to a partner lab" feature Sean asked
+    /// about, so that when we build it we don't have to retrofit the model
+    /// (and its Codable/decoding) the way we just had to for `auditLog`.
+    /// See `PaintSampleKit.swift` and
+    /// `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md`. Optional, so
+    /// synthesized Codable already decodes missing/old JSON safely (no
+    /// custom init(from:) needed here).
+    var paintSampleKit: PaintSampleKit?
+
     init(
         id: UUID = UUID(),
         zoneID: String = "primary_damage",
@@ -123,7 +134,8 @@ struct DamageZone: Identifiable, Codable, Equatable {
         maxDepthMM: Double = 0,
         paintAnalysis: PaintAnalysis? = nil,
         impactAngleDegrees: Double? = nil,
-        transferDirection: TransferDirection? = nil
+        transferDirection: TransferDirection? = nil,
+        paintSampleKit: PaintSampleKit? = nil
     ) {
         self.id = id
         self.zoneID = zoneID
@@ -136,6 +148,7 @@ struct DamageZone: Identifiable, Codable, Equatable {
         self.paintAnalysis = paintAnalysis
         self.impactAngleDegrees = impactAngleDegrees
         self.transferDirection = transferDirection
+        self.paintSampleKit = paintSampleKit
     }
 
     var areaMM2: Double { widthMM * heightMM }
