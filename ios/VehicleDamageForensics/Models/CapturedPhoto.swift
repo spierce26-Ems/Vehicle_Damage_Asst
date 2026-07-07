@@ -1,0 +1,218 @@
+// CapturedPhoto.swift
+// Vehicle Damage Forensic Matcher
+// Photo model with full forensic metadata, GPS, sensor data
+
+import Foundation
+import CoreLocation
+import CoreMotion
+import AVFoundation
+
+// MARK: - Captured Photo
+
+/// A single forensic photo with rich metadata for evidentiary integrity
+struct CapturedPhoto: Identifiable, Codable, Equatable {
+    let id: UUID
+    var imageData: Data
+    var thumbnailData: Data?
+    var captureDate: Date
+    var photoType: PhotoType
+    var qualityScore: Double          // 0.0 – 1.0
+    var qualityFlags: QualityFlags
+    var sensorData: SensorData
+    var gpsCoordinate: GPSCoordinate?
+    var cameraSettings: CameraSettings
+    var sequenceIndex: Int            // shot 1-of-30 in the protocol
+    var annotationNotes: String
+
+    // MARK: Init
+
+    init(
+        id: UUID = UUID(),
+        imageData: Data,
+        thumbnailData: Data? = nil,
+        captureDate: Date = Date(),
+        photoType: PhotoType,
+        qualityScore: Double = 0.0,
+        qualityFlags: QualityFlags = QualityFlags(),
+        sensorData: SensorData = SensorData(),
+        gpsCoordinate: GPSCoordinate? = nil,
+        cameraSettings: CameraSettings = CameraSettings(),
+        sequenceIndex: Int = 0,
+        annotationNotes: String = ""
+    ) {
+        self.id = id
+        self.imageData = imageData
+        self.thumbnailData = thumbnailData
+        self.captureDate = captureDate
+        self.photoType = photoType
+        self.qualityScore = qualityScore
+        self.qualityFlags = qualityFlags
+        self.sensorData = sensorData
+        self.gpsCoordinate = gpsCoordinate
+        self.cameraSettings = cameraSettings
+        self.sequenceIndex = sequenceIndex
+        self.annotationNotes = annotationNotes
+    }
+
+    // MARK: Computed
+
+    var qualityLabel: QualityLabel {
+        switch qualityScore {
+        case 0.8...: return .excellent
+        case 0.6..<0.8: return .good
+        case 0.4..<0.6: return .acceptable
+        default: return .poor
+        }
+    }
+
+    var isUsable: Bool { qualityScore >= 0.4 }
+
+    static func == (lhs: CapturedPhoto, rhs: CapturedPhoto) -> Bool { lhs.id == rhs.id }
+}
+
+// MARK: - Quality Label
+
+enum QualityLabel: String {
+    case excellent = "Excellent"
+    case good = "Good"
+    case acceptable = "Acceptable"
+    case poor = "Poor"
+
+    var colorName: String {
+        switch self {
+        case .excellent: return "systemGreen"
+        case .good: return "systemBlue"
+        case .acceptable: return "systemOrange"
+        case .poor: return "systemRed"
+        }
+    }
+}
+
+// MARK: - Quality Flags
+
+/// Specific quality issues detected at capture time
+struct QualityFlags: Codable, Equatable {
+    var isBlurry: Bool = false
+    var isUnderexposed: Bool = false
+    var isOverexposed: Bool = false
+    var isTooFar: Bool = false
+    var isTooClose: Bool = false
+    var hasMotionBlur: Bool = false
+    var isOffAngle: Bool = false
+
+    var issueDescriptions: [String] {
+        var issues: [String] = []
+        if isBlurry { issues.append("Out of focus") }
+        if isUnderexposed { issues.append("Too dark") }
+        if isOverexposed { issues.append("Too bright") }
+        if isTooFar { issues.append("Too far away") }
+        if isTooClose { issues.append("Too close") }
+        if hasMotionBlur { issues.append("Motion blur detected") }
+        if isOffAngle { issues.append("Wrong angle") }
+        return issues
+    }
+
+    var hasIssues: Bool { issueDescriptions.isEmpty == false }
+}
+
+// MARK: - Sensor Data
+
+/// Device sensor readings captured at photo time for forensic correlation
+struct SensorData: Codable, Equatable {
+    var pitch: Double       // device tilt in radians
+    var roll: Double
+    var yaw: Double
+    var altitudeMeters: Double?
+    var heading: Double?    // compass degrees 0-360
+    var distanceEstimateMeters: Double?   // estimated from AF depth hint
+    var accelerometer: SIMD3<Double>?     // g-force at capture
+
+    init(
+        pitch: Double = 0,
+        roll: Double = 0,
+        yaw: Double = 0,
+        altitudeMeters: Double? = nil,
+        heading: Double? = nil,
+        distanceEstimateMeters: Double? = nil,
+        accelerometer: SIMD3<Double>? = nil
+    ) {
+        self.pitch = pitch
+        self.roll = roll
+        self.yaw = yaw
+        self.altitudeMeters = altitudeMeters
+        self.heading = heading
+        self.distanceEstimateMeters = distanceEstimateMeters
+        self.accelerometer = accelerometer
+    }
+
+    /// Pitch in degrees for display
+    var pitchDegrees: Double { pitch * (180.0 / .pi) }
+    var rollDegrees: Double { roll * (180.0 / .pi) }
+
+    /// True if device is approximately horizontal (±15°)
+    var isLevel: Bool { abs(rollDegrees) <= 15.0 }
+}
+
+// MARK: - GPS Coordinate
+
+struct GPSCoordinate: Codable, Equatable {
+    var latitude: Double
+    var longitude: Double
+    var altitude: Double?
+    var horizontalAccuracyMeters: Double
+    var timestamp: Date
+
+    var clLocation: CLLocation {
+        CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            altitude: altitude ?? 0,
+            horizontalAccuracy: horizontalAccuracyMeters,
+            verticalAccuracy: -1,
+            timestamp: timestamp
+        )
+    }
+
+    var isAccurate: Bool { horizontalAccuracyMeters <= 10.0 }
+
+    init(location: CLLocation) {
+        self.latitude = location.coordinate.latitude
+        self.longitude = location.coordinate.longitude
+        self.altitude = location.altitude > 0 ? location.altitude : nil
+        self.horizontalAccuracyMeters = location.horizontalAccuracy
+        self.timestamp = location.timestamp
+    }
+}
+
+// MARK: - Camera Settings
+
+/// EXIF-style metadata for evidentiary record
+struct CameraSettings: Codable, Equatable {
+    var focalLengthMM: Double?
+    var aperture: Double?        // f-number
+    var shutterSpeed: Double?    // seconds
+    var iso: Int?
+    var whiteBalance: String?
+    var lensModel: String?
+    var deviceModel: String
+    var osVersion: String
+
+    init(
+        focalLengthMM: Double? = nil,
+        aperture: Double? = nil,
+        shutterSpeed: Double? = nil,
+        iso: Int? = nil,
+        whiteBalance: String? = nil,
+        lensModel: String? = nil
+    ) {
+        self.focalLengthMM = focalLengthMM
+        self.aperture = aperture
+        self.shutterSpeed = shutterSpeed
+        self.iso = iso
+        self.whiteBalance = whiteBalance
+        self.lensModel = lensModel
+        self.deviceModel = UIDevice.current.model
+        self.osVersion = UIDevice.current.systemVersion
+    }
+}
+
+import UIKit
