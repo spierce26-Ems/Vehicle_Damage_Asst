@@ -75,6 +75,28 @@ struct MatchResult: Codable, Equatable {
         case legacyProbabilityRange = "probabilityRange"
     }
 
+    /// NOTE(AI Developer): Xcode 26.6 build caught this (real compiler
+    /// error, not a static guess): defining a custom `init(from:)` makes
+    /// Swift require a matching hand-written `encode(to:)` too --
+    /// auto-synthesis of `Encodable` only kicks in when every
+    /// `CodingKeys` case maps to a real stored property, and
+    /// `legacyProbabilityRange` doesn't (it exists solely to *read* the
+    /// old `probabilityRange` key during decode; we deliberately never
+    /// want to write it back out). Hand-written encode below intentionally
+    /// omits `legacyProbabilityRange` -- every MatchResult we persist from
+    /// now on is written under the current `scoreRangeLabel` key only.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(analysisID, forKey: .analysisID)
+        try c.encode(compositeScore, forKey: .compositeScore)
+        try c.encode(scoreRangeLabel, forKey: .scoreRangeLabel)
+        try c.encode(confidence, forKey: .confidence)
+        try c.encode(factors, forKey: .factors)
+        try c.encode(recommendations, forKey: .recommendations)
+        try c.encode(analysisDate, forKey: .analysisDate)
+        try c.encode(processingTimeSeconds, forKey: .processingTimeSeconds)
+    }
+
     // MARK: Computed
 
     /// Correlation-strength label suitable for report headers.
