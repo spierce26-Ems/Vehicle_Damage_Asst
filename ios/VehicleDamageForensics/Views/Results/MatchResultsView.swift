@@ -1,7 +1,13 @@
 // MatchResultsView.swift
 // Vehicle Damage Forensic Matcher
-// Score breakdown screen with composite verdict, per-factor bars,
+// Score breakdown screen with composite correlation score, per-factor bars,
 // recommendations, and a "Generate PDF Report" action.
+//
+// NOTE(AI Developer): All user-facing copy in this file was reviewed and
+// rewritten per Sean's decision (2026-07) to scope v1 as "best-in-class
+// investigative documentation + leads tool" rather than a forensic
+// identification system. See MatchResult.swift for the full rationale and
+// MatchResult.disclaimerText for the standard disclaimer shown below.
 
 import SwiftUI
 
@@ -17,13 +23,14 @@ struct MatchResultsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 verdictCard
+                disclaimerCard
                 factorBreakdown
                 recommendations
                 reportSection
             }
             .padding()
         }
-        .navigationTitle("Match Results")
+        .navigationTitle("Correlation Results")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -47,16 +54,19 @@ struct MatchResultsView: View {
         }
     }
 
-    // MARK: Verdict card
+    // MARK: Correlation card
 
     private var verdictCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(viewModel.verdictText.uppercased())
+            Text(viewModel.correlationLabel.uppercased())
                 .font(.title3.bold())
                 .foregroundStyle(.tint)
             Text(String(format: "%.1f / 100", viewModel.compositeScore))
                 .font(.system(size: 56, weight: .bold, design: .rounded))
                 .monospacedDigit()
+            Text("Score range: \(viewModel.scoreRangeLabel)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             if let conf = viewModel.forensicCase.matchResult?.confidence {
                 Label(conf.displayName, systemImage: conf.systemImageName)
                     .font(.subheadline)
@@ -66,6 +76,23 @@ struct MatchResultsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: Disclaimer
+
+    /// NOTE(AI Developer): Required per Sean's decision — shown immediately
+    /// below the score so it can't be missed or scrolled past unnoticed.
+    private var disclaimerCard: some View {
+        Label {
+            Text(viewModel.disclaimerText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } icon: {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: Factor breakdown
@@ -104,7 +131,7 @@ struct MatchResultsView: View {
                 Label("Generated PDF: \(url.lastPathComponent)", systemImage: "doc.fill")
                     .font(.subheadline)
             } else {
-                Text("Tap the share button above to generate a court-admissible PDF.")
+                Text("Tap the share button above to generate a documentation report for investigators or insurers.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

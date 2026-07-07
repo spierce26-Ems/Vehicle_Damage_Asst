@@ -6,11 +6,20 @@ import Foundation
 
 // MARK: - Match Result
 
-/// The final output of forensic analysis: overall score and 7 sub-factor scores
+/// The final output of correlation analysis: overall score and 7 sub-factor scores.
+/// NOTE(AI Developer): Per Sean's explicit v1 scope decision (2026-07), this
+/// app is "best-in-class investigative documentation + leads tool" — NOT a
+/// certified forensic identification system. All user-facing language in
+/// this file and its consumers (PDFReportGenerator, MatchResultsView) was
+/// rewritten to reflect that: we report a *correlation strength score*
+/// between two vehicles' damage evidence, not a forensic "match" verdict or
+/// a calibrated statistical probability. See `MatchResult.disclaimerText`
+/// for the standard disclaimer that must accompany every rendered result
+/// (PDF cover page + results screen, per Sean's decision).
 struct MatchResult: Codable, Equatable {
     let analysisID: UUID
     var compositeScore: Double          // 0-100 weighted average
-    var probabilityRange: String        // e.g. "87-93%"
+    var scoreRangeLabel: String         // e.g. "87-93" (out of 100) — a score band, NOT a statistical probability
     var confidence: ConfidenceLevel
     var factors: [FactorScore]
     var recommendations: [String]
@@ -22,7 +31,7 @@ struct MatchResult: Codable, Equatable {
     init(
         analysisID: UUID = UUID(),
         compositeScore: Double,
-        probabilityRange: String,
+        scoreRangeLabel: String,
         confidence: ConfidenceLevel,
         factors: [FactorScore] = [],
         recommendations: [String] = [],
@@ -31,7 +40,7 @@ struct MatchResult: Codable, Equatable {
     ) {
         self.analysisID = analysisID
         self.compositeScore = compositeScore
-        self.probabilityRange = probabilityRange
+        self.scoreRangeLabel = scoreRangeLabel
         self.confidence = confidence
         self.factors = factors
         self.recommendations = recommendations
@@ -39,16 +48,50 @@ struct MatchResult: Codable, Equatable {
         self.processingTimeSeconds = processingTimeSeconds
     }
 
+    // MARK: Codable (backward-compatible with the old `probabilityRange` key)
+
+    /// NOTE(AI Developer): Custom decode so any case JSON already persisted
+    /// under the old field name `probabilityRange` still loads correctly
+    /// after this rename, instead of throwing `keyNotFound`.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        analysisID = try c.decode(UUID.self, forKey: .analysisID)
+        compositeScore = try c.decode(Double.self, forKey: .compositeScore)
+        if let renamed = try c.decodeIfPresent(String.self, forKey: .scoreRangeLabel) {
+            scoreRangeLabel = renamed
+        } else {
+            scoreRangeLabel = try c.decodeIfPresent(String.self, forKey: .legacyProbabilityRange) ?? "n/a"
+        }
+        confidence = try c.decode(ConfidenceLevel.self, forKey: .confidence)
+        factors = try c.decodeIfPresent([FactorScore].self, forKey: .factors) ?? []
+        recommendations = try c.decodeIfPresent([String].self, forKey: .recommendations) ?? []
+        analysisDate = try c.decode(Date.self, forKey: .analysisDate)
+        processingTimeSeconds = try c.decodeIfPresent(Double.self, forKey: .processingTimeSeconds) ?? 0
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case analysisID, compositeScore, scoreRangeLabel, confidence, factors,
+             recommendations, analysisDate, processingTimeSeconds
+        case legacyProbabilityRange = "probabilityRange"
+    }
+
     // MARK: Computed
 
-    /// Verdict string suitable for PDF report headers
-    var verdictString: String {
+    /// Correlation-strength label suitable for report headers.
+    /// NOTE(AI Developer): Renamed from `verdictString` /
+    /// "...MATCH"-style wording per Sean's decision — "MATCH" implies a
+    /// forensic identification conclusion (akin to a fingerprint/ballistics
+    /// hit), which this tool does not and cannot provide without a
+    /// validated, peer-reviewed error rate behind it. "Correlation" framing
+    /// is accurate to what the algorithm actually measures: similarity
+    /// across weighted photographic/sensor factors.
+    var correlationLabel: String {
         switch compositeScore {
-        case 90...: return "HIGHLY PROBABLE MATCH"
-        case 75..<90: return "PROBABLE MATCH"
-        case 60..<75: return "POSSIBLE MATCH"
+        case 90...: return "STRONG CORRELATION"
+        case 75..<90: return "MODERATE-STRONG CORRELATION"
+        case 60..<75: return "MODERATE CORRELATION"
         case 40..<60: return "INCONCLUSIVE"
-        default: return "UNLIKELY MATCH"
+        default: return "NO SIGNIFICANT CORRELATION"
         }
     }
 
@@ -66,10 +109,39 @@ struct MatchResult: Codable, Equatable {
     static func == (lhs: MatchResult, rhs: MatchResult) -> Bool {
         lhs.analysisID == rhs.analysisID
     }
+
+    // MARK: Disclaimer
+
+    /// NOTE(AI Developer): Added per Sean's explicit decision (2026-07) to
+    /// keep v1 scoped as "investigative documentation + leads tool" rather
+    /// than implying forensic-grade / ballistics-level certainty. This text
+    /// must be shown (a) on the PDF cover page in a visually distinct
+    /// callout, and (b) on `MatchResultsView` before/alongside the score —
+    /// see `PDFReportGenerator.drawCoverPage` and `MatchResultsView.verdictCard`.
+    /// Do not shorten or soften this wording without Sean's sign-off; it
+    /// exists specifically to avoid overstating what an unvalidated
+    /// heuristic scoring algorithm can support.
+    static let disclaimerText = """
+    This report documents a photographic and sensor-based correlation \
+    analysis between two vehicles. It is an investigative aid intended to \
+    support further review by investigators, insurers, or forensic \
+    professionals — it is NOT a certified forensic identification and has \
+    not been validated against a known-match / known-non-match dataset with \
+    a peer-reviewed error rate. This report should not be represented as \
+    conclusive proof of vehicle involvement in any legal proceeding.
+    """
 }
 
 // MARK: - Confidence Level
 
+/// NOTE(AI Developer): Kept the Swift type/case names as-is (internal
+/// symbols, never shown to users) but changed every user-facing
+/// `displayName` string per Sean's decision — "Confidence" implies a
+/// validated statistical certainty this algorithm does not have (no
+/// known/peer-reviewed error rate). Relabeled as "Correlation Strength" to
+/// describe what it actually is: how much of the required data was present
+/// and how strongly the weighted factors agreed, not a probability of
+/// truth.
 enum ConfidenceLevel: String, Codable, CaseIterable, Comparable {
     case insufficient = "insufficient"
     case low = "low"
@@ -80,10 +152,10 @@ enum ConfidenceLevel: String, Codable, CaseIterable, Comparable {
     var displayName: String {
         switch self {
         case .insufficient: return "Insufficient Data"
-        case .low: return "Low Confidence"
-        case .medium: return "Moderate Confidence"
-        case .high: return "High Confidence"
-        case .veryHigh: return "Very High Confidence"
+        case .low: return "Low Correlation Strength"
+        case .medium: return "Moderate Correlation Strength"
+        case .high: return "High Correlation Strength"
+        case .veryHigh: return "Very High Correlation Strength"
         }
     }
 

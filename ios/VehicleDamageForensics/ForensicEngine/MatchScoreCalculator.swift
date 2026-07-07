@@ -24,7 +24,7 @@ struct MatchScoreCalculator {
         guard let suspect = forensicCase.suspectVehicle else {
             return MatchResult(
                 compositeScore: 0,
-                probabilityRange: "0%",
+                scoreRangeLabel: "n/a",
                 confidence: .insufficient,
                 recommendations: ["No suspect vehicle data captured."]
             )
@@ -73,12 +73,12 @@ struct MatchScoreCalculator {
 
         let usableFactorCount = factors.filter { $0.dataQuality != .unavailable }.count
         let confidence = ConfidenceLevel.from(score: composite, factorCount: usableFactorCount)
-        let probability = probabilityRangeString(for: composite, confidence: confidence)
+        let scoreRange = scoreRangeLabelString(for: composite, confidence: confidence)
 
         let elapsed = Date().timeIntervalSince(started)
         return MatchResult(
             compositeScore: composite,
-            probabilityRange: probability,
+            scoreRangeLabel: scoreRange,
             confidence: confidence,
             factors: factors,
             recommendations: buildRecommendations(factors: factors, composite: composite),
@@ -156,7 +156,14 @@ struct MatchScoreCalculator {
         return UIImage(data: data)
     }
 
-    private func probabilityRangeString(for score: Double, confidence: ConfidenceLevel) -> String {
+    /// NOTE(AI Developer): Renamed from `probabilityRangeString` per Sean's
+    /// decision — this produces a *score band* (e.g. "84-92", out of 100),
+    /// not a statistical probability. The old "%" suffix implied a
+    /// calibrated likelihood-of-truth figure that this heuristic scoring
+    /// engine cannot support without a validated error-rate study. Dropped
+    /// the "%" and widened the label so it reads as a range on the 0-100
+    /// composite score scale instead.
+    private func scoreRangeLabelString(for score: Double, confidence: ConfidenceLevel) -> String {
         let band: Double
         switch confidence {
         case .veryHigh: band = 3
@@ -167,22 +174,31 @@ struct MatchScoreCalculator {
         }
         let lower = max(0, Int(score - band))
         let upper = min(100, Int(score + band))
-        return "\(lower)-\(upper)%"
+        return "\(lower)-\(upper)"
     }
 
+    /// NOTE(AI Developer): Rewrote all recommendation strings per Sean's
+    /// decision to scope v1 as an investigative documentation/leads tool.
+    /// The original text ("Sufficient evidence for criminal referral.",
+    /// "Pursue civil claim...") had the app making legal-action judgment
+    /// calls it has no basis or business making — that determination
+    /// belongs to investigators, insurers, or attorneys reviewing the case,
+    /// never to an unvalidated on-device heuristic. Replaced with
+    /// investigative next-steps language only; nothing here should ever
+    /// read as legal advice or a certification of evidentiary sufficiency.
     private func buildRecommendations(factors: [FactorScore], composite: Double) -> [String] {
         var recs: [String] = []
         if composite >= 90 {
-            recs.append("Sufficient evidence for criminal referral.")
+            recs.append("Correlation is strong enough to warrant investigator follow-up. This is not a substitute for accredited forensic laboratory analysis.")
         } else if composite >= 75 {
-            recs.append("Pursue civil claim; corroborate with witness statements.")
+            recs.append("Correlation is moderate-to-strong. Consider forwarding this documentation to an insurance investigator or accident reconstructionist for further review.")
         } else if composite >= 60 {
-            recs.append("Evidence is suggestive; collect additional photos & LiDAR data.")
+            recs.append("Correlation is suggestive but not strong. Collect additional photos and LiDAR data to improve the analysis.")
         } else {
-            recs.append("Insufficient match for legal proceedings without additional evidence.")
+            recs.append("Correlation is weak or inconclusive based on the data captured. Additional evidence is needed before drawing any conclusions.")
         }
         for f in factors where f.dataQuality == .unavailable {
-            recs.append("Capture \(f.factor.displayName.lowercased()) data to improve confidence.")
+            recs.append("Capture \(f.factor.displayName.lowercased()) data to strengthen this analysis.")
         }
         return recs
     }

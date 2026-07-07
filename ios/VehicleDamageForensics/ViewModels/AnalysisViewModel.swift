@@ -73,12 +73,19 @@ final class AnalysisViewModel: ObservableObject {
 
     // MARK: Computed presentation data
 
-    var verdictText: String {
-        forensicCase.matchResult?.verdictString ?? "Pending Analysis"
+    /// NOTE(AI Developer): Renamed from `verdictText`/`verdictString` per
+    /// Sean's decision to keep v1 scoped as an investigative documentation
+    /// tool rather than a forensic identification system.
+    var correlationLabel: String {
+        forensicCase.matchResult?.correlationLabel ?? "Pending Analysis"
     }
 
     var compositeScore: Double {
         forensicCase.matchResult?.compositeScore ?? 0
+    }
+
+    var scoreRangeLabel: String {
+        forensicCase.matchResult?.scoreRangeLabel ?? "n/a"
     }
 
     var topFactors: [FactorScore] {
@@ -89,4 +96,8 @@ final class AnalysisViewModel: ObservableObject {
     var recommendations: [String] {
         forensicCase.matchResult?.recommendations ?? []
     }
+
+    /// Standard disclaimer to render alongside every result — see
+    /// `MatchResult.disclaimerText` for the full rationale.
+    var disclaimerText: String { MatchResult.disclaimerText }
 }
