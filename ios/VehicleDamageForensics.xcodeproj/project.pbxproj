@@ -20,6 +20,7 @@
 		6A82446B8156EC38F8D67E2A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB174E8294638E215E70BD72 /* Assets.xcassets */; };
 		713545FDB1F5CB91F3D84D92 /* DeformationMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */; };
 		77E3497AA6202B6C61EE69E5 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F205492EB0CDE9FB909D38A6 /* DashboardView.swift */; };
+		C72F606866B6AB97ED0F82D4 /* EditCaseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AAD2E52A036EA4FBD362F53 /* EditCaseSheet.swift */; };
 		90AB43EEA7E8CAAF41D4C0C0 /* MatchScoreCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2630457797DC98690CA75ED7 /* MatchScoreCalculator.swift */; };
 		926A4F608DCAA15D6E89EF32 /* MatchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A345EFB6C9A532E4310778 /* MatchResultsView.swift */; };
 		A4484F78966005CEB4C374CF /* Vehicle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2C4699BAD2AE411456A8EB /* Vehicle.swift */; };
@@ -66,6 +67,7 @@
 		EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SensorGuidanceOverlay.swift; path = VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift; sourceTree = SOURCE_ROOT; };
 		F0804E5FAEEB6B553790AF8B /* ModelExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModelExtensions.swift; path = VehicleDamageForensics/Utilities/ModelExtensions.swift; sourceTree = SOURCE_ROOT; };
 		F205492EB0CDE9FB909D38A6 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = VehicleDamageForensics/Views/Dashboard/DashboardView.swift; sourceTree = SOURCE_ROOT; };
+		1AAD2E52A036EA4FBD362F53 /* EditCaseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditCaseSheet.swift; path = VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift; sourceTree = SOURCE_ROOT; };
 		F20F4580A93C3A131D85A7D3 /* PaintSampleKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaintSampleKit.swift; path = VehicleDamageForensics/Models/PaintSampleKit.swift; sourceTree = SOURCE_ROOT; };
 		F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeformationMatcher.swift; path = VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -109,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				F205492EB0CDE9FB909D38A6 /* DashboardView.swift */,
+				1AAD2E52A036EA4FBD362F53 /* EditCaseSheet.swift */,
 			);
 			name = Dashboard;
 			sourceTree = "<group>";
@@ -330,6 +333,7 @@
 				A79D428AA949C0E991EBE932 /* CaptureFlowView.swift in Sources */,
 				1CAD492F899427E15CDCF044 /* SensorGuidanceOverlay.swift in Sources */,
 				77E3497AA6202B6C61EE69E5 /* DashboardView.swift in Sources */,
+				C72F606866B6AB97ED0F82D4 /* EditCaseSheet.swift in Sources */,
 				62524C77B019CA248AA4CCE4 /* LiDARScanView.swift in Sources */,
 				EFFE47E3AB624AC000D1BAC5 /* PDFReportView.swift in Sources */,
 				926A4F608DCAA15D6E89EF32 /* MatchResultsView.swift in Sources */,
