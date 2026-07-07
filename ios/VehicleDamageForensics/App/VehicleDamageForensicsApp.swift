@@ -48,7 +48,7 @@ struct VehicleDamageForensicsApp: App {
                 .environmentObject(appState)
                 .environmentObject(storageService)
                 .onAppear {
-                    appState.loadCases(from: storageService)
+                    Task { await appState.loadCases(from: storageService) }
                 }
         }
     }
@@ -57,6 +57,20 @@ struct VehicleDamageForensicsApp: App {
 // MARK: - App State
 
 /// Central observable state container for the app
+/// NOTE(AI Developer): Marked @MainActor -- real Xcode 26.6 build error:
+/// "Call to main actor-isolated instance method 'delete(caseID:)' in a
+/// synchronous nonisolated context" from deleteCase(_:using:) below,
+/// since StorageService (Services/StorageService.swift) is itself
+/// @MainActor-isolated. loadCases/saveCase were already working around
+/// this per-method with Task { @MainActor in ... }; deleteCase called
+/// storage.delete(caseID:) directly since it's synchronous and looked
+/// "safe" to call inline, but a synchronous call still needs to happen
+/// on the same actor as the callee. Annotating the whole class matches
+/// every other ObservableObject in this codebase (all ViewModels and
+/// StorageService itself are @MainActor) and lets the per-method
+/// Task { @MainActor in ... } wrappers be simplified, since the class
+/// is now already on the main actor.
+@MainActor
 final class AppState: ObservableObject {
     @Published var cases: [ForensicCase] = []
     @Published var activeCase: ForensicCase?
@@ -88,26 +102,27 @@ final class AppState: ObservableObject {
     // "AppState (env object) owns cases + active case" guardrail.
 
     /// Loads persisted cases from storage service
-    func loadCases(from storage: StorageService) {
-        Task { @MainActor in
-            await storage.loadAllCases()
-            cases = storage.cases
-        }
+    /// NOTE(AI Developer): No longer needs an inner Task { @MainActor in }
+    /// wrapper -- AppState itself is @MainActor now, so this method body
+    /// already runs on the main actor. Kept as `async` (called from a
+    /// fire-and-forget Task at the call site, e.g. .onAppear) rather than
+    /// wrapping internally, matching the ViewModels' pattern.
+    func loadCases(from storage: StorageService) async {
+        await storage.loadAllCases()
+        cases = storage.cases
     }
 
     /// Persists a case via the storage service
-    func saveCase(_ forensicCase: ForensicCase, using storage: StorageService) {
-        Task { @MainActor in
-            let success = await storage.save(forensicCase)
-            guard success else {
-                errorMessage = "Failed to save case."
-                return
-            }
-            if let idx = cases.firstIndex(where: { $0.id == forensicCase.id }) {
-                cases[idx] = forensicCase
-            } else {
-                cases.insert(forensicCase, at: 0)
-            }
+    func saveCase(_ forensicCase: ForensicCase, using storage: StorageService) async {
+        let success = await storage.save(forensicCase)
+        guard success else {
+            errorMessage = "Failed to save case."
+            return
+        }
+        if let idx = cases.firstIndex(where: { $0.id == forensicCase.id }) {
+            cases[idx] = forensicCase
+        } else {
+            cases.insert(forensicCase, at: 0)
         }
     }
 
