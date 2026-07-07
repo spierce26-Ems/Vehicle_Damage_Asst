@@ -30,14 +30,13 @@
 	<string>Import existing damage photos from your photo library for a case.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save generated documentation reports and photos to your photo library.</string>
-	<!-- Optional per handoff brief: only needed if/when geo-tagging capture
-	     location is wired up. IncidentLocation exists in Case.swift but no
-	     CoreLocation usage exists yet in the Services layer, so this key is
-	     commented out for now rather than requesting a permission the app
-	     doesn't actually use yet (which would be an App Store review risk).
+	<!-- NOTE(AI Developer), corrected 2026-07-07: CameraService.swift and
+	     CaptureViewModel.swift both instantiate CLLocationManager and call
+	     requestWhenInUseAuthorization() to geo-tag capture location for
+	     IncidentLocation (Case.swift). This key MUST be present: calling
+	     that API without it crashes the app immediately at runtime. -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Used to record the location where damage photos were captured.</string>
-	-->
 
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
