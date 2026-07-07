@@ -1,0 +1,539 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		14D94391A909120FEEA47E9B /* VehicleDamageForensicsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17384E51AD9567AF3BE55DAE /* VehicleDamageForensicsApp.swift */; };
+		1CAD492F899427E15CDCF044 /* SensorGuidanceOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */; };
+		330E4381AF3F4845A227922F /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30C649C88C102C695D0219E5 /* CaptureViewModel.swift */; };
+		519145E49D506D69370A0E54 /* ModelExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0804E5FAEEB6B553790AF8B /* ModelExtensions.swift */; };
+		58384FFA8DBE2D8F8EA26BE8 /* PDFReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0E45199762CB6668C0A871 /* PDFReportGenerator.swift */; };
+		5A6A4F509BD8D15235694175 /* HeightAlignmentAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95434C37B9F025A9C3F3EBA7 /* HeightAlignmentAnalyzer.swift */; };
+		5E19445E9EEA966DE8B9F4B6 /* StorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF14E37A4E21B50B50183AB /* StorageService.swift */; };
+		62524C77B019CA248AA4CCE4 /* LiDARScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94744C78A6BEB7C0716AF6B1 /* LiDARScanView.swift */; };
+		64324C4FA89D677E41CFFB6D /* MatchResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3124CA38EFEED2825EB2D4C /* MatchResult.swift */; };
+		69DF4129AE300B23C2FB2AF6 /* PaintTransferAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DE4CACB89EE7477C7A53FD /* PaintTransferAnalyzer.swift */; };
+		6A82446B8156EC38F8D67E2A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB174E8294638E215E70BD72 /* Assets.xcassets */; };
+		713545FDB1F5CB91F3D84D92 /* DeformationMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */; };
+		77E3497AA6202B6C61EE69E5 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F205492EB0CDE9FB909D38A6 /* DashboardView.swift */; };
+		90AB43EEA7E8CAAF41D4C0C0 /* MatchScoreCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2630457797DC98690CA75ED7 /* MatchScoreCalculator.swift */; };
+		926A4F608DCAA15D6E89EF32 /* MatchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A345EFB6C9A532E4310778 /* MatchResultsView.swift */; };
+		A4484F78966005CEB4C374CF /* Vehicle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2C4699BAD2AE411456A8EB /* Vehicle.swift */; };
+		A79D428AA949C0E991EBE932 /* CaptureFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34164AD6B187D17E583CCE15 /* CaptureFlowView.swift */; };
+		ADC640B18DB1BAB4050598D8 /* CapturedPhoto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBF4FA281015BE150B13EB7 /* CapturedPhoto.swift */; };
+		BFF24700B3EDDB66BA99FB31 /* ColorAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = E138447CB45CB2F4E608D30F /* ColorAnalysis.swift */; };
+		CA504C53ABD3D88883F7EC1D /* LiDARService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92045EABC4EA6AFC551ED2B /* LiDARService.swift */; };
+		CBC941CB929992F46D223AB7 /* CaptureCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177746A1A0EC53251C22F0E2 /* CaptureCameraView.swift */; };
+		D98D4745B857D0FB857803A0 /* MeasurementHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A4ADAAFA274E0EBA3526E /* MeasurementHelpers.swift */; };
+		EFFE47E3AB624AC000D1BAC5 /* PDFReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEE4116BC45953FF93D28D8 /* PDFReportView.swift */; };
+		F2AF4AEDA425EAF85034763D /* Case.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D534641A0C2361368DD4F59 /* Case.swift */; };
+		F7CB40E0BDCDA8D990A9F500 /* PaintSampleKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20F4580A93C3A131D85A7D3 /* PaintSampleKit.swift */; };
+		F99C472088F320D73493611C /* CaseListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D94F799C69AD00D5B03920 /* CaseListViewModel.swift */; };
+		FB4C43129DCB0B3689A2BC44 /* AnalysisViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56154A03B8E5CC2FDEBA65B0 /* AnalysisViewModel.swift */; };
+		FE9446288C43C2BC3431727C /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C71499888C91C0E1DB2E7A5 /* CameraService.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		05DE4CACB89EE7477C7A53FD /* PaintTransferAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaintTransferAnalyzer.swift; path = VehicleDamageForensics/ForensicEngine/PaintTransferAnalyzer.swift; sourceTree = SOURCE_ROOT; };
+		0B7EF80CC0565E1FB448E0A3 /* VehicleDamageForensics.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VehicleDamageForensics.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		11D94F799C69AD00D5B03920 /* CaseListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CaseListViewModel.swift; path = VehicleDamageForensics/ViewModels/CaseListViewModel.swift; sourceTree = SOURCE_ROOT; };
+		162A4ADAAFA274E0EBA3526E /* MeasurementHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeasurementHelpers.swift; path = VehicleDamageForensics/Utilities/MeasurementHelpers.swift; sourceTree = SOURCE_ROOT; };
+		17384E51AD9567AF3BE55DAE /* VehicleDamageForensicsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VehicleDamageForensicsApp.swift; path = VehicleDamageForensics/App/VehicleDamageForensicsApp.swift; sourceTree = SOURCE_ROOT; };
+		177746A1A0EC53251C22F0E2 /* CaptureCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CaptureCameraView.swift; path = VehicleDamageForensics/Views/Capture/CaptureCameraView.swift; sourceTree = SOURCE_ROOT; };
+		1FBF4FA281015BE150B13EB7 /* CapturedPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CapturedPhoto.swift; path = VehicleDamageForensics/Models/CapturedPhoto.swift; sourceTree = SOURCE_ROOT; };
+		2630457797DC98690CA75ED7 /* MatchScoreCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MatchScoreCalculator.swift; path = VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift; sourceTree = SOURCE_ROOT; };
+		27A345EFB6C9A532E4310778 /* MatchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MatchResultsView.swift; path = VehicleDamageForensics/Views/Results/MatchResultsView.swift; sourceTree = SOURCE_ROOT; };
+		2C71499888C91C0E1DB2E7A5 /* CameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CameraService.swift; path = VehicleDamageForensics/Services/CameraService.swift; sourceTree = SOURCE_ROOT; };
+		2F0E45199762CB6668C0A871 /* PDFReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PDFReportGenerator.swift; path = VehicleDamageForensics/Services/PDFReportGenerator.swift; sourceTree = SOURCE_ROOT; };
+		30C649C88C102C695D0219E5 /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CaptureViewModel.swift; path = VehicleDamageForensics/ViewModels/CaptureViewModel.swift; sourceTree = SOURCE_ROOT; };
+		34164AD6B187D17E583CCE15 /* CaptureFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CaptureFlowView.swift; path = VehicleDamageForensics/Views/Capture/CaptureFlowView.swift; sourceTree = SOURCE_ROOT; };
+		3BEB4BE58DA9812594C90783 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = VehicleDamageForensics/Info.plist; sourceTree = SOURCE_ROOT; };
+		56154A03B8E5CC2FDEBA65B0 /* AnalysisViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalysisViewModel.swift; path = VehicleDamageForensics/ViewModels/AnalysisViewModel.swift; sourceTree = SOURCE_ROOT; };
+		6AF14E37A4E21B50B50183AB /* StorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = StorageService.swift; path = VehicleDamageForensics/Services/StorageService.swift; sourceTree = SOURCE_ROOT; };
+		6C2C4699BAD2AE411456A8EB /* Vehicle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Vehicle.swift; path = VehicleDamageForensics/Models/Vehicle.swift; sourceTree = SOURCE_ROOT; };
+		6D534641A0C2361368DD4F59 /* Case.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Case.swift; path = VehicleDamageForensics/Models/Case.swift; sourceTree = SOURCE_ROOT; };
+		7AEE4116BC45953FF93D28D8 /* PDFReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PDFReportView.swift; path = VehicleDamageForensics/Views/Reports/PDFReportView.swift; sourceTree = SOURCE_ROOT; };
+		94744C78A6BEB7C0716AF6B1 /* LiDARScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LiDARScanView.swift; path = VehicleDamageForensics/Views/LiDAR/LiDARScanView.swift; sourceTree = SOURCE_ROOT; };
+		95434C37B9F025A9C3F3EBA7 /* HeightAlignmentAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HeightAlignmentAnalyzer.swift; path = VehicleDamageForensics/ForensicEngine/HeightAlignmentAnalyzer.swift; sourceTree = SOURCE_ROOT; };
+		A92045EABC4EA6AFC551ED2B /* LiDARService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LiDARService.swift; path = VehicleDamageForensics/Services/LiDARService.swift; sourceTree = SOURCE_ROOT; };
+		D3124CA38EFEED2825EB2D4C /* MatchResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MatchResult.swift; path = VehicleDamageForensics/Models/MatchResult.swift; sourceTree = SOURCE_ROOT; };
+		E138447CB45CB2F4E608D30F /* ColorAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ColorAnalysis.swift; path = VehicleDamageForensics/Utilities/ColorAnalysis.swift; sourceTree = SOURCE_ROOT; };
+		EB174E8294638E215E70BD72 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = VehicleDamageForensics/Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SensorGuidanceOverlay.swift; path = VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift; sourceTree = SOURCE_ROOT; };
+		F0804E5FAEEB6B553790AF8B /* ModelExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModelExtensions.swift; path = VehicleDamageForensics/Utilities/ModelExtensions.swift; sourceTree = SOURCE_ROOT; };
+		F205492EB0CDE9FB909D38A6 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = VehicleDamageForensics/Views/Dashboard/DashboardView.swift; sourceTree = SOURCE_ROOT; };
+		F20F4580A93C3A131D85A7D3 /* PaintSampleKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaintSampleKit.swift; path = VehicleDamageForensics/Models/PaintSampleKit.swift; sourceTree = SOURCE_ROOT; };
+		F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeformationMatcher.swift; path = VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		697FE61573E15562BFCC65E4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		07124865A23333F0BD06C0B4 /* VehicleDamageForensics */ = {
+			isa = PBXGroup;
+			children = (
+				3BEB4BE58DA9812594C90783 /* Info.plist */,
+				E6404BA4BC2ED9A4BDECCA12 /* App */,
+				CB204BA5BA904774670E36CD /* ForensicEngine */,
+				AAFE4677B6701DD1B271E540 /* Models */,
+				897D48EA963CD75E14F3368E /* Resources */,
+				BD3547019D456E1D56ADD326 /* Services */,
+				3D464926880EA8AAEAAFB5D2 /* Utilities */,
+				BAC2465890F87E533B34C235 /* ViewModels */,
+				8D0B4E719AD4CFAEC45B8AA4 /* Views */,
+			);
+			name = VehicleDamageForensics;
+			sourceTree = "<group>";
+		};
+		36391BC41DF65FB1958D3DCB = {
+			isa = PBXGroup;
+			children = (
+				96A29AED40DB566FAD68BB5A /* Products */,
+				07124865A23333F0BD06C0B4 /* VehicleDamageForensics */,
+			);
+			sourceTree = "<group>";
+		};
+		368A47878FAAF91919F80926 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				F205492EB0CDE9FB909D38A6 /* DashboardView.swift */,
+			);
+			name = Dashboard;
+			sourceTree = "<group>";
+		};
+		3D464926880EA8AAEAAFB5D2 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				E138447CB45CB2F4E608D30F /* ColorAnalysis.swift */,
+				162A4ADAAFA274E0EBA3526E /* MeasurementHelpers.swift */,
+				F0804E5FAEEB6B553790AF8B /* ModelExtensions.swift */,
+			);
+			name = Utilities;
+			sourceTree = "<group>";
+		};
+		4A0541E386BB728416292DAF /* LiDAR */ = {
+			isa = PBXGroup;
+			children = (
+				94744C78A6BEB7C0716AF6B1 /* LiDARScanView.swift */,
+			);
+			name = LiDAR;
+			sourceTree = "<group>";
+		};
+		897D48EA963CD75E14F3368E /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EB174E8294638E215E70BD72 /* Assets.xcassets */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		8D0B4E719AD4CFAEC45B8AA4 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				9A944768A1255D4A8E163F5A /* Capture */,
+				368A47878FAAF91919F80926 /* Dashboard */,
+				4A0541E386BB728416292DAF /* LiDAR */,
+				D3AA448D976A8D46E6238680 /* Reports */,
+				A9E24740A800454E58F41E9F /* Results */,
+			);
+			name = Views;
+			sourceTree = "<group>";
+		};
+		96A29AED40DB566FAD68BB5A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0B7EF80CC0565E1FB448E0A3 /* VehicleDamageForensics.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		9A944768A1255D4A8E163F5A /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				177746A1A0EC53251C22F0E2 /* CaptureCameraView.swift */,
+				34164AD6B187D17E583CCE15 /* CaptureFlowView.swift */,
+				EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */,
+			);
+			name = Capture;
+			sourceTree = "<group>";
+		};
+		A9E24740A800454E58F41E9F /* Results */ = {
+			isa = PBXGroup;
+			children = (
+				27A345EFB6C9A532E4310778 /* MatchResultsView.swift */,
+			);
+			name = Results;
+			sourceTree = "<group>";
+		};
+		AAFE4677B6701DD1B271E540 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1FBF4FA281015BE150B13EB7 /* CapturedPhoto.swift */,
+				6D534641A0C2361368DD4F59 /* Case.swift */,
+				D3124CA38EFEED2825EB2D4C /* MatchResult.swift */,
+				F20F4580A93C3A131D85A7D3 /* PaintSampleKit.swift */,
+				6C2C4699BAD2AE411456A8EB /* Vehicle.swift */,
+			);
+			name = Models;
+			sourceTree = "<group>";
+		};
+		BAC2465890F87E533B34C235 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				56154A03B8E5CC2FDEBA65B0 /* AnalysisViewModel.swift */,
+				30C649C88C102C695D0219E5 /* CaptureViewModel.swift */,
+				11D94F799C69AD00D5B03920 /* CaseListViewModel.swift */,
+			);
+			name = ViewModels;
+			sourceTree = "<group>";
+		};
+		BD3547019D456E1D56ADD326 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				2C71499888C91C0E1DB2E7A5 /* CameraService.swift */,
+				A92045EABC4EA6AFC551ED2B /* LiDARService.swift */,
+				2F0E45199762CB6668C0A871 /* PDFReportGenerator.swift */,
+				6AF14E37A4E21B50B50183AB /* StorageService.swift */,
+			);
+			name = Services;
+			sourceTree = "<group>";
+		};
+		CB204BA5BA904774670E36CD /* ForensicEngine */ = {
+			isa = PBXGroup;
+			children = (
+				F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */,
+				95434C37B9F025A9C3F3EBA7 /* HeightAlignmentAnalyzer.swift */,
+				2630457797DC98690CA75ED7 /* MatchScoreCalculator.swift */,
+				05DE4CACB89EE7477C7A53FD /* PaintTransferAnalyzer.swift */,
+			);
+			name = ForensicEngine;
+			sourceTree = "<group>";
+		};
+		D3AA448D976A8D46E6238680 /* Reports */ = {
+			isa = PBXGroup;
+			children = (
+				7AEE4116BC45953FF93D28D8 /* PDFReportView.swift */,
+			);
+			name = Reports;
+			sourceTree = "<group>";
+		};
+		E6404BA4BC2ED9A4BDECCA12 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				17384E51AD9567AF3BE55DAE /* VehicleDamageForensicsApp.swift */,
+			);
+			name = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E42ED8281A5C5483976D743D /* VehicleDamageForensics */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3E72ABE662165A9A883C9C80 /* Build configuration list for PBXNativeTarget "VehicleDamageForensics" */;
+			buildPhases = (
+				9AF347EB56F05F4CAD6B50C7 /* Sources */,
+				697FE61573E15562BFCC65E4 /* Frameworks */,
+				51BEB90ED7985A3798A55793 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = VehicleDamageForensics;
+			productName = VehicleDamageForensics;
+			productReference = 0B7EF80CC0565E1FB448E0A3 /* VehicleDamageForensics.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F89F284C91DC578DA3FCD123 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1520;
+				LastUpgradeCheck = 1520;
+				TargetAttributes = {
+					E42ED8281A5C5483976D743D = {
+						CreatedOnToolsVersion = 15.2;
+					};
+				};
+			};
+			buildConfigurationList = 29E87B40AAE657CAAA0E165A /* Build configuration list for PBXProject "VehicleDamageForensics" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 36391BC41DF65FB1958D3DCB;
+			productRefGroup = 96A29AED40DB566FAD68BB5A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				E42ED8281A5C5483976D743D /* VehicleDamageForensics */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		51BEB90ED7985A3798A55793 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6A82446B8156EC38F8D67E2A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		9AF347EB56F05F4CAD6B50C7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				14D94391A909120FEEA47E9B /* VehicleDamageForensicsApp.swift in Sources */,
+				713545FDB1F5CB91F3D84D92 /* DeformationMatcher.swift in Sources */,
+				5A6A4F509BD8D15235694175 /* HeightAlignmentAnalyzer.swift in Sources */,
+				90AB43EEA7E8CAAF41D4C0C0 /* MatchScoreCalculator.swift in Sources */,
+				69DF4129AE300B23C2FB2AF6 /* PaintTransferAnalyzer.swift in Sources */,
+				ADC640B18DB1BAB4050598D8 /* CapturedPhoto.swift in Sources */,
+				F2AF4AEDA425EAF85034763D /* Case.swift in Sources */,
+				64324C4FA89D677E41CFFB6D /* MatchResult.swift in Sources */,
+				F7CB40E0BDCDA8D990A9F500 /* PaintSampleKit.swift in Sources */,
+				A4484F78966005CEB4C374CF /* Vehicle.swift in Sources */,
+				FE9446288C43C2BC3431727C /* CameraService.swift in Sources */,
+				CA504C53ABD3D88883F7EC1D /* LiDARService.swift in Sources */,
+				58384FFA8DBE2D8F8EA26BE8 /* PDFReportGenerator.swift in Sources */,
+				5E19445E9EEA966DE8B9F4B6 /* StorageService.swift in Sources */,
+				BFF24700B3EDDB66BA99FB31 /* ColorAnalysis.swift in Sources */,
+				D98D4745B857D0FB857803A0 /* MeasurementHelpers.swift in Sources */,
+				519145E49D506D69370A0E54 /* ModelExtensions.swift in Sources */,
+				FB4C43129DCB0B3689A2BC44 /* AnalysisViewModel.swift in Sources */,
+				330E4381AF3F4845A227922F /* CaptureViewModel.swift in Sources */,
+				F99C472088F320D73493611C /* CaseListViewModel.swift in Sources */,
+				CBC941CB929992F46D223AB7 /* CaptureCameraView.swift in Sources */,
+				A79D428AA949C0E991EBE932 /* CaptureFlowView.swift in Sources */,
+				1CAD492F899427E15CDCF044 /* SensorGuidanceOverlay.swift in Sources */,
+				77E3497AA6202B6C61EE69E5 /* DashboardView.swift in Sources */,
+				62524C77B019CA248AA4CCE4 /* LiDARScanView.swift in Sources */,
+				EFFE47E3AB624AC000D1BAC5 /* PDFReportView.swift in Sources */,
+				926A4F608DCAA15D6E89EF32 /* MatchResultsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		33972F9918035552A8B5C5EE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = VehicleDamageForensics/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.spearitnow.vehicledamageforensics;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		47EB1A0FAC75582FBBCC8486 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		8D27E8EF253157A89113AA5C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E8ED064D3A1C5A73B9F99FE5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = VehicleDamageForensics/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.spearitnow.vehicledamageforensics;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		29E87B40AAE657CAAA0E165A /* Build configuration list for PBXProject "VehicleDamageForensics" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				47EB1A0FAC75582FBBCC8486 /* Debug */,
+				8D27E8EF253157A89113AA5C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		3E72ABE662165A9A883C9C80 /* Build configuration list for PBXNativeTarget "VehicleDamageForensics" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E8ED064D3A1C5A73B9F99FE5 /* Debug */,
+				33972F9918035552A8B5C5EE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F89F284C91DC578DA3FCD123 /* Project object */;
+}

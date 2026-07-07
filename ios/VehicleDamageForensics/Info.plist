@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+
+	<!-- NOTE(AI Developer): Privacy usage strings per HANDOFF_TO_AI_DEVELOPER.md
+	     Section 3. Worded to match the v1 "investigative documentation" scope
+	     decision (2026-07) rather than implying forensic/court-admissible
+	     certainty, consistent with the report/UI language sweep already
+	     done in the Swift source (see MatchResult.disclaimerText). -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to capture vehicle damage photos for investigative documentation.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Import existing damage photos from your photo library for a case.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save generated documentation reports and photos to your photo library.</string>
+	<!-- Optional per handoff brief: only needed if/when geo-tagging capture
+	     location is wired up. IncidentLocation exists in Case.swift but no
+	     CoreLocation usage exists yet in the Services layer, so this key is
+	     commented out for now rather than requesting a permission the app
+	     doesn't actually use yet (which would be an App Store review risk).
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Used to record the location where damage photos were captured.</string>
+	-->
+
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+		<string>arkit</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+</dict>
+</plist>

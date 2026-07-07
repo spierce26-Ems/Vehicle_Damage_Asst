@@ -31,3 +31,16 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+
+# Xcode (ios/VehicleDamageForensics.xcodeproj)
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/**/*.xcuserdatad/
+ios/**/.swiftpm/
+ios/**/DerivedData/
+ios/**/*.moved-aside
+ios/**/*.hmap
+ios/**/*.ipa
+ios/**/*.dSYM.zip
+ios/**/*.dSYM
+ios/**/build/
