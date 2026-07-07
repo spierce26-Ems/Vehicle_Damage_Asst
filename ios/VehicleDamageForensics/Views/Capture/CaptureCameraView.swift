@@ -7,6 +7,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import PhotosUI
 
 // MARK: - Camera View (UIViewRepresentable)
 
@@ -50,6 +51,12 @@ struct CaptureCameraView: View {
     @ObservedObject var viewModel: CaptureViewModel
     @StateObject private var camera = CameraService()
     @State private var lastError: String?
+    // NOTE(AI Developer), added 2026-07 per Sean's request ("we also
+    // should have the ability to upload images from camera roll").
+    // `PhotosPickerItem` is `PhotosUI`'s selection handle; the actual
+    // `UIImage` is loaded asynchronously in `importSelectedPhoto` below.
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isImportingPhoto = false
 
     var body: some View {
         ZStack {
@@ -92,15 +99,44 @@ struct CaptureCameraView: View {
                     .foregroundStyle(.white)
                     .padding(.bottom, 16)
 
-                shutterButton
-                    .padding(.bottom, 40)
+                // NOTE(AI Developer), added 2026-07 per Sean's request
+                // ("we also should have the ability to upload images from
+                // camera roll"). Laid out either side of the shutter
+                // button, mirroring the classic Camera.app layout
+                // (thumbnail/library button opposite the flash toggle,
+                // shutter centered) so it reads as a familiar affordance
+                // rather than a bolted-on extra control.
+                HStack {
+                    photoLibraryButton
+                    Spacer()
+                    shutterButton
+                    Spacer()
+                    // Empty spacer view of the same size as the library
+                    // button keeps the shutter button visually centered.
+                    Color.clear.frame(width: 56, height: 56)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 40)
             }
             .padding(.horizontal)
+
+            if isImportingPhoto {
+                Color.black.opacity(0.4).ignoresSafeArea()
+                ProgressView("Importing…")
+                    .tint(.white)
+                    .foregroundStyle(.white)
+                    .padding()
+                    .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+            }
         }
         .alert("Camera Error",
                isPresented: .constant(lastError != nil),
                actions: { Button("OK") { lastError = nil } },
                message: { Text(lastError ?? "") })
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task { await importSelectedPhoto(newItem) }
+        }
     }
 
     private var shutterButton: some View {
@@ -113,6 +149,48 @@ struct CaptureCameraView: View {
                 .overlay(Circle().stroke(.gray, lineWidth: 3).padding(4))
         }
         .disabled(viewModel.isComplete)
+    }
+
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("we also
+    /// should have the ability to upload images from camera roll").
+    /// `PhotosPicker` is Apple's modern (iOS 16+) picker API -- unlike the
+    /// older `UIImagePickerController`/`PHPickerViewController` UIKit
+    /// bridges, it runs out-of-process, so the app is never granted
+    /// access to the user's full photo library (only the specific
+    /// image(s) the user explicitly selects come back through the
+    /// picker). This satisfies the already-declared
+    /// `NSPhotoLibraryUsageDescription` intent ("import existing damage
+    /// photos") with the least-privilege mechanism available.
+    private var photoLibraryButton: some View {
+        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+            Circle()
+                .fill(.black.opacity(0.45))
+                .frame(width: 56, height: 56)
+                .overlay(
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                )
+        }
+        .disabled(viewModel.isComplete || isImportingPhoto)
+    }
+
+    private func importSelectedPhoto(_ item: PhotosPickerItem) async {
+        isImportingPhoto = true
+        defer {
+            isImportingPhoto = false
+            selectedPhotoItem = nil
+        }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else {
+                lastError = "Could not load the selected photo."
+                return
+            }
+            await viewModel.importPhoto(image)
+        } catch {
+            lastError = error.localizedDescription
+        }
     }
 
     /// Bridge between the camera service's protocol-step API and our

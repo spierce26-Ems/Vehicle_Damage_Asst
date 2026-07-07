@@ -172,7 +172,14 @@ struct PDFReportGenerator {
         for photo in usable {
             guard let img = UIImage(data: photo.imageData) else { continue }
             img.draw(in: CGRect(x: x, y: y, width: cellSize, height: cellSize * 0.75))
-            let label = "\(photo.photoType.displayName) (Q: \(photo.qualityLabel.rawValue))"
+            // NOTE(AI Developer), added 2026-07 alongside camera-roll
+            // import (Sean's request): imported photos show "Imported"
+            // instead of a quality label, since `qualityScore` is not a
+            // real measurement for them (see `CapturedPhoto.wasImported`)
+            // -- printing "(Q: Poor)" on a photo we never actually scored
+            // would misrepresent the evidence.
+            let qualitySuffix = photo.wasImported ? "Imported" : "Q: \(photo.qualityLabel.rawValue)"
+            let label = "\(photo.photoType.displayName) (\(qualitySuffix))"
             label.draw(at: CGPoint(x: x, y: y + cellSize * 0.75 + 4), font: .systemFont(ofSize: 10))
             x += cellSize + 20
             if x + cellSize > rect.width {

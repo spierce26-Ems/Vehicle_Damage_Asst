@@ -112,6 +112,56 @@ final class CaptureViewModel: ObservableObject {
         updateGuidance()
     }
 
+    /// Import an existing photo (e.g. from the camera roll) into the case
+    /// under the active vehicle role, counting it toward the current
+    /// required shot slot just like a live capture.
+    ///
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("we also
+    /// should have the ability to upload images from camera roll") --
+    /// useful when e.g. a bystander already snapped a photo of the
+    /// suspect vehicle before Sean arrived, or a photo was taken on a
+    /// different device and AirDropped over. Deliberately mirrors
+    /// `record(image:)`'s structure (same audit-then-save ordering, same
+    /// role-based routing) so the two capture paths can't silently drift
+    /// apart, but marks the result `wasImported: true` and skips
+    /// sensor/GPS/quality scoring -- there's no live sensor reading for a
+    /// photo that wasn't just taken by this device, and fabricating one
+    /// would misrepresent the evidence record. See `CapturedPhoto.wasImported`.
+    func importPhoto(_ image: UIImage) async {
+        guard let type = nextShotType else { return }
+        let data = image.jpegData(compressionQuality: 0.85) ?? Data()
+        let thumb = image.preparingThumbnail(of: CGSize(width: 240, height: 240))?
+            .jpegData(compressionQuality: 0.6)
+
+        let photo = CapturedPhoto(
+            imageData: data,
+            thumbnailData: thumb,
+            captureDate: Date(),
+            photoType: type,
+            qualityScore: 0.0,
+            qualityFlags: QualityFlags(),
+            sensorData: SensorData(),
+            gpsCoordinate: nil,
+            cameraSettings: CameraSettings(),
+            sequenceIndex: currentShotIndex + 1,
+            annotationNotes: "Imported from photo library",
+            wasImported: true
+        )
+        capturedPhotos.append(photo)
+        switch captureRole {
+        case .victim:
+            forensicCase.victimVehicle.photos.append(photo)
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            forensicCase.suspectVehicle?.photos.append(photo)
+        }
+        forensicCase.recordAudit(.photoImported, detail: "\(captureRole.displayName): \(type.displayName) (#\(photo.sequenceIndex))")
+        await storage.save(forensicCase)
+        updateGuidance()
+    }
+
     /// Switch to capturing the suspect vehicle after victim is complete.
     func switchToSuspect() {
         captureRole = .suspect

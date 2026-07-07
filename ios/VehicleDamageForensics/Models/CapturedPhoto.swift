@@ -24,6 +24,23 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     var sequenceIndex: Int            // shot 1-of-30 in the protocol
     var annotationNotes: String
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("we also
+    /// should have the ability to upload images from camera roll"). Photos
+    /// imported from the photo library have no live sensor/GPS reading at
+    /// the moment of *this app's* capture -- `sensorData`/`gpsCoordinate`
+    /// on an imported photo are simply absent/default rather than a real
+    /// on-scene measurement. For a forensic/chain-of-custody tool, quietly
+    /// blending "phone was physically at the scene, level, GPS-tagged"
+    /// photos with "pulled from an existing library, no live sensor data"
+    /// photos would be misleading. This flag keeps that distinction on the
+    /// record (persisted in the photo itself and in the audit log via
+    /// `AuditAction.photoImported`) so it can be surfaced anywhere a photo
+    /// is displayed or reported on -- there's no dedicated photo-gallery/
+    /// thumbnail-grid view in the app yet to render a badge in, but the
+    /// data needed to add one later is captured here now rather than lost
+    /// at capture time.
+    var wasImported: Bool
+
     // MARK: Init
 
     init(
@@ -38,7 +55,8 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         gpsCoordinate: GPSCoordinate? = nil,
         cameraSettings: CameraSettings = CameraSettings(),
         sequenceIndex: Int = 0,
-        annotationNotes: String = ""
+        annotationNotes: String = "",
+        wasImported: Bool = false
     ) {
         self.id = id
         self.imageData = imageData
@@ -52,6 +70,32 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.cameraSettings = cameraSettings
         self.sequenceIndex = sequenceIndex
         self.annotationNotes = annotationNotes
+        self.wasImported = wasImported
+    }
+
+    // MARK: Codable (custom, for backward-compatible decoding)
+
+    /// NOTE(AI Developer): Custom `init(from:)` so photo JSON persisted
+    /// before `wasImported` existed (every case saved before this change)
+    /// decodes safely instead of throwing `keyNotFound` -- same
+    /// backward-compat pattern already used in `ForensicCase.init(from:)`
+    /// and `IncidentLocation.init(from:)`. Compiler still auto-synthesizes
+    /// `encode(to:)`/`CodingKeys` since we don't implement those.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        imageData = try c.decode(Data.self, forKey: .imageData)
+        thumbnailData = try c.decodeIfPresent(Data.self, forKey: .thumbnailData)
+        captureDate = try c.decode(Date.self, forKey: .captureDate)
+        photoType = try c.decode(PhotoType.self, forKey: .photoType)
+        qualityScore = try c.decode(Double.self, forKey: .qualityScore)
+        qualityFlags = try c.decode(QualityFlags.self, forKey: .qualityFlags)
+        sensorData = try c.decode(SensorData.self, forKey: .sensorData)
+        gpsCoordinate = try c.decodeIfPresent(GPSCoordinate.self, forKey: .gpsCoordinate)
+        cameraSettings = try c.decode(CameraSettings.self, forKey: .cameraSettings)
+        sequenceIndex = try c.decode(Int.self, forKey: .sequenceIndex)
+        annotationNotes = try c.decode(String.self, forKey: .annotationNotes)
+        wasImported = try c.decodeIfPresent(Bool.self, forKey: .wasImported) ?? false
     }
 
     // MARK: Computed
@@ -65,7 +109,15 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         }
     }
 
-    var isUsable: Bool { qualityScore >= 0.4 }
+    // NOTE(AI Developer), fixed 2026-07 alongside adding camera-roll
+    // import (Sean's request): imported photos get `qualityScore = 0.0`
+    // (there's no live sensor/on-device scoring possible for a photo not
+    // just captured by this app -- see `wasImported`). Without this
+    // exemption, every imported photo would silently fail `isUsable`
+    // (threshold 0.4) and be dropped from the PDF evidence report by
+    // `PDFReportGenerator.drawPhotoEvidence`, even though it's perfectly
+    // good, user-selected evidence.
+    var isUsable: Bool { wasImported || qualityScore >= 0.4 }
 
     static func == (lhs: CapturedPhoto, rhs: CapturedPhoto) -> Bool { lhs.id == rhs.id }
 }

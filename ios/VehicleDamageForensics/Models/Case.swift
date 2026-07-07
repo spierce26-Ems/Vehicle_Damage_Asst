@@ -329,6 +329,13 @@ struct AuditEntry: Codable, Equatable, Identifiable {
 enum AuditAction: String, Codable {
     case created
     case photoCaptured = "photo_captured"
+    // NOTE(AI Developer), added 2026-07 per Sean's request ("we also
+    // should have the ability to upload images from camera roll"): a
+    // distinct audit action (rather than reusing `.photoCaptured`) so the
+    // chain-of-custody log honestly distinguishes "captured live, on
+    // scene, by this app" from "imported from an existing library photo" --
+    // see the NOTE on `CapturedPhoto.wasImported` for the full rationale.
+    case photoImported = "photo_imported"
     case vehicleUpdated = "vehicle_updated"
     case analysisRun = "analysis_run"
     case reportGenerated = "report_generated"
@@ -339,6 +346,7 @@ enum AuditAction: String, Codable {
         switch self {
         case .created: return "Case Created"
         case .photoCaptured: return "Photo Captured"
+        case .photoImported: return "Photo Imported"
         case .vehicleUpdated: return "Vehicle Info Updated"
         case .analysisRun: return "Analysis Run"
         case .reportGenerated: return "Report Generated"
