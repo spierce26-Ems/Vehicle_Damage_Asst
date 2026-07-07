@@ -23,6 +23,20 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     var reportURL: URL?
     var metadata: CaseMetadata
 
+    /// Chain-of-custody audit trail. NOTE(AI Developer): Added per Sean's
+    /// decision (2026-07) to close the gap flagged earlier — Section 4 of
+    /// the handoff brief claimed `Case.swift` already had `createdAt` +
+    /// `auditLog` for chain-of-custody, but neither existed (only
+    /// `dateCreated`, which is kept as-is to avoid a churny rename of every
+    /// call site). This is additive and append-only from the app's
+    /// perspective: entries are appended by `AppState`/`ViewModel`s at each
+    /// mutation point (case creation, photo capture, analysis run, report
+    /// generation) — never edited or removed — so the log itself becomes
+    /// evidence of when/how the case was built. Defaults to `[]` and decodes
+    /// safely from pre-existing case JSON files that predate this field
+    /// (see custom `init(from:)` below).
+    var auditLog: [AuditEntry]
+
     // MARK: Init
 
     init(
@@ -38,7 +52,8 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         suspectVehicle: Vehicle? = nil,
         matchResult: MatchResult? = nil,
         reportURL: URL? = nil,
-        metadata: CaseMetadata = CaseMetadata()
+        metadata: CaseMetadata = CaseMetadata(),
+        auditLog: [AuditEntry] = []
     ) {
         self.id = id
         self.caseNumber = caseNumber
@@ -53,14 +68,55 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         self.matchResult = matchResult
         self.reportURL = reportURL
         self.metadata = metadata
+        // A freshly-created case always gets a `.created` entry so the
+        // audit trail's first line is never missing.
+        self.auditLog = auditLog.isEmpty ? [AuditEntry(action: .created)] : auditLog
+    }
+
+    // MARK: Codable (custom, for backward-compatible decoding)
+
+    /// NOTE(AI Developer): Custom `init(from:)` so that JSON case files
+    /// written before `auditLog` existed (or hand-authored test fixtures)
+    /// decode successfully instead of throwing `keyNotFound`. The compiler
+    /// still auto-synthesizes `encode(to:)` and `CodingKeys` for us as long
+    /// as we don't implement those ourselves — confirmed this is standard,
+    /// supported Codable behavior (Apple docs: "Encoding and Decoding
+    /// Custom Types"; Swift Forums: providing init(from:) alone does not
+    /// suppress synthesis of encode(to:) or CodingKeys).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        caseNumber = try c.decode(String.self, forKey: .caseNumber)
+        caseType = try c.decode(CaseType.self, forKey: .caseType)
+        status = try c.decode(CaseStatus.self, forKey: .status)
+        dateCreated = try c.decode(Date.self, forKey: .dateCreated)
+        incidentDate = try c.decodeIfPresent(Date.self, forKey: .incidentDate)
+        location = try c.decodeIfPresent(IncidentLocation.self, forKey: .location)
+        notes = try c.decode(String.self, forKey: .notes)
+        victimVehicle = try c.decode(Vehicle.self, forKey: .victimVehicle)
+        suspectVehicle = try c.decodeIfPresent(Vehicle.self, forKey: .suspectVehicle)
+        matchResult = try c.decodeIfPresent(MatchResult.self, forKey: .matchResult)
+        reportURL = try c.decodeIfPresent(URL.self, forKey: .reportURL)
+        metadata = try c.decode(CaseMetadata.self, forKey: .metadata)
+        // Falls back to [] for any case file persisted before this field
+        // was introduced, rather than failing to decode the whole case.
+        auditLog = try c.decodeIfPresent([AuditEntry].self, forKey: .auditLog) ?? []
     }
 
     // MARK: Computed Properties
 
-    /// True if both vehicles have been photographed
+    /// True if both vehicles have completed the required capture protocol.
+    /// NOTE(AI Developer): Previously hardcoded `>= 4` here, while a
+    /// duplicate declaration in ModelExtensions.swift (since removed)
+    /// hardcoded `>= 5`, and the actual guided-capture UI
+    /// (CaptureViewModel.protocolShots) requires 10 shots per vehicle.
+    /// Per Sean's decision, this now derives from the single canonical
+    /// shot list (`PhotoType.requiredCaptureProtocol`) so the three can
+    /// never drift out of sync again.
     var isReadyForAnalysis: Bool {
-        victimVehicle.photos.count >= 4 &&
-        (suspectVehicle?.photos.count ?? 0) >= 4
+        let required = PhotoType.requiredCaptureProtocol.count
+        return victimVehicle.photos.count >= required &&
+            (suspectVehicle?.photos.count ?? 0) >= required
     }
 
     /// Display-friendly status label
@@ -170,6 +226,69 @@ struct CaseMetadata: Codable, Equatable {
         self.deviceID = deviceID
         self.appVersion = appVersion
         self.lastModified = lastModified
+    }
+}
+
+// MARK: - Audit Entry (Chain of Custody)
+
+/// A single immutable chain-of-custody event on a `ForensicCase`.
+/// NOTE(AI Developer): Added per Sean's decision to close the audit-log
+/// gap flagged during Phase 1 review. Entries are meant to be appended-only
+/// — nothing in the app ever edits or removes an existing entry — so the
+/// log itself is evidence that the case data wasn't silently altered after
+/// the fact. Kept intentionally minimal for v1 (timestamp + action + device
+/// + free-text detail) rather than a full diff/signature system.
+struct AuditEntry: Codable, Equatable, Identifiable {
+    let id: UUID
+    let timestamp: Date
+    let action: AuditAction
+    let deviceID: String
+    let detail: String?
+
+    init(
+        id: UUID = UUID(),
+        timestamp: Date = Date(),
+        action: AuditAction,
+        deviceID: String = UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
+        detail: String? = nil
+    ) {
+        self.id = id
+        self.timestamp = timestamp
+        self.action = action
+        self.deviceID = deviceID
+        self.detail = detail
+    }
+}
+
+/// The kinds of chain-of-custody events we record against a case.
+enum AuditAction: String, Codable {
+    case created
+    case photoCaptured = "photo_captured"
+    case vehicleUpdated = "vehicle_updated"
+    case analysisRun = "analysis_run"
+    case reportGenerated = "report_generated"
+    case caseEdited = "case_edited"
+    case caseClosed = "case_closed"
+
+    var displayName: String {
+        switch self {
+        case .created: return "Case Created"
+        case .photoCaptured: return "Photo Captured"
+        case .vehicleUpdated: return "Vehicle Info Updated"
+        case .analysisRun: return "Analysis Run"
+        case .reportGenerated: return "Report Generated"
+        case .caseEdited: return "Case Edited"
+        case .caseClosed: return "Case Closed"
+        }
+    }
+}
+
+extension ForensicCase {
+    /// Appends an immutable audit entry to this case's chain-of-custody log.
+    /// Call this at every mutation point (capture, analysis, report, etc.)
+    /// rather than mutating `auditLog` directly, so entries stay consistent.
+    mutating func recordAudit(_ action: AuditAction, detail: String? = nil) {
+        auditLog.append(AuditEntry(action: action, detail: detail))
     }
 }
 

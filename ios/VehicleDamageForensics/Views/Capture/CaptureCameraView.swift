@@ -105,11 +105,40 @@ struct CaptureCameraView: View {
 
     /// Bridge between the camera service's protocol-step API and our
     /// view-model's simpler `record(image:)` recorder.
+    ///
+    /// NOTE(AI Developer): `CaptureViewModel.protocolShots` (v1, 10 shots)
+    /// and `CaptureProtocolStep.fullProtocol` (30 detailed coaching steps)
+    /// are two different lists — see the NOTE on `PhotoType.requiredCaptureProtocol`
+    /// for why v1 intentionally ships the shorter list. This method uses
+    /// `fullProtocol` purely as a *coaching metadata* lookup (ideal pitch/
+    /// roll/distance/instruction text) for whatever shot the 10-shot list
+    /// is currently asking for. The original code picked that metadata via
+    /// `.first(where: { $0.photoType == nextType })`, which is a real bug:
+    /// several photoTypes repeat multiple times in `fullProtocol` (e.g.
+    /// `.closeupDamage` appears at ids 5, 6, 7, 11-13, 21, 26), so it always
+    /// silently returned the *first* match's coaching parameters (id 5's
+    /// "straight-on closeup" framing) even when guiding the viewModel's 2nd
+    /// closeup shot. Fixed by matching on the current shot's ordinal
+    /// position among same-typed shots, so e.g. the 2nd `.closeupDamage`
+    /// requested by the viewModel maps to the 2nd `.closeupDamage` entry in
+    /// `fullProtocol`, giving distinct/appropriate coaching per repeat shot.
     private func captureNextShot() async {
         guard let nextType = viewModel.nextShotType else { return }
-        let step = CaptureProtocolStep.fullProtocol
-            .first(where: { $0.photoType == nextType })
-            ?? CaptureProtocolStep.fullProtocol[0]
+
+        // Which occurrence of `nextType` is this within the v1 protocol so
+        // far (1st, 2nd, ...)? e.g. if this is the 2nd .closeupDamage shot
+        // requested, we want the 2nd .closeupDamage entry in fullProtocol.
+        let occurrenceIndex = viewModel.protocolShots[0..<viewModel.currentShotIndex]
+            .filter { $0 == nextType }
+            .count
+
+        let matchingSteps = CaptureProtocolStep.fullProtocol.filter { $0.photoType == nextType }
+        let step: CaptureProtocolStep
+        if occurrenceIndex < matchingSteps.count {
+            step = matchingSteps[occurrenceIndex]
+        } else {
+            step = matchingSteps.last ?? CaptureProtocolStep.fullProtocol[0]
+        }
         do {
             let photo = try await camera.capturePhoto(
                 forStep: step,

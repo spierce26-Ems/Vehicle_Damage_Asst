@@ -31,12 +31,16 @@ extension ForensicCase {
     }
 
     // NOTE(AI Developer): `isReadyForAnalysis` is defined on the primary
-    // model in Case.swift (>= 4 photos per side). This file previously
-    // declared a second `isReadyForAnalysis` here (suspectVehicle != nil
-    // && >= 5 photos per side), which is an invalid redeclaration and
-    // does not compile. Removed the duplicate rather than guessing which
-    // threshold (4 vs 5) is intended — flagging for Sean/Claw to confirm
-    // the real photo-count requirement per iOS_TECHNICAL_SPECS.md.
+    // model in Case.swift. This file previously declared a second,
+    // conflicting `isReadyForAnalysis` here (suspectVehicle != nil && >= 5
+    // photos per side vs. Case.swift's >= 4), which is an invalid
+    // redeclaration and does not compile — removed. RESOLVED (2026-07):
+    // Sean confirmed the threshold should derive from the actual capture
+    // protocol rather than either hardcoded number; Case.swift's
+    // `isReadyForAnalysis` now reads `PhotoType.requiredCaptureProtocol.count`
+    // (see Models/Vehicle.swift), which is also what
+    // `CaptureViewModel.protocolShots` uses, so all three can't drift out
+    // of sync again.
 }
 
 extension Vehicle {

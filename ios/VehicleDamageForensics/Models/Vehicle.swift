@@ -231,3 +231,30 @@ enum PhotoType: String, Codable, CaseIterable {
         }
     }
 }
+
+// MARK: - Canonical Capture Protocol
+
+extension PhotoType {
+    /// NOTE(AI Developer): Single source of truth for "how many / which
+    /// shots are required per vehicle" for v1. Previously this number was
+    /// duplicated and inconsistent in three places (Case.swift's
+    /// `isReadyForAnalysis` hardcoded 4, a since-removed duplicate in
+    /// ModelExtensions.swift hardcoded 5, and `CaptureViewModel.protocolShots`
+    /// had its own literal 10-shot array). Per Sean's decision (2026-07,
+    /// "ship the 10-shot v1 flow, don't promote to the 30-shot protocol
+    /// yet"), this is now the one place that defines the v1 shot list;
+    /// `CaptureViewModel.protocolShots` and `ForensicCase.isReadyForAnalysis`
+    /// both derive from this so they can't drift out of sync again. The
+    /// richer 30-step `CaptureProtocolStep.fullProtocol` in
+    /// Services/CameraService.swift remains as a coaching-metadata lookup
+    /// table (ideal pitch/roll/distance/instruction per shot), not as a
+    /// second "how many shots" source of truth.
+    static let requiredCaptureProtocol: [PhotoType] = [
+        .wideAngle, .wideAngle,                 // 2 wide context shots
+        .closeupDamage, .closeupDamage,         // 2 closeups
+        .paintTransfer, .paintTransfer,         // 2 paint transfer macros
+        .heightMeasurement, .heightMeasurement, // 2 reference heights
+        .licenseDetail,                         // license / VIN
+        .lidarReference                         // marker shot before LiDAR scan
+    ]
+}

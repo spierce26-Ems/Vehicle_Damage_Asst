@@ -28,14 +28,11 @@ final class CaptureViewModel: ObservableObject {
     // MARK: Protocol definition
 
     /// Ordered list of shot types required for a complete capture.
-    let protocolShots: [PhotoType] = [
-        .wideAngle, .wideAngle,             // 2 wide context shots
-        .closeupDamage, .closeupDamage,     // 2 closeups
-        .paintTransfer, .paintTransfer,     // 2 paint transfer macros
-        .heightMeasurement, .heightMeasurement, // 2 reference heights
-        .licenseDetail,                     // license / VIN
-        .lidarReference                     // marker shot before LiDAR scan
-    ]
+    /// NOTE(AI Developer): Now sourced from `PhotoType.requiredCaptureProtocol`
+    /// (Models/Vehicle.swift) — the single canonical v1 shot list — instead
+    /// of a separately-maintained literal array, so this can't silently
+    /// drift out of sync with `ForensicCase.isReadyForAnalysis` again.
+    let protocolShots: [PhotoType] = PhotoType.requiredCaptureProtocol
 
     var currentShotIndex: Int { capturedPhotos.count }
 
@@ -99,6 +96,10 @@ final class CaptureViewModel: ObservableObject {
             }
             forensicCase.suspectVehicle?.photos.append(photo)
         }
+        // NOTE(AI Developer): Chain-of-custody entry per Sean's decision to
+        // add the audit log (2026-07). Recorded before save so the entry is
+        // persisted atomically with the photo it describes.
+        forensicCase.recordAudit(.photoCaptured, detail: "\(captureRole.displayName): \(type.displayName) (#\(photo.sequenceIndex))")
         await storage.save(forensicCase)
         updateGuidance()
     }

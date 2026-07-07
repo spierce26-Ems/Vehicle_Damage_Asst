@@ -41,6 +41,9 @@ final class AnalysisViewModel: ObservableObject {
         let result = await calculator.evaluate(case: forensicCase)
         forensicCase.matchResult = result
         forensicCase.status = .analyzed  // matches Models/Case.swift CaseStatus
+        // NOTE(AI Developer): Chain-of-custody entry per Sean's decision to
+        // add the audit log (2026-07).
+        forensicCase.recordAudit(.analysisRun, detail: String(format: "Composite score: %.1f", result.compositeScore))
         matchResult = result
         await storage.save(forensicCase)
         isRunning = false
@@ -57,6 +60,10 @@ final class AnalysisViewModel: ObservableObject {
                 ?? URL(fileURLWithPath: NSTemporaryDirectory())
             let url = try pdfGenerator.generate(for: forensicCase, into: docs)
             forensicCase.reportURL = url
+            forensicCase.status = .reported
+            // NOTE(AI Developer): Chain-of-custody entry per Sean's decision
+            // to add the audit log (2026-07).
+            forensicCase.recordAudit(.reportGenerated, detail: url.lastPathComponent)
             reportURL = url
             Task { await storage.save(forensicCase) }
         } catch {

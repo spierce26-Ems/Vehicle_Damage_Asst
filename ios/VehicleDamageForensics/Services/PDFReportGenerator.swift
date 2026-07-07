@@ -147,7 +147,7 @@ struct PDFReportGenerator {
         "Chain of Custody".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
         y += 30
 
-        let entries = [
+        let header = [
             "Case ID: \(c.id.uuidString)",
             "Case Created: \(Self.dateFormatter.string(from: c.dateCreated))",
             "Total Photos: \(c.victimVehicle.photos.count + (c.suspectVehicle?.photos.count ?? 0))",
@@ -157,9 +157,30 @@ struct PDFReportGenerator {
             "All sensor data, GPS coordinates, and timestamps have been preserved",
             "in the source case file and are available for forensic verification."
         ]
-        for line in entries {
+        for line in header {
             line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
             y += 18
+        }
+
+        // NOTE(AI Developer): Chain-of-custody audit trail per Sean's
+        // decision to add `ForensicCase.auditLog` (2026-07). This is the
+        // whole reason the field exists — a printed, timestamped record of
+        // every recorded event on the case (creation, each photo capture,
+        // analysis run, report generation) for court admissibility. Prior
+        // to this the page only had generic boilerplate text and no actual
+        // per-event record.
+        y += 12
+        "Audit Trail".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14))
+        y += 22
+        for entry in c.auditLog.sorted(by: { $0.timestamp < $1.timestamp }) {
+            if y > rect.height - 60 {
+                ctx.beginPage()
+                y = 50
+            }
+            let line = "\(Self.dateFormatter.string(from: entry.timestamp))  —  \(entry.action.displayName)"
+                + (entry.detail.map { ": \($0)" } ?? "")
+            line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100)
+            y += 15
         }
     }
 
