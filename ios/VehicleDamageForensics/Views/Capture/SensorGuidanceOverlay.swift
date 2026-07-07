@@ -5,8 +5,26 @@
 
 import SwiftUI
 
+/// NOTE(AI Developer), fixed 2026-07: this view previously rendered as a
+/// single full-screen `VStack { topBar; Spacer(); bottomGuide }`, laid on
+/// top of `CaptureCameraView`'s *own separate* bottom-anchored
+/// `VStack { Spacer(); statusMessage; shutterButton }` inside a shared
+/// `ZStack`. Both stacks independently pin their content to the screen's
+/// bottom edge via their own internal `Spacer()`, so their bottom content
+/// landed at (roughly) the same vertical position -- visually, the
+/// shutter button sat directly on top of the Roll/Pitch readout,
+/// truncating the "Roll" label to "Ro...". Confirmed via a real Simulator
+/// screenshot, not a guess.
+///
+/// Fix: split this view into `topBar` (still a top-pinned, independent
+/// overlay -- no conflict there, nothing else anchors to the top) and a
+/// standalone `SensorLevelBar` view. `CaptureCameraView` now places
+/// `SensorLevelBar` *inside its own bottom VStack*, directly above the
+/// status message and shutter button, so all three are laid out in a
+/// single top-to-bottom VStack with no independent bottom-anchoring --
+/// SwiftUI stacks siblings in a VStack without overlap by construction,
+/// so this class of bug can't recur here.
 struct SensorGuidanceOverlay: View {
-    let sensorData: SensorData
     let nextShotType: PhotoType?
     let progress: Double
 
@@ -14,7 +32,6 @@ struct SensorGuidanceOverlay: View {
         VStack {
             topBar
             Spacer()
-            bottomGuide
         }
         .padding()
         .allowsHitTesting(false)
@@ -39,10 +56,18 @@ struct SensorGuidanceOverlay: View {
         .padding(12)
         .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
     }
+}
 
-    // MARK: Bottom level + bubble guide
+// MARK: - Sensor Level Bar (Roll / Pitch readout)
 
-    private var bottomGuide: some View {
+/// Standalone Roll/Pitch level indicator, meant to be placed explicitly by
+/// the caller (see `CaptureCameraView`'s bottom VStack) rather than
+/// self-anchoring to a screen edge -- see the NOTE on `SensorGuidanceOverlay`
+/// above for why.
+struct SensorLevelBar: View {
+    let sensorData: SensorData
+
+    var body: some View {
         HStack(spacing: 24) {
             levelIndicator(label: "Roll",
                            degrees: sensorData.rollDegrees,
@@ -53,6 +78,7 @@ struct SensorGuidanceOverlay: View {
         }
         .padding(12)
         .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 12))
+        .allowsHitTesting(false)
     }
 
     private func levelIndicator(label: String, degrees: Double, threshold: Double) -> some View {
@@ -71,10 +97,14 @@ struct SensorGuidanceOverlay: View {
 }
 
 #Preview {
-    SensorGuidanceOverlay(
-        sensorData: SensorData(pitch: 0.1, roll: 0.05, yaw: 0),
-        nextShotType: .closeupDamage,
-        progress: 0.4
-    )
+    VStack {
+        SensorGuidanceOverlay(
+            nextShotType: .closeupDamage,
+            progress: 0.4
+        )
+        Spacer()
+        SensorLevelBar(sensorData: SensorData(pitch: 0.1, roll: 0.05, yaw: 0))
+            .padding()
+    }
     .background(.black)
 }

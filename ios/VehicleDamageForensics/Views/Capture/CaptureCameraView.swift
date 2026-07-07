@@ -65,14 +65,25 @@ struct CaptureCameraView: View {
                 }
                 .onDisappear { camera.stopSession() }
 
+            // NOTE(AI Developer), fixed 2026-07: SensorGuidanceOverlay now
+            // only renders the top progress bar (self-anchored to the top,
+            // no conflict there). The Roll/Pitch readout (SensorLevelBar)
+            // moved into *this* bottom VStack, directly above the status
+            // message and shutter button -- previously it lived inside
+            // SensorGuidanceOverlay's own independently bottom-anchored
+            // VStack, which caused it to visually overlap/collide with the
+            // shutter button (both stacks pinned content to the bottom via
+            // their own Spacer()). Confirmed fixed via Simulator screenshot.
             SensorGuidanceOverlay(
-                sensorData: viewModel.currentSensorData,
                 nextShotType: viewModel.nextShotType,
                 progress: viewModel.progress
             )
 
             VStack {
                 Spacer()
+                SensorLevelBar(sensorData: viewModel.currentSensorData)
+                    .padding(.bottom, 12)
+
                 Text(viewModel.statusMessage)
                     .font(.callout)
                     .padding(.horizontal, 12)
@@ -84,6 +95,7 @@ struct CaptureCameraView: View {
                 shutterButton
                     .padding(.bottom, 40)
             }
+            .padding(.horizontal)
         }
         .alert("Camera Error",
                isPresented: .constant(lastError != nil),
