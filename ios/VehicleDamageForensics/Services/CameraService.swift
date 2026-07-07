@@ -26,14 +26,28 @@ final class CameraService: NSObject, ObservableObject {
 
     // MARK: - Private Properties
 
-    private let session = AVCaptureSession()
-    private var photoOutput = AVCapturePhotoOutput()
-    private var videoInput: AVCaptureDeviceInput?
+    // NOTE(AI Developer): `session`/`photoOutput`/`videoInput` are marked
+    // `nonisolated(unsafe)` per Sean's report of Swift 6 actor-isolation
+    // warnings (2026-07): although `CameraService` is `@MainActor`, all
+    // configuration/start/stop of the AVCaptureSession happens on the
+    // dedicated serial `sessionQueue` background queue (as Apple's own
+    // AVCam sample does, and as Apple's docs require -- `startRunning()`/
+    // `stopRunning()` are blocking calls that must not run on the main
+    // thread). `sessionQueue` being serial is what actually guarantees
+    // exclusive access, not `@MainActor`, so `nonisolated(unsafe)` here
+    // just tells the compiler to trust that existing guarantee instead of
+    // wrongly assuming these properties are only ever touched on the main
+    // actor. `capturePhoto`/`captureImageData` in this file only *read*
+    // these properties from the main actor between session-queue
+    // operations, which AVFoundation documents as safe.
+    private nonisolated(unsafe) let session = AVCaptureSession()
+    private nonisolated(unsafe) var photoOutput = AVCapturePhotoOutput()
+    private nonisolated(unsafe) var videoInput: AVCaptureDeviceInput?
     private let motionManager = CMMotionManager()
     private let locationManager = CLLocationManager()
     private var currentLocation: CLLocation?
     private var captureCompletions: [String: (CapturedPhoto?) -> Void] = [:]
-    private var sessionQueue = DispatchQueue(label: "com.forensics.camera.session", qos: .userInitiated)
+    private let sessionQueue = DispatchQueue(label: "com.forensics.camera.session", qos: .userInitiated)
 
     // NOTE(AI Developer): `objc_setAssociatedObject`'s real signature is
     // `func objc_setAssociatedObject(_ object: Any, _ key: UnsafeRawPointer, _ value: Any?, _ policy: objc_AssociationPolicy)`
@@ -73,7 +87,18 @@ final class CameraService: NSObject, ObservableObject {
         }
     }
 
-    private func configureSession() throws {
+    // NOTE(AI Developer): Marked `nonisolated` (2026-07 fix) -- this method
+    // is only ever invoked from inside the `sessionQueue.async { ... }`
+    // block in `setupSession()`, i.e. off the main actor by design (per
+    // Apple's guidance that `AVCaptureSession` configuration must not run
+    // on the main thread). Calling a MainActor-isolated method from that
+    // background closure was the actual source of Sean's build warning
+    // ("Call to main actor-isolated instance method 'configureSession()'
+    // in a synchronous nonisolated context"). Safe to de-isolate because
+    // it only touches `session`/`photoOutput`/`videoInput`, which are now
+    // `nonisolated(unsafe)` and exclusively mutated on this same serial
+    // `sessionQueue`.
+    private nonisolated func configureSession() throws {
         session.beginConfiguration()
         session.sessionPreset = .photo
 
@@ -89,7 +114,16 @@ final class CameraService: NSObject, ObservableObject {
         // Output
         guard session.canAddOutput(photoOutput) else { throw CameraError.outputNotSupported }
         session.addOutput(photoOutput)
-        photoOutput.isHighResolutionCaptureEnabled = true
+        // NOTE(AI Developer): `isHighResolutionCaptureEnabled` was
+        // deprecated in iOS 16 in favor of `maxPhotoDimensions` (2026-07
+        // fix, per Sean's build warning). Since our deployment target is
+        // iOS 17, switch to the new API: pick the largest dimensions the
+        // active format actually supports.
+        if let maxDimensions = device.activeFormat.supportedMaxPhotoDimensions.max(by: {
+            Int($0.width) * Int($0.height) < Int($1.width) * Int($1.height)
+        }) {
+            photoOutput.maxPhotoDimensions = maxDimensions
+        }
         if photoOutput.isDepthDataDeliverySupported {
             photoOutput.isDepthDataDeliveryEnabled = true
         }
@@ -103,7 +137,7 @@ final class CameraService: NSObject, ObservableObject {
         }
     }
 
-    private func bestCaptureDevice() -> AVCaptureDevice? {
+    private nonisolated func bestCaptureDevice() -> AVCaptureDevice? {
         // Prefer wide-angle with autofocus
         let discovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera, .builtInDualCamera, .builtInTripleCamera],

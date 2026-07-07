@@ -44,11 +44,16 @@
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>armv7</string>
-		<string>arkit</string>
-	</array>
+	<!-- NOTE(AI Developer), corrected 2026-07-07: Removed
+	     UIRequiredDeviceCapabilities entirely. This key is an install-time
+	     App Store/device gate, not a debug-launch check, but it was wrong
+	     either way: "armv7" is dead cruft from an old 32-bit template (our
+	     deployment target is iOS 17, arm64-only, so this entry is
+	     meaningless) and "arkit" hard-blocks install on any device without
+	     an A9+ chip -- which contradicts LiDARService.isAvailable, which
+	     already gracefully degrades when LiDAR/ARKit isn't present. Camera
+	     capture, case management, and PDF reporting all work fine without
+	     ARKit; only the optional LiDAR scan step needs it. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
