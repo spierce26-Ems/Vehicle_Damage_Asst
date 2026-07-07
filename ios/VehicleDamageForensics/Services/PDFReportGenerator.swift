@@ -109,15 +109,22 @@ struct PDFReportGenerator {
         "Case Summary".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
         y += 40
 
+        // NOTE(AI Developer): Added Case Name + Incident Location lines
+        // per Sean's decision (2026-07) to add structured case
+        // naming/address capture — see Case.swift `caseName` /
+        // `IncidentLocation` rework.
         let lines: [String] = [
-            "Case Type: \(c.caseType.rawValue)",
-            "Status: \(c.status.rawValue)",
+            "Case Name: \(c.caseName.isEmpty ? "—" : c.caseName)",
+            "Case Type: \(c.caseType.displayName)",
+            "Status: \(c.statusLabel)",
             "Incident Date: \(c.incidentDate.map(Self.dateFormatter.string) ?? "n/a")",
+            "Incident Location: \((c.location?.displayAddress.isEmpty ?? true) ? "—" : c.location!.displayAddress)",
             "Notes: \(c.notes.isEmpty ? "—" : c.notes)",
             "",
             "Victim Vehicle: \(c.victimVehicle.displayName)",
             "  Color: \(c.victimVehicle.color)",
             "  License: \(c.victimVehicle.licensePlate ?? "—")",
+            "  VIN: \(c.victimVehicle.vin ?? "—")",
             "",
             "Suspect Vehicle: \(c.suspectVehicle?.displayName ?? "—")",
             "  Color: \(c.suspectVehicle?.color ?? "—")",

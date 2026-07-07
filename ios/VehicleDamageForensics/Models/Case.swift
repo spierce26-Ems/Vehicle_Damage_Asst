@@ -11,6 +11,14 @@ import CoreLocation
 struct ForensicCase: Identifiable, Codable, Equatable {
     let id: UUID
     var caseNumber: String
+
+    /// NOTE(AI Developer): Added per Sean's decision (2026-07) — a
+    /// human-readable label distinct from the auto-assigned serial
+    /// `caseNumber` (e.g. "Sarah's Driveway Hit & Run" vs. "VD-2026-00001").
+    /// Optional-style default (`""`) so it decodes safely from any case
+    /// JSON persisted before this field existed; UI falls back to
+    /// `caseNumber` for display when empty (see `displayTitle`).
+    var caseName: String
     var caseType: CaseType
     var status: CaseStatus
     var dateCreated: Date
@@ -42,6 +50,7 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     init(
         id: UUID = UUID(),
         caseNumber: String = "",
+        caseName: String = "",
         caseType: CaseType = .hitAndRun,
         status: CaseStatus = .inProgress,
         dateCreated: Date = Date(),
@@ -57,6 +66,7 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     ) {
         self.id = id
         self.caseNumber = caseNumber
+        self.caseName = caseName
         self.caseType = caseType
         self.status = status
         self.dateCreated = dateCreated
@@ -87,6 +97,9 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         caseNumber = try c.decode(String.self, forKey: .caseNumber)
+        // Falls back to "" for case files persisted before this field
+        // existed, same backward-compat pattern as `auditLog` below.
+        caseName = try c.decodeIfPresent(String.self, forKey: .caseName) ?? ""
         caseType = try c.decode(CaseType.self, forKey: .caseType)
         status = try c.decode(CaseStatus.self, forKey: .status)
         dateCreated = try c.decode(Date.self, forKey: .dateCreated)
@@ -117,6 +130,15 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         let required = PhotoType.requiredCaptureProtocol.count
         return victimVehicle.photos.count >= required &&
             (suspectVehicle?.photos.count ?? 0) >= required
+    }
+
+    /// Human-friendly title for lists/navigation: prefers the user-entered
+    /// `caseName`, falls back to the auto-assigned `caseNumber`, then to a
+    /// generic placeholder if somehow both are empty (e.g. very old data).
+    var displayTitle: String {
+        if !caseName.isEmpty { return caseName }
+        if !caseNumber.isEmpty { return caseNumber }
+        return "Untitled Case"
     }
 
     /// Display-friendly status label
@@ -184,27 +206,70 @@ enum CaseStatus: String, Codable, CaseIterable {
 
 // MARK: - Incident Location
 
+/// NOTE(AI Developer): Reworked per Sean's decision (2026-07) — this used
+/// to require a `CLLocationCoordinate2D` up front (GPS-first), which made
+/// it impossible to build a plain manual-entry "type in the address" form
+/// (you'd need a device location fix, or geocoding, just to create the
+/// struct). Now text fields are the primary/required-feeling data
+/// (`address`/`city`/`state`/`zip`, all still `Optional` for safe decoding
+/// of old data and to allow a partially-filled form) and `latitude`/
+/// `longitude` are optional, populated only when we do have a device GPS
+/// fix (e.g. auto-captured during capture flow) or a future geocode step.
+/// `coordinate` returns `nil` when no GPS fix is present instead of
+/// synthesizing (0, 0).
 struct IncidentLocation: Codable, Equatable {
-    var latitude: Double
-    var longitude: Double
     var address: String?
     var city: String?
     var state: String?
+    var zip: String?
+    var latitude: Double?
+    var longitude: Double?
 
-    var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
     var displayAddress: String {
-        [address, city, state].compactMap { $0 }.joined(separator: ", ")
+        let cityStateZip = [city, state].compactMap { $0 }.joined(separator: ", ")
+        let line2 = [cityStateZip.isEmpty ? nil : cityStateZip, zip]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return [address, line2].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
-    init(coordinate: CLLocationCoordinate2D, address: String? = nil, city: String? = nil, state: String? = nil) {
-        self.latitude = coordinate.latitude
-        self.longitude = coordinate.longitude
+    var isEmpty: Bool {
+        [address, city, state, zip].allSatisfy { ($0 ?? "").isEmpty } && latitude == nil
+    }
+
+    init(
+        address: String? = nil,
+        city: String? = nil,
+        state: String? = nil,
+        zip: String? = nil,
+        coordinate: CLLocationCoordinate2D? = nil
+    ) {
         self.address = address
         self.city = city
         self.state = state
+        self.zip = zip
+        self.latitude = coordinate?.latitude
+        self.longitude = coordinate?.longitude
+    }
+
+    /// NOTE(AI Developer): Custom decode so old JSON (from before this
+    /// rework) that has non-optional `latitude`/`longitude` still decodes
+    /// fine into the now-optional properties, and so an old record with
+    /// coordinates but no `zip` key doesn't throw `keyNotFound`.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        address = try c.decodeIfPresent(String.self, forKey: .address)
+        city = try c.decodeIfPresent(String.self, forKey: .city)
+        state = try c.decodeIfPresent(String.self, forKey: .state)
+        zip = try c.decodeIfPresent(String.self, forKey: .zip)
+        latitude = try c.decodeIfPresent(Double.self, forKey: .latitude)
+        longitude = try c.decodeIfPresent(Double.self, forKey: .longitude)
     }
 }
 
