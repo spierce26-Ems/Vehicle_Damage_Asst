@@ -14,7 +14,14 @@ struct LiDARScanView: View {
 
     var body: some View {
         ZStack {
-            ARViewContainer(session: ARSession.shared)
+            // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+            // ("Lidar scan is not visible on screen for user. Its just
+            // black."): now points at `lidarService.session` -- the actual
+            // session being scanned -- instead of the orphaned
+            // `ARSession.shared` singleton, which was a second, never-run
+            // ARSession. See the NOTE on `LiDARService.session` for the
+            // full root cause.
+            ARViewContainer(session: lidarService.session)
                 .ignoresSafeArea()
 
             VStack {
@@ -99,14 +106,18 @@ struct ARViewContainer: UIViewRepresentable {
         let arView = ARView(frame: .zero)
         arView.session = session
         arView.environment.sceneUnderstanding.options = [.occlusion, .receivesLighting]
+        // NOTE(AI Developer), added 2026-07 per Sean's on-device feedback
+        // ("Lidar scan is not visible on screen for user"): even once the
+        // session/view mismatch above is fixed, ARKit's LiDAR mesh scan
+        // has *no visible feedback by default* -- you'd just see plain
+        // camera passthrough with zero indication of what area has
+        // actually been captured. `.showSceneUnderstanding` overlays a
+        // live wireframe on every reconstructed mesh triangle as it's
+        // scanned, so coverage is visually obvious in real time (this is
+        // the same debug option Apple's own sample scanning apps enable).
+        arView.debugOptions.insert(.showSceneUnderstanding)
         return arView
     }
 
     func updateUIView(_ uiView: ARView, context: Context) {}
-}
-
-// MARK: - ARSession singleton (used by both LiDARService and ARView)
-
-extension ARSession {
-    static let shared = ARSession()
 }

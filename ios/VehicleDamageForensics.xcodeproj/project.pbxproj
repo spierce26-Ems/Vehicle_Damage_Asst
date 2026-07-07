@@ -30,6 +30,7 @@
 		CA504C53ABD3D88883F7EC1D /* LiDARService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A92045EABC4EA6AFC551ED2B /* LiDARService.swift */; };
 		CBC941CB929992F46D223AB7 /* CaptureCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177746A1A0EC53251C22F0E2 /* CaptureCameraView.swift */; };
 		D98D4745B857D0FB857803A0 /* MeasurementHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 162A4ADAAFA274E0EBA3526E /* MeasurementHelpers.swift */; };
+		852210630EA8F878493653C3 /* CameraLevelMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FCDC8BBBEEF76D66F8CA400 /* CameraLevelMath.swift */; };
 		EFFE47E3AB624AC000D1BAC5 /* PDFReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AEE4116BC45953FF93D28D8 /* PDFReportView.swift */; };
 		F2AF4AEDA425EAF85034763D /* Case.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D534641A0C2361368DD4F59 /* Case.swift */; };
 		F7CB40E0BDCDA8D990A9F500 /* PaintSampleKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20F4580A93C3A131D85A7D3 /* PaintSampleKit.swift */; };
@@ -43,6 +44,7 @@
 		0B7EF80CC0565E1FB448E0A3 /* VehicleDamageForensics.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VehicleDamageForensics.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		11D94F799C69AD00D5B03920 /* CaseListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CaseListViewModel.swift; path = VehicleDamageForensics/ViewModels/CaseListViewModel.swift; sourceTree = SOURCE_ROOT; };
 		162A4ADAAFA274E0EBA3526E /* MeasurementHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeasurementHelpers.swift; path = VehicleDamageForensics/Utilities/MeasurementHelpers.swift; sourceTree = SOURCE_ROOT; };
+		2FCDC8BBBEEF76D66F8CA400 /* CameraLevelMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CameraLevelMath.swift; path = VehicleDamageForensics/Utilities/CameraLevelMath.swift; sourceTree = SOURCE_ROOT; };
 		17384E51AD9567AF3BE55DAE /* VehicleDamageForensicsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VehicleDamageForensicsApp.swift; path = VehicleDamageForensics/App/VehicleDamageForensicsApp.swift; sourceTree = SOURCE_ROOT; };
 		177746A1A0EC53251C22F0E2 /* CaptureCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CaptureCameraView.swift; path = VehicleDamageForensics/Views/Capture/CaptureCameraView.swift; sourceTree = SOURCE_ROOT; };
 		1FBF4FA281015BE150B13EB7 /* CapturedPhoto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CapturedPhoto.swift; path = VehicleDamageForensics/Models/CapturedPhoto.swift; sourceTree = SOURCE_ROOT; };
@@ -121,6 +123,7 @@
 			children = (
 				E138447CB45CB2F4E608D30F /* ColorAnalysis.swift */,
 				162A4ADAAFA274E0EBA3526E /* MeasurementHelpers.swift */,
+				2FCDC8BBBEEF76D66F8CA400 /* CameraLevelMath.swift */,
 				F0804E5FAEEB6B553790AF8B /* ModelExtensions.swift */,
 			);
 			name = Utilities;
@@ -325,6 +328,7 @@
 				5E19445E9EEA966DE8B9F4B6 /* StorageService.swift in Sources */,
 				BFF24700B3EDDB66BA99FB31 /* ColorAnalysis.swift in Sources */,
 				D98D4745B857D0FB857803A0 /* MeasurementHelpers.swift in Sources */,
+				852210630EA8F878493653C3 /* CameraLevelMath.swift in Sources */,
 				519145E49D506D69370A0E54 /* ModelExtensions.swift in Sources */,
 				FB4C43129DCB0B3689A2BC44 /* AnalysisViewModel.swift in Sources */,
 				330E4381AF3F4845A227922F /* CaptureViewModel.swift in Sources */,

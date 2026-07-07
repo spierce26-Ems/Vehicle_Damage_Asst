@@ -25,7 +25,17 @@ final class LiDARService: NSObject, ObservableObject {
 
     // MARK: Internal
 
-    private let session = ARSession()
+    // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+    // ("Lidar scan is not visible on screen for user. Its just black."):
+    // this `session` was `private`, so `LiDARScanView`'s visible `ARView`
+    // had no way to actually display it -- it was instead wired to a
+    // second, completely separate `ARSession.shared` singleton (defined in
+    // LiDARScanView.swift) that this service never touches or calls
+    // `.run()` on. Two independent ARSessions: one scanning invisibly,
+    // one displayed but never started -- hence a permanently black
+    // screen. Fixed by exposing this session so the view can render the
+    // *actual* session doing the scanning.
+    let session = ARSession()
     private var configuration: ARWorldTrackingConfiguration?
     private var meshAnchors: [UUID: ARMeshAnchor] = [:]
 

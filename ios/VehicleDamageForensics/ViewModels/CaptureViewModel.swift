@@ -139,9 +139,24 @@ final class CaptureViewModel: ObservableObject {
             motionManager.deviceMotionUpdateInterval = 0.1
             motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
                 guard let self, let m = motion else { return }
+                // NOTE(AI Developer), fixed 2026-07 per Sean's on-device
+                // report ("why is the camera preferred to be pointing down
+                // for everything?"): previously stored `m.attitude.pitch`/
+                // `.roll` directly, but CMAttitude's zero-point is "phone
+                // flat on a table" -- not "phone held up, aimed level at
+                // the vehicle" (which is what `idealPitchDegrees: 0` in
+                // CaptureProtocolStep actually means). That mismatch made
+                // "pitch near 0" only achievable by flattening the phone
+                // toward the ground. Fixed by deriving pitch/roll from the
+                // raw gravity vector via `CameraLevelMath`, whose zero
+                // point matches "phone held vertically, camera level" --
+                // see CameraLevelMath.swift for the full derivation.
+                let (pitchDeg, rollDeg) = CameraLevelMath.pitchRollDegrees(
+                    fromGravity: (m.gravity.x, m.gravity.y, m.gravity.z)
+                )
                 self.currentSensorData = SensorData(
-                    pitch: m.attitude.pitch,
-                    roll: m.attitude.roll,
+                    pitch: pitchDeg * .pi / 180.0,
+                    roll: rollDeg * .pi / 180.0,
                     yaw: m.attitude.yaw,
                     accelerometer: SIMD3<Double>(m.userAcceleration.x, m.userAcceleration.y, m.userAcceleration.z)
                 )
@@ -156,15 +171,29 @@ final class CaptureViewModel: ObservableObject {
         return GPSCoordinate(location: loc)
     }
 
+    /// NOTE(AI Developer), rewritten 2026-07 per Sean's feedback ("pitch
+    /// and roll is tough to use, needs to be easier to follow and more
+    /// intuitive... maybe add better directions or cues"). Previously this
+    /// only printed the raw degree value with no indication of *which way*
+    /// to move the phone. Now gives an explicit directional instruction
+    /// ("tilt left/right", "aim up/down") derived from the sign of the
+    /// (now correctly zeroed, see `startSensors`) pitch/roll. Also uses
+    /// gentler thresholds (a "close" band before the hard warning) so the
+    /// message doesn't flicker between two states right at the boundary.
     private func updateGuidance() {
         guard let next = nextShotType else {
             statusMessage = "Capture complete. Tap Analyze to proceed."
             return
         }
-        if abs(currentSensorData.rollDegrees) > 15 {
-            statusMessage = "Phone not level — tilt to correct roll \(Int(currentSensorData.rollDegrees))°"
-        } else if abs(currentSensorData.pitchDegrees) > 25 {
-            statusMessage = "Pitch too steep — point phone more horizontally"
+        let roll = currentSensorData.rollDegrees
+        let pitch = currentSensorData.pitchDegrees
+
+        if abs(roll) > 15 {
+            let direction = roll > 0 ? "left" : "right"
+            statusMessage = "Tilt \(direction) to level the horizon (\(Int(abs(roll)))° off)"
+        } else if abs(pitch) > 25 {
+            let direction = pitch > 0 ? "down" : "up"
+            statusMessage = "Aim the camera more \(direction) — hold it level with the damage"
         } else {
             statusMessage = "Next: \(next.displayName) (\(currentShotIndex + 1)/\(protocolShots.count))"
         }

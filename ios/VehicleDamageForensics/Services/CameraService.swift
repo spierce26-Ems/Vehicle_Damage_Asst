@@ -167,14 +167,27 @@ final class CameraService: NSObject, ObservableObject {
 
     // MARK: - Motion Sensing
 
+    // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report ("why
+    // is the camera preferred to be pointing down for everything?"): this
+    // is the sensor reading actually used by `capturePhoto` to score shot
+    // quality against each `CaptureProtocolStep`'s `idealPitchDegrees`/
+    // `maxRollDegrees` -- so it had the same zero-point bug as
+    // `CaptureViewModel.startSensors` (raw `attitude.pitch/roll` use "flat
+    // on a table" as zero, not "held up, aimed level at the vehicle").
+    // Every captured photo's quality score and off-angle flag were being
+    // computed against the wrong physical baseline. Fixed the same way:
+    // derive pitch/roll from the gravity vector via `CameraLevelMath`.
     private func setupMotionManager() {
         guard motionManager.isDeviceMotionAvailable else { return }
         motionManager.deviceMotionUpdateInterval = 1.0 / 30.0
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
             guard let self, let motion else { return }
+            let (pitchDeg, rollDeg) = CameraLevelMath.pitchRollDegrees(
+                fromGravity: (motion.gravity.x, motion.gravity.y, motion.gravity.z)
+            )
             self.sensorReading = SensorReading(
-                pitch: motion.attitude.pitch,
-                roll: motion.attitude.roll,
+                pitch: pitchDeg * .pi / 180.0,
+                roll: rollDeg * .pi / 180.0,
                 yaw: motion.attitude.yaw,
                 heading: self.currentLocation?.course
             )
