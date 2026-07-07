@@ -77,7 +77,17 @@ final class StorageService: ObservableObject {
         let url = casesDirectory.appendingPathComponent("\(forensicCase.id.uuidString).json")
         do {
             let data = try encoder.encode(forensicCase)
-            try data.write(to: url, options: [.atomic])
+            // NOTE(AI Developer): `.completeFileProtection` added per Sean's
+            // security-audit decision (2026-07). Without it, iOS defaults
+            // new files to NSFileProtectionCompleteUntilFirstUserAuthentication
+            // -- unlocked/readable any time after the device's first unlock
+            // since reboot, even while the device is subsequently locked.
+            // Given this file holds embedded photos, GPS coordinates, and
+            // victim/suspect PII for what may be an active police case,
+            // `.completeFileProtection` (inaccessible whenever the device is
+            // locked, not just before first unlock) is the stronger, more
+            // appropriate default here.
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
             // Update in-memory cache
             if let idx = cases.firstIndex(where: { $0.id == forensicCase.id }) {
                 cases[idx] = forensicCase

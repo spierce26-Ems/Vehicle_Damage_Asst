@@ -11,6 +11,7 @@ struct DashboardView: View {
     @State private var showingNewCase = false
     @State private var newCaseRoute: ForensicCase?
     @State private var editingCase: ForensicCase?
+    @State private var caseToDelete: ForensicCase?
 
     var body: some View {
         NavigationStack {
@@ -59,6 +60,30 @@ struct DashboardView: View {
                     Task { await viewModel.updateCase(updated) }
                 }
             }
+            // NOTE(AI Developer): Delete confirmation added per Sean's
+            // security-audit decision (2026-07). Deleting a case is
+            // permanent -- it destroys all photos, LiDAR scans, and the
+            // chain-of-custody audit log with no undo -- so it must not be
+            // possible via a single accidental swipe-and-tap. `caseToDelete`
+            // is set by the swipe action below; the actual delete only
+            // happens if the user confirms here.
+            .confirmationDialog(
+                "Delete Case?",
+                isPresented: Binding(
+                    get: { caseToDelete != nil },
+                    set: { if !$0 { caseToDelete = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: caseToDelete
+            ) { c in
+                Button("Delete \(c.displayTitle)", role: .destructive) {
+                    viewModel.deleteCase(c.id)
+                    caseToDelete = nil
+                }
+                Button("Cancel", role: .cancel) { caseToDelete = nil }
+            } message: { c in
+                Text("This permanently deletes all photos, LiDAR scans, and the audit log for this case. This cannot be undone.")
+            }
         }
     }
 
@@ -91,9 +116,18 @@ struct DashboardView: View {
                     }
                     .tint(.blue)
                 }
-            }
-            .onDelete { idx in
-                for i in idx { viewModel.deleteCase(viewModel.filteredCases[i].id) }
+                // NOTE(AI Developer): Replaced the old `.onDelete` full-swipe
+                // (which deleted immediately on swipe-to-end, no confirmation)
+                // with an explicit trailing swipe button that only stages
+                // `caseToDelete` -- the actual delete happens in the
+                // `.confirmationDialog` above, only after the user confirms.
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        caseToDelete = c
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
             }
         }
         .navigationDestination(for: ForensicCase.self) { c in
