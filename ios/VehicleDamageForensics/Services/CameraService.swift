@@ -117,12 +117,37 @@ final class CameraService: NSObject, ObservableObject {
         // NOTE(AI Developer): `isHighResolutionCaptureEnabled` was
         // deprecated in iOS 16 in favor of `maxPhotoDimensions` (2026-07
         // fix, per Sean's build warning). Since our deployment target is
-        // iOS 17, switch to the new API: pick the largest dimensions the
-        // active format actually supports.
-        if let maxDimensions = device.activeFormat.supportedMaxPhotoDimensions.max(by: {
+        // iOS 17, switch to the new API.
+        //
+        // NOTE(AI Developer), fixed 2026-07 per Sean's report ("running
+        // correlation analysis" stuck for several minutes): this used to
+        // pick the *largest* dimensions the sensor supports at all, which
+        // on any LiDAR-capable iPhone (this app requires LiDAR) means up
+        // to 48MP per photo. Every photo is embedded as base64 inside a
+        // single case JSON document (see `StorageService`), so 20
+        // full-resolution photos (10-shot protocol x 2 vehicles) could
+        // balloon that document into the hundreds of MB -- which is what
+        // was actually taking minutes to encode/write, not the analysis
+        // math itself (confirmed by reading every analyzer in
+        // `ForensicEngine/` end to end; all are bounded/fast). Forensic
+        // damage documentation and Vision's contour analysis (capped at
+        // 1024px, see `DeformationMatcher`) don't need 48MP -- 12MP
+        // (4032x3024, the long-standing "full size" iPhone photo
+        // resolution) is already far more detail than this app can use,
+        // at a fraction of the file size. Pick the largest *supported*
+        // dimension that is still <= 12MP, falling back to the sensor's
+        // true max only if every supported mode somehow exceeds that
+        // (shouldn't happen on any current device).
+        let maxReasonablePixels = 4032 * 3024
+        let candidateDimensions = device.activeFormat.supportedMaxPhotoDimensions
+        if let capped = candidateDimensions
+            .filter({ Int($0.width) * Int($0.height) <= maxReasonablePixels })
+            .max(by: { Int($0.width) * Int($0.height) < Int($1.width) * Int($1.height) }) {
+            photoOutput.maxPhotoDimensions = capped
+        } else if let fallbackMax = candidateDimensions.max(by: {
             Int($0.width) * Int($0.height) < Int($1.width) * Int($1.height)
         }) {
-            photoOutput.maxPhotoDimensions = maxDimensions
+            photoOutput.maxPhotoDimensions = fallbackMax
         }
         if photoOutput.isDepthDataDeliverySupported {
             photoOutput.isDepthDataDeliveryEnabled = true
