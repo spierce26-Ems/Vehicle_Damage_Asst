@@ -78,8 +78,15 @@ final class CaptureViewModel: ObservableObject {
     /// Record a new photo into the case under the active vehicle role.
     func record(image: UIImage) async {
         guard let type = nextShotType else { return }
-        let data = image.jpegData(compressionQuality: 0.85) ?? Data()
-        let thumb = image.preparingThumbnail(of: CGSize(width: 240, height: 240))?
+        // NOTE(AI Developer), 2026-07: `resizedForStorage` is a no-op here
+        // in practice (CameraService already caps capture resolution
+        // upstream), but calling it unconditionally means this path can't
+        // silently regress into the oversized-payload hang class again if
+        // that upstream cap is ever changed/removed. See `importPhoto(_:)`
+        // for the case where this guard is load-bearing.
+        let stored = resizedForStorage(image)
+        let data = stored.jpegData(compressionQuality: 0.85) ?? Data()
+        let thumb = stored.preparingThumbnail(of: CGSize(width: 240, height: 240))?
             .jpegData(compressionQuality: 0.6)
 
         let photo = CapturedPhoto(
@@ -129,8 +136,23 @@ final class CaptureViewModel: ObservableObject {
     /// would misrepresent the evidence record. See `CapturedPhoto.wasImported`.
     func importPhoto(_ image: UIImage) async {
         guard let type = nextShotType else { return }
-        let data = image.jpegData(compressionQuality: 0.85) ?? Data()
-        let thumb = image.preparingThumbnail(of: CGSize(width: 240, height: 240))?
+        // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+        // ("its been 'running correlation analysis' for a few minutes
+        // again"): unlike `record(image:)`, whose source `UIImage` comes
+        // from `CameraService.capturePhoto()` (already capped via
+        // `photoOutput.maxPhotoDimensions`), this path's `image` comes
+        // straight from `PhotosPicker`/`loadTransferable` with NO
+        // resolution cap -- a picked photo can be the device's full
+        // native resolution (e.g. a 48MP ProRAW-derived JPEG), which
+        // bloats `CapturedPhoto.imageData`, in turn bloating the case's
+        // JSON file, and reproduces the same class of slow encode/write
+        // that `StorageService`'s background-task fix addressed for the
+        // *live-capture* path -- just via this different (import) entry
+        // point. `resizedForStorage` applies the same ~12MP cap already
+        // used in `CameraService.swift` before we ever call `jpegData`.
+        let stored = resizedForStorage(image)
+        let data = stored.jpegData(compressionQuality: 0.85) ?? Data()
+        let thumb = stored.preparingThumbnail(of: CGSize(width: 240, height: 240))?
             .jpegData(compressionQuality: 0.6)
 
         let photo = CapturedPhoto(
@@ -256,5 +278,46 @@ final class CaptureViewModel: ObservableObject {
         if abs(currentSensorData.rollDegrees) > 10 { score -= 0.2 }
         if abs(currentSensorData.pitchDegrees) > 20 { score -= 0.1 }
         return max(0, min(1, score))
+    }
+
+    /// Caps `image`'s pixel dimensions before it's ever handed to
+    /// `jpegData(compressionQuality:)`, mirroring the ~12MP
+    /// (4032x3024) ceiling `CameraService` already enforces on live
+    /// captures via `photoOutput.maxPhotoDimensions`.
+    ///
+    /// NOTE(AI Developer), added 2026-07 as the fix for the recurred
+    /// "Running correlation analysis" hang Sean reported after the
+    /// original `StorageService`/`CameraService` fix: an imported
+    /// camera-roll photo has no upstream cap the way a live capture
+    /// does, so it can come in at the device's full native resolution
+    /// (e.g. 48MP+). Embedding that directly into `CapturedPhoto.imageData`
+    /// bloats the case's JSON file enough that even the *backgrounded*
+    /// encode/write in `StorageService.save(_:)` can take minutes of
+    /// real CPU+I/O time -- which surfaces to the user as a stuck
+    /// "Running correlation analysis" spinner (analysis and the
+    /// preceding save both compete for the same background executor).
+    /// Downsampling here, once, before storage keeps every downstream
+    /// consumer (JSON encode, Vision requests in `DeformationMatcher`,
+    /// PDF export) working with a bounded-size image regardless of
+    /// where the original bytes came from.
+    private func resizedForStorage(_ image: UIImage) -> UIImage {
+        let maxReasonablePixels = 4032.0 * 3024.0
+        let pixelWidth = Double(image.size.width * image.scale)
+        let pixelHeight = Double(image.size.height * image.scale)
+        let pixelCount = pixelWidth * pixelHeight
+        guard pixelCount > maxReasonablePixels, pixelWidth > 0, pixelHeight > 0 else {
+            return image
+        }
+        let scaleFactor = (maxReasonablePixels / pixelCount).squareRoot()
+        let targetSize = CGSize(
+            width: max(1, (pixelWidth * scaleFactor).rounded(.down)),
+            height: max(1, (pixelHeight * scaleFactor).rounded(.down))
+        )
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1 // targetSize is already in pixel units
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
     }
 }
