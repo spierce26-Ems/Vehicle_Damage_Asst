@@ -116,14 +116,35 @@ struct MatchResultsView: View {
                 .buttonStyle(.borderedProminent)
             }
 
-            Button {
-                showPaywall = true
-            } label: {
-                Label("Unlock Full Report", systemImage: "lock.open.fill")
-                    .frame(maxWidth: .infinity)
-                    .font(.headline)
+            // NOTE(AI Developer): Split into two branches rather than a
+            // single Button with `condition ? .bordered : .borderedProminent`
+            // -- SwiftUI's `.buttonStyle(_:)` is generic over a concrete
+            // `PrimitiveButtonStyle` type, and the ternary's two branches
+            // are different concrete types (`BorderedButtonStyle` vs.
+            // `BorderedProminentButtonStyle`) that the compiler cannot
+            // unify into one expression. This was a real Xcode 26.6 build
+            // error ("Type 'ButtonStyle' has no member 'bordered'" /
+            // "'borderedProminent'") surfaced by Sean, not a naming
+            // collision -- see CHANGELOG note 2026-07-08.
+            if PurchaseManager.shared.caseCredits > 0 {
+                Button {
+                    showPaywall = true
+                } label: {
+                    Label("Unlock Full Report", systemImage: "lock.open.fill")
+                        .frame(maxWidth: .infinity)
+                        .font(.headline)
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Button {
+                    showPaywall = true
+                } label: {
+                    Label("Unlock Full Report", systemImage: "lock.open.fill")
+                        .frame(maxWidth: .infinity)
+                        .font(.headline)
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(PurchaseManager.shared.caseCredits > 0 ? .bordered : .borderedProminent)
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
