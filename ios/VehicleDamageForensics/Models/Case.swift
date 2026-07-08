@@ -45,6 +45,25 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     /// (see custom `init(from:)` below).
     var auditLog: [AuditEntry]
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's monetization decision:
+    /// this app serves both one-time consumers (pay per case) and
+    /// professional/subscriber users (unlimited access). `isUnlocked`
+    /// records whether *this specific case* has had its full report
+    /// (per-factor breakdown, recommendations, PDF export) unlocked --
+    /// either by spending a purchased case credit
+    /// (`PurchaseManager.consumeCreditForUnlock()`) or because the user
+    /// held an active Pro subscription at the time. Deliberately stored
+    /// on the case itself (not derived live from subscription status)
+    /// so that a case a subscriber unlocked stays unlocked even if their
+    /// subscription later lapses -- consistent with how a one-time
+    /// consumer's paid unlock works, and avoiding the surprising/hostile
+    /// UX of a previously-viewable report suddenly re-locking. Defaults
+    /// to `false` so pre-existing case JSON (from before this field
+    /// existed, i.e. every case saved during development before
+    /// monetization was scoped) decodes as locked rather than granting
+    /// free access -- see custom `init(from:)` below.
+    var isUnlocked: Bool
+
     // MARK: Init
 
     init(
@@ -62,7 +81,8 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         matchResult: MatchResult? = nil,
         reportURL: URL? = nil,
         metadata: CaseMetadata = CaseMetadata(),
-        auditLog: [AuditEntry] = []
+        auditLog: [AuditEntry] = [],
+        isUnlocked: Bool = false
     ) {
         self.id = id
         self.caseNumber = caseNumber
@@ -81,6 +101,7 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         // A freshly-created case always gets a `.created` entry so the
         // audit trail's first line is never missing.
         self.auditLog = auditLog.isEmpty ? [AuditEntry(action: .created)] : auditLog
+        self.isUnlocked = isUnlocked
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -114,6 +135,9 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         // Falls back to [] for any case file persisted before this field
         // was introduced, rather than failing to decode the whole case.
         auditLog = try c.decodeIfPresent([AuditEntry].self, forKey: .auditLog) ?? []
+        // Falls back to `false` (locked) for any case file persisted
+        // before monetization existed -- see the field's doc comment.
+        isUnlocked = try c.decodeIfPresent(Bool.self, forKey: .isUnlocked) ?? false
     }
 
     // MARK: Computed Properties
@@ -341,6 +365,12 @@ enum AuditAction: String, Codable {
     case reportGenerated = "report_generated"
     case caseEdited = "case_edited"
     case caseClosed = "case_closed"
+    // NOTE(AI Developer), added 2026-07 per Sean's monetization decision:
+    // records how a case's full report was unlocked (purchased case
+    // credit vs. active Pro subscription) -- kept in the chain-of-custody
+    // log alongside every other meaningful mutation, and useful for
+    // Sean's own support/troubleshooting if a user disputes a charge.
+    case caseUnlocked = "case_unlocked"
 
     var displayName: String {
         switch self {
@@ -352,6 +382,7 @@ enum AuditAction: String, Codable {
         case .reportGenerated: return "Report Generated"
         case .caseEdited: return "Case Edited"
         case .caseClosed: return "Case Closed"
+        case .caseUnlocked: return "Report Unlocked"
         }
     }
 }

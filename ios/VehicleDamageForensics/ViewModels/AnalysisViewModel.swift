@@ -24,15 +24,19 @@ final class AnalysisViewModel: ObservableObject {
     private let calculator = MatchScoreCalculator()
     private let pdfGenerator = PDFReportGenerator()
     private let storage: StorageService
+    /// NOTE(AI Developer), added 2026-07 per Sean's monetization decision.
+    /// See `PurchaseManager` for full architecture rationale.
+    private let purchases: PurchaseManager
 
     /// NOTE(AI Developer): `storage` defaults to `nil` rather than
     /// `= .shared` directly in the parameter list -- see the identical
     /// note in CaptureViewModel.init for why (Swift 6 strict concurrency:
     /// default-argument expressions are evaluated in a non-isolated
     /// context, but `StorageService.shared` is `@MainActor`-isolated).
-    init(forensicCase: ForensicCase, storage: StorageService? = nil) {
+    init(forensicCase: ForensicCase, storage: StorageService? = nil, purchases: PurchaseManager? = nil) {
         self.forensicCase = forensicCase
         self.storage = storage ?? .shared
+        self.purchases = purchases ?? .shared
         self.matchResult = forensicCase.matchResult
         self.reportURL = forensicCase.reportURL
     }
@@ -54,8 +58,54 @@ final class AnalysisViewModel: ObservableObject {
         isRunning = false
     }
 
+    /// True once this specific case's full report has been unlocked,
+    /// either via a purchased case credit or an active Pro subscription
+    /// held at the time it was unlocked. See `ForensicCase.isUnlocked`
+    /// for why this is stored per-case rather than derived live from
+    /// subscription status.
+    var isUnlocked: Bool {
+        forensicCase.isUnlocked || purchases.hasUnlimitedAccess
+    }
+
+    /// Attempts to unlock this case by spending one purchased case
+    /// credit. Returns `false` (and spends nothing) if the user has no
+    /// credits available -- the caller should present `PaywallView` in
+    /// that case so the user can purchase one. Does nothing (returns
+    /// `true` immediately) if the case is already unlocked, or if the
+    /// user holds an active Pro subscription (no credit needed).
+    @discardableResult
+    func unlockWithCreditIfAvailable() async -> Bool {
+        if isUnlocked { return true }
+        guard purchases.consumeCreditForUnlock() else { return false }
+        markUnlocked(via: "case credit")
+        return true
+    }
+
+    /// Marks this case unlocked after a successful `PaywallView` purchase
+    /// (subscription or consumable) confirms access. Distinct from
+    /// `unlockWithCreditIfAvailable()` because `PaywallView` itself already
+    /// drove the purchase/credit-consumption through `PurchaseManager`; by
+    /// the time its `onUnlocked` callback fires, access already exists --
+    /// this just needs to record that fact against *this* case and persist
+    /// it. Idempotent: calling it on an already-unlocked case is a no-op
+    /// beyond re-saving (harmless).
+    func markUnlockedFromPaywall() {
+        markUnlocked(via: purchases.hasUnlimitedAccess ? "Pro subscription" : "case credit")
+    }
+
+    private func markUnlocked(via method: String) {
+        guard !forensicCase.isUnlocked else { return }
+        forensicCase.isUnlocked = true
+        forensicCase.recordAudit(.caseUnlocked, detail: "Unlocked via \(method)")
+        Task { await storage.save(forensicCase) }
+    }
+
     /// Generate a PDF report after analysis is complete.
     func generateReport() {
+        guard isUnlocked else {
+            lastError = "Unlock this case's full report before generating a PDF."
+            return
+        }
         guard forensicCase.matchResult != nil else {
             lastError = "Run analysis before generating a report."
             return

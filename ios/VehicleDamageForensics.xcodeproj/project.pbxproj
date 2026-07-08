@@ -37,6 +37,8 @@
 		F99C472088F320D73493611C /* CaseListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11D94F799C69AD00D5B03920 /* CaseListViewModel.swift */; };
 		FB4C43129DCB0B3689A2BC44 /* AnalysisViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56154A03B8E5CC2FDEBA65B0 /* AnalysisViewModel.swift */; };
 		FE9446288C43C2BC3431727C /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C71499888C91C0E1DB2E7A5 /* CameraService.swift */; };
+		9A5525CACBBC2C90D3855799 /* PurchaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BACEB969DE9CAE02A6FFE08 /* PurchaseManager.swift */; };
+		678D300627E0BDAF3A5C6990 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C34DECCB6201A262C6F298 /* PaywallView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -72,6 +74,8 @@
 		1AAD2E52A036EA4FBD362F53 /* EditCaseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EditCaseSheet.swift; path = VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift; sourceTree = SOURCE_ROOT; };
 		F20F4580A93C3A131D85A7D3 /* PaintSampleKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaintSampleKit.swift; path = VehicleDamageForensics/Models/PaintSampleKit.swift; sourceTree = SOURCE_ROOT; };
 		F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeformationMatcher.swift; path = VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift; sourceTree = SOURCE_ROOT; };
+		4BACEB969DE9CAE02A6FFE08 /* PurchaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PurchaseManager.swift; path = VehicleDamageForensics/Services/PurchaseManager.swift; sourceTree = SOURCE_ROOT; };
+		12C34DECCB6201A262C6F298 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaywallView.swift; path = VehicleDamageForensics/Views/Paywall/PaywallView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,10 +155,19 @@
 				9A944768A1255D4A8E163F5A /* Capture */,
 				368A47878FAAF91919F80926 /* Dashboard */,
 				4A0541E386BB728416292DAF /* LiDAR */,
+				1E24D07B031348566A7D76D7 /* Paywall */,
 				D3AA448D976A8D46E6238680 /* Reports */,
 				A9E24740A800454E58F41E9F /* Results */,
 			);
 			name = Views;
+			sourceTree = "<group>";
+		};
+		1E24D07B031348566A7D76D7 /* Paywall */ = {
+			isa = PBXGroup;
+			children = (
+				12C34DECCB6201A262C6F298 /* PaywallView.swift */,
+			);
+			name = Paywall;
 			sourceTree = "<group>";
 		};
 		96A29AED40DB566FAD68BB5A /* Products */ = {
@@ -212,6 +225,7 @@
 				A92045EABC4EA6AFC551ED2B /* LiDARService.swift */,
 				2F0E45199762CB6668C0A871 /* PDFReportGenerator.swift */,
 				6AF14E37A4E21B50B50183AB /* StorageService.swift */,
+				4BACEB969DE9CAE02A6FFE08 /* PurchaseManager.swift */,
 			);
 			name = Services;
 			sourceTree = "<group>";
@@ -341,6 +355,8 @@
 				62524C77B019CA248AA4CCE4 /* LiDARScanView.swift in Sources */,
 				EFFE47E3AB624AC000D1BAC5 /* PDFReportView.swift in Sources */,
 				926A4F608DCAA15D6E89EF32 /* MatchResultsView.swift in Sources */,
+				9A5525CACBBC2C90D3855799 /* PurchaseManager.swift in Sources */,
+				678D300627E0BDAF3A5C6990 /* PaywallView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

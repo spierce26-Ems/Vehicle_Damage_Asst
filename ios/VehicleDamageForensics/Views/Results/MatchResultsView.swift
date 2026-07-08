@@ -15,6 +15,13 @@ struct MatchResultsView: View {
     @StateObject private var viewModel: AnalysisViewModel
     @State private var showShareSheet = false
     @State private var showEditCase = false
+    /// NOTE(AI Developer), added 2026-07 per Sean's monetization decision:
+    /// the composite score above stays free/instant (gives every user a
+    /// reason to convert -- "you scored 78/100, unlock the full
+    /// breakdown"), while the per-factor breakdown, recommendations, and
+    /// PDF export are the actual actionable deliverable, gated behind
+    /// `PaywallView`. See `AnalysisViewModel.isUnlocked`.
+    @State private var showPaywall = false
 
     init(forensicCase: ForensicCase) {
         _viewModel = StateObject(wrappedValue: AnalysisViewModel(forensicCase: forensicCase))
@@ -25,9 +32,13 @@ struct MatchResultsView: View {
             VStack(alignment: .leading, spacing: 20) {
                 verdictCard
                 disclaimerCard
-                factorBreakdown
-                recommendations
-                reportSection
+                if viewModel.isUnlocked {
+                    factorBreakdown
+                    recommendations
+                    reportSection
+                } else {
+                    lockedSection
+                }
             }
             .padding()
         }
@@ -43,10 +54,14 @@ struct MatchResultsView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    viewModel.generateReport()
-                    showShareSheet = viewModel.reportURL != nil
+                    if viewModel.isUnlocked {
+                        viewModel.generateReport()
+                        showShareSheet = viewModel.reportURL != nil
+                    } else {
+                        showPaywall = true
+                    }
                 } label: {
-                    Image(systemName: "square.and.arrow.up")
+                    Image(systemName: viewModel.isUnlocked ? "square.and.arrow.up" : "lock.fill")
                 }
             }
         }
@@ -60,11 +75,58 @@ struct MatchResultsView: View {
                 Task { await viewModel.applyEdits(updated) }
             }
         }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView {
+                viewModel.markUnlockedFromPaywall()
+            }
+        }
         .task {
             if viewModel.forensicCase.matchResult == nil {
                 await viewModel.runAnalysis()
             }
         }
+    }
+
+    // MARK: Locked section (pre-purchase)
+
+    /// Shown in place of the factor breakdown / recommendations / report
+    /// sections until this case is unlocked. Offers a fast path to spend
+    /// an already-purchased case credit (common for a Pro user who bought
+    /// a 5-pack and is unlocking case #2, say) before falling back to the
+    /// full paywall for a new purchase.
+    private var lockedSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Full Report Locked", systemImage: "lock.fill")
+                .font(.headline)
+            Text("The per-factor breakdown, investigative recommendations, and shareable PDF report are part of the full report. Unlock this case to view them.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if PurchaseManager.shared.caseCredits > 0 {
+                Button {
+                    Task {
+                        if await viewModel.unlockWithCreditIfAvailable() == false {
+                            showPaywall = true
+                        }
+                    }
+                } label: {
+                    Label("Use 1 Case Credit (\(PurchaseManager.shared.caseCredits) available)", systemImage: "checkmark.seal.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            Button {
+                showPaywall = true
+            } label: {
+                Label("Unlock Full Report", systemImage: "lock.open.fill")
+                    .frame(maxWidth: .infinity)
+                    .font(.headline)
+            }
+            .buttonStyle(PurchaseManager.shared.caseCredits > 0 ? .bordered : .borderedProminent)
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: Correlation card
