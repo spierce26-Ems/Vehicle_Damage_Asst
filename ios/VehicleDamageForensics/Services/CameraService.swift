@@ -99,7 +99,37 @@ final class CameraService: NSObject, ObservableObject {
     // `nonisolated(unsafe)` and exclusively mutated on this same serial
     // `sessionQueue`.
     private nonisolated func configureSession() throws {
+        // NOTE(AI Developer), fixed 2026-07 per Sean's on-device crash
+        // report ("Start Analysis" appears not to work): SwiftUI's
+        // `.task` on `CaptureCameraView` re-runs every time that view
+        // reappears (e.g. popping back from the LiDAR scan screen),
+        // which re-invokes `setupSession()` -> `configureSession()` on a
+        // session that's *already* configured. On that second run,
+        // `session.canAddInput(input)` returns false (a video input is
+        // already attached), so the function threw `.inputNotSupported`
+        // -- but that throw happened *before* `session.commitConfiguration()`
+        // ever ran, leaving `session` permanently stuck mid-configuration.
+        // Any later `stopRunning()` call (e.g. `.onDisappear` firing when
+        // navigating away to run analysis) is then an AVFoundation
+        // contract violation -- "stopRunning may not be called between
+        // calls to beginConfiguration and commitConfiguration" -- which
+        // is a fatal, uncatchable exception, not a normal Swift error.
+        // That crash was what actually made "Start Analysis" look broken:
+        // it fired the instant the capture screen was dismissed, before
+        // the analysis screen ever got a chance to appear.
+        //
+        // Two independent fixes: (1) skip reconfiguration entirely once
+        // `videoInput` shows the session is already set up -- there's
+        // nothing to redo on a reappear, the existing session/preview
+        // layer are still valid; (2) `defer { session.commitConfiguration() }`
+        // immediately after `beginConfiguration()` so *any* future
+        // early-throw in this method (e.g. a genuinely new failure, like
+        // camera permission being revoked mid-session) can never again
+        // leave begin/commit unbalanced.
+        guard videoInput == nil else { return }
+
         session.beginConfiguration()
+        defer { session.commitConfiguration() }
         session.sessionPreset = .photo
 
         // Input
@@ -152,8 +182,9 @@ final class CameraService: NSObject, ObservableObject {
         if photoOutput.isDepthDataDeliverySupported {
             photoOutput.isDepthDataDeliveryEnabled = true
         }
-
-        session.commitConfiguration()
+        // `commitConfiguration()` now runs via the `defer` above -- no
+        // explicit call needed here, and this way it's guaranteed to run
+        // even if a future edit adds another early `throw` below.
 
         let layer = AVCaptureVideoPreviewLayer(session: session)
         layer.videoGravity = .resizeAspectFill
