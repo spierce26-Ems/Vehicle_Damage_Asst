@@ -19,7 +19,6 @@ final class CameraService: NSObject, ObservableObject {
     @Published var previewLayer: AVCaptureVideoPreviewLayer?
     @Published var captureState: CaptureState = .idle
     @Published var sensorReading: SensorReading = SensorReading()
-    @Published var capturedPhotos: [CapturedPhoto] = []
     @Published var currentProtocolStep: CaptureProtocolStep?
     @Published var errorMessage: String?
     @Published var flashMode: AVCaptureDevice.FlashMode = .auto
@@ -292,7 +291,25 @@ final class CameraService: NSObject, ObservableObject {
             annotationNotes: step.instruction
         )
 
-        capturedPhotos.append(photo)
+        // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+        // ("Terminated by the operating system because it is using too
+        // much memory" -- Xcode debug code 9 / iOS jetsam): this used to
+        // `capturedPhotos.append(photo)` here, into a second
+        // `@Published [CapturedPhoto]` array on `CameraService` that was
+        // written to on every capture but never read anywhere in the app
+        // (confirmed via a full-codebase grep -- nothing ever accesses
+        // `camera.capturedPhotos`). Every returned `photo` is also stored
+        // by the caller in `CaptureViewModel.capturedPhotos` and, from
+        // there, in `forensicCase.victimVehicle`/`.suspectVehicle.photos`
+        // -- so this dead array was holding a *third* full-resolution copy
+        // of every captured photo's `imageData` in memory for the entire
+        // capture session (worst case ~20-30 photos x 2 vehicles,
+        // each already capped at ~12MP but still real memory), on top of
+        // the two copies that are actually used. That's a plausible
+        // contributor to hitting the OS memory ceiling over a full
+        // protocol run. Removed the array entirely -- `capturePhoto(...)`
+        // already returns the photo to its caller, which is the only
+        // thing that ever needs it.
         captureState = .idle
         return photo
     }
