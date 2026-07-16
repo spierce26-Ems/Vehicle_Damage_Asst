@@ -49,6 +49,10 @@ struct EditCaseSheet: View {
     @State private var victimColor: String
     @State private var victimPlate: String
     @State private var victimVIN: String
+    // NOTE(AI Developer), added 2026-07 per Sean's request for a simple
+    // Car/Truck toggle that drives which top-down silhouette
+    // `ImpactSilhouetteView` shows for this vehicle.
+    @State private var victimBodyType: VehicleBodyType
 
     // Suspect vehicle
     @State private var recordSuspectInfo: Bool
@@ -58,6 +62,7 @@ struct EditCaseSheet: View {
     @State private var suspectColor: String
     @State private var suspectPlate: String
     @State private var suspectVIN: String
+    @State private var suspectBodyType: VehicleBodyType
 
     init(forensicCase: ForensicCase, onSave: @escaping (ForensicCase) -> Void) {
         self.original = forensicCase
@@ -81,6 +86,7 @@ struct EditCaseSheet: View {
         _victimColor = State(initialValue: v.color)
         _victimPlate = State(initialValue: v.licensePlate ?? "")
         _victimVIN = State(initialValue: v.vin ?? "")
+        _victimBodyType = State(initialValue: v.bodyType)
 
         let s = forensicCase.suspectVehicle
         // NOTE(AI Developer): "Suspect vehicle identified" starts on if we
@@ -95,6 +101,7 @@ struct EditCaseSheet: View {
         _suspectColor = State(initialValue: s?.color ?? "")
         _suspectPlate = State(initialValue: s?.licensePlate ?? "")
         _suspectVIN = State(initialValue: s?.vin ?? "")
+        _suspectBodyType = State(initialValue: s?.bodyType ?? .car)
     }
 
     var body: some View {
@@ -142,6 +149,12 @@ struct EditCaseSheet: View {
                         .textInputAutocapitalization(.characters)
                     TextField("VIN (optional)", text: $victimVIN)
                         .textInputAutocapitalization(.characters)
+                    Picker("Vehicle Type", selection: $victimBodyType) {
+                        ForEach(VehicleBodyType.allCases, id: \.self) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
+                    .pickerStyle(.segmented)
                     if !original.victimVehicle.photos.isEmpty {
                         Text("\(original.victimVehicle.photos.count) photo(s) captured — unaffected by this form.")
                             .font(.caption)
@@ -164,6 +177,12 @@ struct EditCaseSheet: View {
                             .textInputAutocapitalization(.characters)
                         TextField("VIN (optional)", text: $suspectVIN)
                             .textInputAutocapitalization(.characters)
+                        Picker("Vehicle Type", selection: $suspectBodyType) {
+                            ForEach(VehicleBodyType.allCases, id: \.self) { type in
+                                Text(type.displayName).tag(type)
+                            }
+                        }
+                        .pickerStyle(.segmented)
                     }
                     if let photoCount = original.suspectVehicle?.photos.count, photoCount > 0 {
                         Text("\(photoCount) photo(s) captured — unaffected by this form, even if you turn the toggle off.")
@@ -216,6 +235,7 @@ struct EditCaseSheet: View {
         updated.victimVehicle.color = victimColor
         updated.victimVehicle.licensePlate = victimPlate.isEmpty ? nil : victimPlate
         updated.victimVehicle.vin = victimVIN.isEmpty ? nil : victimVIN
+        updated.victimVehicle.bodyType = victimBodyType
 
         if recordSuspectInfo {
             // Start from the existing suspect Vehicle if one exists (so we
@@ -228,6 +248,7 @@ struct EditCaseSheet: View {
             suspect.color = suspectColor
             suspect.licensePlate = suspectPlate.isEmpty ? nil : suspectPlate
             suspect.vin = suspectVIN.isEmpty ? nil : suspectVIN
+            suspect.bodyType = suspectBodyType
             updated.suspectVehicle = suspect
         } else if var suspect = original.suspectVehicle,
                   !suspect.photos.isEmpty || !suspect.damageZones.isEmpty || suspect.lidarScanData != nil {

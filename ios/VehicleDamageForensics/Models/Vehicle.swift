@@ -23,6 +23,19 @@ struct Vehicle: Identifiable, Codable, Equatable {
     var bumperHeightInches: Double?
     var lidarScanData: LiDARScanData?
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("can we have
+    /// a better image to tap to show where the damage is on the vehicle?
+    /// if its a truck we should be able to better identify the location
+    /// of the impact instead of a generic square we tap"). A simple
+    /// Car/Truck toggle -- deliberately not a fuller body-style enum
+    /// (Sean's explicit choice: "something easy like Car vs Truck as a
+    /// simple toggle") -- that drives which top-down outline
+    /// `ImpactSilhouetteView` draws (see `Views/Capture/ImpactMarkerView.swift`).
+    /// Defaults to `.car` so every case created before this field existed
+    /// (and hasn't been re-edited yet) keeps showing the same silhouette
+    /// it always has.
+    var bodyType: VehicleBodyType = .car
+
     /// NOTE(AI Developer), added 2026-07 per Sean's request ("we need the
     /// use of Lidar as an extra tool"). A physical damage height, in
     /// inches, measured directly from the LiDAR-reconstructed mesh during
@@ -94,6 +107,7 @@ struct Vehicle: Identifiable, Codable, Equatable {
         damageZones: [DamageZone] = [],
         bumperHeightInches: Double? = nil,
         lidarScanData: LiDARScanData? = nil,
+        bodyType: VehicleBodyType = .car,
         lidarMeasuredHeightInches: Double? = nil,
         impactTapPoint: CGPoint? = nil,
         directionOfTravelDegrees: Double? = nil,
@@ -112,6 +126,7 @@ struct Vehicle: Identifiable, Codable, Equatable {
         self.damageZones = damageZones
         self.bumperHeightInches = bumperHeightInches
         self.lidarScanData = lidarScanData
+        self.bodyType = bodyType
         self.lidarMeasuredHeightInches = lidarMeasuredHeightInches
         self.impactTapPoint = impactTapPoint
         self.directionOfTravelDegrees = directionOfTravelDegrees
@@ -147,6 +162,11 @@ struct Vehicle: Identifiable, Codable, Equatable {
         damageZones = try c.decode([DamageZone].self, forKey: .damageZones)
         bumperHeightInches = try c.decodeIfPresent(Double.self, forKey: .bumperHeightInches)
         lidarScanData = try c.decodeIfPresent(LiDARScanData.self, forKey: .lidarScanData)
+        // `bodyType` didn't exist before this change -- every case saved
+        // before this update decodes it as `.car` (the same silhouette
+        // those cases have always shown), same backward-compat pattern as
+        // `skippedShotIndices` below.
+        bodyType = try c.decodeIfPresent(VehicleBodyType.self, forKey: .bodyType) ?? .car
         lidarMeasuredHeightInches = try c.decodeIfPresent(Double.self, forKey: .lidarMeasuredHeightInches)
         impactTapPoint = try c.decodeIfPresent(CGPoint.self, forKey: .impactTapPoint)
         directionOfTravelDegrees = try c.decodeIfPresent(Double.self, forKey: .directionOfTravelDegrees)
@@ -267,6 +287,23 @@ enum VehicleRole: String, Codable {
         switch self {
         case .victim: return "systemBlue"
         case .suspect: return "systemOrange"
+        }
+    }
+}
+
+// MARK: - Vehicle Body Type
+
+/// NOTE(AI Developer), added 2026-07 per Sean's request for a simple
+/// Car/Truck toggle to drive which top-down silhouette
+/// `ImpactSilhouetteView` shows. See `Vehicle.bodyType`.
+enum VehicleBodyType: String, Codable, CaseIterable {
+    case car
+    case truck
+
+    var displayName: String {
+        switch self {
+        case .car: return "Car"
+        case .truck: return "Truck"
         }
     }
 }

@@ -77,7 +77,7 @@
   gating `ForensicCase.isReadyForAnalysis` and the Continue/Run-Analysis buttons in
   `CaptureFlowView`, alongside the 10-shot photo protocol (photos themselves remain skippable —
   see below). For each vehicle:
-  1. **Tap the point of impact** on a top-down car silhouette (`ImpactSilhouetteView`) — free
+  1. **Tap the point of impact** on a top-down silhouette (`ImpactSilhouetteView`) — free
      tap-anywhere, not a fixed zone picker.
   2. **Direction of travel at impact** — either read live from the device compass
      (`Services/HeadingProvider.swift`, a dedicated short-lived `CLLocationManager` scoped to this
@@ -86,6 +86,17 @@
   `impactBearingDegrees`) revives the previously-dead **Impact Geometry** factor (15% weight) in
   the correlation engine — `scoreImpactGeometry` now checks that the two vehicles' impact
   bearings are reciprocal (~180° apart) instead of always reporting `.unavailable`.
+  - **Car/Truck silhouette toggle** (added 2026-07, per Sean's on-device feedback — "if its a
+    truck we should be able to better identify the location of the impact instead of a generic
+    square we tap"): `Vehicle.bodyType` (`VehicleBodyType`: `.car` / `.truck`, defaulting to
+    `.car` so existing cases are unaffected) is now set via a segmented Car/Truck `Picker` in
+    `EditCaseSheet.swift`'s Victim/Suspect Vehicle sections. `ImpactSilhouetteView` reads it and
+    draws either the original generic rounded-rectangle body (`.car`) or a distinct
+    narrower-cab-plus-wider-rear-bed outline (`.truck`), so a tap on "the bed" vs. "the cab" is
+    visually unambiguous instead of both being the same undifferentiated box. Both outlines keep
+    the exact same normalized (0,0)-(1,1) tap-point contract that `Vehicle.impactRelativeAngleDegrees`
+    depends on (front-center at (0.5, 0), rear-center at (0.5, 1)) — only the drawing changes, not
+    the angle math.
   Precise physical measurement (bumper height, paint chemistry, mm-level dimensions) is
   deferred to a later phase per Sean's decision — this step only captures location + direction.
 - **Case management** (`ViewModels/CaseListViewModel`, `Views/Dashboard/`): create, edit, search,
@@ -183,13 +194,17 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   the sandbox does not persist credentials across sessions.
 - **Last updated**: 2026-07-16
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
-  LiDAR tap-to-measure height wiring) were written in the Genspark sandbox, which has no
-  Xcode/Swift toolchain — only brace/paren/bracket balance was checked, not a real compile.
-  Build and test on-device before relying on this, especially the new tap/drag UI
-  (`ImpactMarkerView`), the live-compass path (`HeadingProvider`), and the new LiDAR
-  tap-to-measure flow (`LiDARScanView`'s "Measure Height" button, `LiDARService.worldY`/
-  `heightFromWorldPositions`) — none of these have ever been compiled or run; the LiDAR raycast
-  code in particular needs a physical LiDAR device (no simulator support) to verify at all.
+  LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, and the
+  Car/Truck silhouette toggle) were written in the Genspark sandbox, which has no Xcode/Swift
+  toolchain — only brace/paren/bracket balance was checked, not a real compile. Build and test
+  on-device before relying on this, especially the new tap/drag UI (`ImpactMarkerView`), the
+  live-compass path (`HeadingProvider`), the LiDAR tap-to-measure flow (`LiDARScanView`'s "Measure
+  Height" button, `LiDARService.worldY`/`heightFromWorldPositions`, and the
+  `automaticallyConfigureSession = false` fix in `ARViewContainer`) — none of these have ever been
+  compiled or run; the LiDAR raycast/mesh-scan code in particular needs a physical LiDAR device
+  (no simulator support) to verify at all — and the new Car/Truck body-type toggle
+  (`Vehicle.bodyType`, the `Picker` in `EditCaseSheet.swift`, and `ImpactSilhouetteView`'s new
+  truck outline).
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
