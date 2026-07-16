@@ -67,7 +67,7 @@ struct MatchScoreCalculator {
             suspectDamageImage: bestDamageImage(in: suspect))
 
         // Heuristic factors — placeholders that downstream services can replace
-        let geometryScore = scoreImpactGeometry(victim: vZone, suspect: sZone)
+        let geometryScore = scoreImpactGeometry(victim: victim, suspect: suspect)
         let dimensionScore = scoreDamageDimensions(victim: vZone, suspect: sZone)
         let materialScore = scoreMaterialTransfer(victim: vZone, suspect: sZone)
         let temporalScore = scoreTemporalConsistency(case: forensicCase)
@@ -91,12 +91,45 @@ struct MatchScoreCalculator {
         ]
         log("all factors resolved")
 
-        let weighted = factors.reduce(0.0) { acc, fs in
-            acc + (fs.rawScore * fs.weight * fs.dataQuality.penaltyMultiplier)
+        // NOTE(AI Developer), 2026-07, per Sean's explicit direction
+        // ("please do both option A and B") after the "is the analysis
+        // truly comparing the images" investigation: this used to divide
+        // by the full fixed 7-factor weighting (`ForensicFactor.weight`,
+        // summing to 1.0) regardless of which factors actually had usable
+        // data -- so any factor stuck at `dataQuality: .unavailable`
+        // (penaltyMultiplier 0.0) simply vanished from the numerator
+        // *without* its weight being removed from the denominator. Before
+        // this fix, and before Option A (the new impact-location/
+        // direction-of-travel feature) gave `impactGeometry` real data,
+        // that meant paintTransfer/heightAlignment/damageDimensions/
+        // materialTransfer (0.60 combined weight) were *always*
+        // unavailable in every real run, capping the maximum possible
+        // composite score at ~40/100 even for a flawless match on every
+        // factor that *did* have data.
+        //
+        // Fixed by renormalizing: only factors with `dataQuality !=
+        // .unavailable` contribute to the weight total, and each
+        // contributing factor's *effective* weight is rescaled so the
+        // usable factors' weights still sum to 1.0 among themselves. A
+        // perfect score on 100% of the factors that actually have data
+        // now reads as 100, not an artificially depressed number that
+        // conflates "no evidence for this factor" with "this factor
+        // scored zero." `usableFactorCount == 0` (e.g. a fresh case with
+        // no data at all) falls back to composite 0 rather than dividing
+        // by zero.
+        let usableFactors = factors.filter { $0.dataQuality != .unavailable }
+        let usableWeightTotal = usableFactors.reduce(0.0) { $0 + $1.weight }
+        let composite: Double
+        if usableWeightTotal > 0 {
+            let weightedSum = usableFactors.reduce(0.0) { acc, fs in
+                acc + (fs.rawScore * fs.weight * fs.dataQuality.penaltyMultiplier)
+            }
+            composite = max(0, min(100, weightedSum / usableWeightTotal))
+        } else {
+            composite = 0
         }
-        let composite = max(0, min(100, weighted))
 
-        let usableFactorCount = factors.filter { $0.dataQuality != .unavailable }.count
+        let usableFactorCount = usableFactors.count
         let confidence = ConfidenceLevel.from(score: composite, factorCount: usableFactorCount)
         let scoreRange = scoreRangeLabelString(for: composite, confidence: confidence)
 
@@ -113,17 +146,38 @@ struct MatchScoreCalculator {
 
     // MARK: Heuristic factor implementations
 
-    private func scoreImpactGeometry(victim: DamageZone?, suspect: DamageZone?) -> FactorScore {
-        guard let v = victim, let s = suspect,
-              let vAng = v.impactAngleDegrees, let sAng = s.impactAngleDegrees else {
+    /// NOTE(AI Developer), rewritten 2026-07 per Sean's request ("should
+    /// we identify the location of the damage on each vehicle and always
+    /// identify the direction of traveling at impact... to help
+    /// correlating data"). This factor used to require
+    /// `DamageZone.impactAngleDegrees` on both vehicles -- a field
+    /// confirmed via exhaustive grep to never be populated anywhere in
+    /// the app (no capture step, no manual-entry UI), which made this
+    /// entire 15%-weighted factor permanently `.unavailable` in every
+    /// real analysis run. Now derives the same reciprocity check from
+    /// `Vehicle.impactBearingDegrees` (tap-to-mark damage location +
+    /// direction-of-travel compass heading, combined -- see that
+    /// property's doc comment for the geometry derivation), which is
+    /// populated by the new REQUIRED `ImpactMarkerView` capture step for
+    /// every case going forward.
+    ///
+    /// Reciprocal absolute bearings should sum to ~180° regardless of
+    /// collision type (head-on, rear-end, T-bone, sideswipe) as long as
+    /// both vehicles' bearings are derived the same way -- see the worked
+    /// examples in `Vehicle.impactBearingDegrees`'s doc comment.
+    private func scoreImpactGeometry(victim: Vehicle, suspect: Vehicle) -> FactorScore {
+        guard let vBearing = victim.impactBearingDegrees,
+              let sBearing = suspect.impactBearingDegrees else {
             return FactorScore(factor: .impactGeometry, rawScore: 0, dataQuality: .unavailable,
-                               notes: "Impact angles not captured (LiDAR required)")
+                               notes: "Impact location/direction of travel not recorded for one or both vehicles")
         }
-        // Reciprocal angles should sum to ~180°.
-        let delta = abs(180 - (vAng + sAng))
+        // Reciprocal bearings should sum to ~180° (mod 360).
+        let rawSum = (vBearing + sBearing).truncatingRemainder(dividingBy: 360)
+        let delta = min(abs(180 - rawSum), abs(180 - rawSum + 360), abs(180 - rawSum - 360))
         let raw = max(0, 100 - delta * 5)
         return FactorScore(factor: .impactGeometry, rawScore: raw, dataQuality: .full,
-                           notes: String(format: "Reciprocity Δ=%.1f° → %.0f", delta, raw))
+                           notes: String(format: "Bearings %.0f° / %.0f°, reciprocity Δ=%.1f° → %.0f",
+                                         vBearing, sBearing, delta, raw))
     }
 
     private func scoreDamageDimensions(victim: DamageZone?, suspect: DamageZone?) -> FactorScore {

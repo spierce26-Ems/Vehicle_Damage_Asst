@@ -259,7 +259,7 @@ enum ForensicFactor: String, Codable, CaseIterable {
         switch self {
         case .paintTransfer: return "CIE ΔE color match + layer analysis"
         case .heightAlignment: return "Bumper-to-ground height comparison"
-        case .impactGeometry: return "LiDAR-derived impact angle reciprocity"
+        case .impactGeometry: return "Impact location + direction-of-travel reciprocity"
         case .deformationPattern: return "3D contour shape signature matching"
         case .damageDimensions: return "Physical size of damage zones"
         case .materialTransfer: return "Rubber, plastic, glass transfer"
