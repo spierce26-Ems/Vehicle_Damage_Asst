@@ -39,6 +39,8 @@
 		FE9446288C43C2BC3431727C /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C71499888C91C0E1DB2E7A5 /* CameraService.swift */; };
 		9A5525CACBBC2C90D3855799 /* PurchaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BACEB969DE9CAE02A6FFE08 /* PurchaseManager.swift */; };
 		678D300627E0BDAF3A5C6990 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C34DECCB6201A262C6F298 /* PaywallView.swift */; };
+		D77C2BE627340BFD99713036 /* HeadingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF5307E605921A484C06DAB /* HeadingProvider.swift */; };
+		FDB59CC5B475210890C53AE7 /* ImpactMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -76,6 +78,8 @@
 		F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DeformationMatcher.swift; path = VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift; sourceTree = SOURCE_ROOT; };
 		4BACEB969DE9CAE02A6FFE08 /* PurchaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PurchaseManager.swift; path = VehicleDamageForensics/Services/PurchaseManager.swift; sourceTree = SOURCE_ROOT; };
 		12C34DECCB6201A262C6F298 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaywallView.swift; path = VehicleDamageForensics/Views/Paywall/PaywallView.swift; sourceTree = SOURCE_ROOT; };
+		9EF5307E605921A484C06DAB /* HeadingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HeadingProvider.swift; path = VehicleDamageForensics/Services/HeadingProvider.swift; sourceTree = SOURCE_ROOT; };
+		C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ImpactMarkerView.swift; path = VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -184,6 +188,7 @@
 				177746A1A0EC53251C22F0E2 /* CaptureCameraView.swift */,
 				34164AD6B187D17E583CCE15 /* CaptureFlowView.swift */,
 				EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */,
+				C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */,
 			);
 			name = Capture;
 			sourceTree = "<group>";
@@ -226,6 +231,7 @@
 				2F0E45199762CB6668C0A871 /* PDFReportGenerator.swift */,
 				6AF14E37A4E21B50B50183AB /* StorageService.swift */,
 				4BACEB969DE9CAE02A6FFE08 /* PurchaseManager.swift */,
+				9EF5307E605921A484C06DAB /* HeadingProvider.swift */,
 			);
 			name = Services;
 			sourceTree = "<group>";
@@ -357,6 +363,8 @@
 				926A4F608DCAA15D6E89EF32 /* MatchResultsView.swift in Sources */,
 				9A5525CACBBC2C90D3855799 /* PurchaseManager.swift in Sources */,
 				678D300627E0BDAF3A5C6990 /* PaywallView.swift in Sources */,
+				D77C2BE627340BFD99713036 /* HeadingProvider.swift in Sources */,
+				FDB59CC5B475210890C53AE7 /* ImpactMarkerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
