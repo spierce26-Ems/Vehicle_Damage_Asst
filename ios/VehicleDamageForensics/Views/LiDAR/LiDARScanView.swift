@@ -61,13 +61,34 @@ struct LiDARScanView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             do { try lidarService.startScan() }
-            catch { /* surface error */ }
+            catch {
+                // NOTE(AI Developer): previously this catch block was
+                // empty (the "surface error" comment was aspirational,
+                // not actually implemented) -- an unsupported-device
+                // failure here left the screen just sitting there with
+                // no feedback at all, indistinguishable from a hang.
+                // `LiDARService.startScan()` already published this same
+                // failure to `lastError` before throwing, so the `.alert`
+                // below picks it up; this catch only needs to exist so
+                // the `do/catch` compiles (the thrown error is otherwise
+                // unused here).
+            }
         }
         .onDisappear {
             if lidarService.isScanning {
                 _ = lidarService.stopScan()
             }
         }
+        // NOTE(AI Developer), added 2026-07 per Sean's on-device report
+        // ("Lidar took a while to start and the lidar crashed/stop").
+        // Surfaces a hard session failure (`LiDARService.lastError`) as
+        // an actual alert instead of silently leaving the user staring at
+        // a stalled scan with zero explanation -- previously nothing in
+        // this view ever read `lastError` at all.
+        .alert("LiDAR Scan Error",
+               isPresented: .constant(lidarService.lastError != nil),
+               actions: { Button("OK") { lidarService.clearError() } },
+               message: { Text(lidarService.lastError?.errorDescription ?? "") })
     }
 
     // MARK: Tap-to-measure
@@ -162,6 +183,21 @@ struct LiDARScanView: View {
                      : "LiDAR not supported on this device")
             }
             .foregroundStyle(.white)
+
+            // NOTE(AI Developer), added 2026-07 per Sean's on-device
+            // report ("Lidar took a while to start and the lidar
+            // crashed/stop"): a slow-but-normal tracking start (ARKit
+            // needs a few seconds of camera motion before quality
+            // settles) previously looked identical to a hang, since
+            // nothing told the user *why* coverage was stuck at 0%. Now
+            // shows `LiDARService.trackingStateMessage` (e.g.
+            // "Initializing — hold the phone steady…") whenever tracking
+            // isn't yet `.normal`, and disappears once it is.
+            if let message = lidarService.trackingStateMessage {
+                Label(message, systemImage: "hourglass")
+                    .font(.caption)
+                    .foregroundStyle(.yellow)
+            }
 
             ProgressView(value: lidarService.coveragePercent / 100.0) {
                 Text("Coverage \(Int(lidarService.coveragePercent))% • Points \(lidarService.pointCloudCount)")

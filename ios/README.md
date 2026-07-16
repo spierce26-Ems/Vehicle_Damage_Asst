@@ -67,6 +67,18 @@
     surfaces) still worked, while the mesh wireframe/coverage never engaged. `LiDARService`'s own
     `session.run(...)` in `startScan()` is now the only thing that ever configures/runs the
     session.
+  - **LiDAR startup/interruption feedback** (added 2026-07, per Sean's follow-up report — "Lidar
+    took a while to start and the lidar crashed/stop"): `LiDARService` now implements
+    `sessionWasInterrupted`/`sessionInterruptionEnded`/`cameraDidChangeTrackingState`
+    (`ARSessionDelegate`), none of which existed before. A slow-but-normal tracking start (ARKit
+    needs a few seconds of camera motion before tracking quality reaches `.normal`) now shows a
+    `trackingStateMessage` (e.g. "Initializing — hold the phone steady…") in `LiDARScanView`'s
+    `topStatus` instead of silently doing nothing. A genuine system interruption (phone call,
+    Control Center, multitasking) — which previously left `isScanning` stuck `true` with no mesh
+    data arriving, indistinguishable from a crash — now shows "Scan interrupted…" immediately and
+    automatically resets tracking and resumes once the interruption ends. `LiDARScanView` also
+    now has an actual `.alert` reading `LiDARService.lastError` (previously nothing in the view
+    read that property at all, so even a hard, unsupported-device failure was invisible).
   - **Composite score renormalization** (added 2026-07, per Sean's decision): a case where one or
     more factors are `dataQuality: .unavailable` (no real data captured for that factor) no
     longer permanently caps the max achievable score. The composite is now `weightedSum /
@@ -89,14 +101,20 @@
   - **Car/Truck silhouette toggle** (added 2026-07, per Sean's on-device feedback — "if its a
     truck we should be able to better identify the location of the impact instead of a generic
     square we tap"): `Vehicle.bodyType` (`VehicleBodyType`: `.car` / `.truck`, defaulting to
-    `.car` so existing cases are unaffected) is now set via a segmented Car/Truck `Picker` in
-    `EditCaseSheet.swift`'s Victim/Suspect Vehicle sections. `ImpactSilhouetteView` reads it and
-    draws either the original generic rounded-rectangle body (`.car`) or a distinct
-    narrower-cab-plus-wider-rear-bed outline (`.truck`), so a tap on "the bed" vs. "the cab" is
-    visually unambiguous instead of both being the same undifferentiated box. Both outlines keep
-    the exact same normalized (0,0)-(1,1) tap-point contract that `Vehicle.impactRelativeAngleDegrees`
-    depends on (front-center at (0.5, 0), rear-center at (0.5, 1)) — only the drawing changes, not
-    the angle math.
+    `.car` so existing cases are unaffected) is set via a segmented Car/Truck `Picker` in
+    `EditCaseSheet.swift`'s Victim/Suspect Vehicle sections; `ImpactSilhouetteView` reads it to
+    pick which outline to draw. Both outlines keep the exact same normalized (0,0)-(1,1)
+    tap-point contract that `Vehicle.impactRelativeAngleDegrees` depends on (front-center at
+    (0.5, 0), rear-center at (0.5, 1)) — only the drawing changes, not the angle math.
+  - **Fenders and bumpers added to both silhouettes** (added 2026-07, per Sean's follow-up
+    feedback on the first version of the toggle — "I dont like the new truck silhouette. Still a
+    little confusing on how to mark the spot of impact. need to see fenders and bumpers to
+    clearing mark impact spots."): both `.car` and `.truck` outlines now draw a labeled **front
+    bumper** bar and **rear bumper** bar (tailgate, for the truck), plus four **fender** bulges
+    (one per wheel position) each with a darker wheel-well ellipse inside — the actual landmarks
+    ("front bumper," "driver-side front fender") people use to describe where a vehicle was hit,
+    replacing the plain unlabeled box corners from the first version. The truck's cab/bed body
+    shape is kept but is now a secondary detail under the more prominent bumper/fender landmarks.
   Precise physical measurement (bumper height, paint chemistry, mm-level dimensions) is
   deferred to a later phase per Sean's decision — this step only captures location + direction.
 - **Case management** (`ViewModels/CaseListViewModel`, `Views/Dashboard/`): create, edit, search,
@@ -194,17 +212,18 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   the sandbox does not persist credentials across sessions.
 - **Last updated**: 2026-07-16
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
-  LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, and the
-  Car/Truck silhouette toggle) were written in the Genspark sandbox, which has no Xcode/Swift
-  toolchain — only brace/paren/bracket balance was checked, not a real compile. Build and test
-  on-device before relying on this, especially the new tap/drag UI (`ImpactMarkerView`), the
-  live-compass path (`HeadingProvider`), the LiDAR tap-to-measure flow (`LiDARScanView`'s "Measure
-  Height" button, `LiDARService.worldY`/`heightFromWorldPositions`, and the
-  `automaticallyConfigureSession = false` fix in `ARViewContainer`) — none of these have ever been
-  compiled or run; the LiDAR raycast/mesh-scan code in particular needs a physical LiDAR device
-  (no simulator support) to verify at all — and the new Car/Truck body-type toggle
-  (`Vehicle.bodyType`, the `Picker` in `EditCaseSheet.swift`, and `ImpactSilhouetteView`'s new
-  truck outline).
+  LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, LiDAR
+  startup/interruption feedback, and the Car/Truck silhouette toggle with fender/bumper
+  landmarks) were written in the Genspark sandbox, which has no Xcode/Swift toolchain — only
+  brace/paren/bracket balance was checked, not a real compile. Build and test on-device before
+  relying on this, especially the new tap/drag UI (`ImpactMarkerView`), the live-compass path
+  (`HeadingProvider`), the LiDAR tap-to-measure flow (`LiDARScanView`'s "Measure Height" button,
+  `LiDARService.worldY`/`heightFromWorldPositions`, the `automaticallyConfigureSession = false`
+  fix, and the new `sessionWasInterrupted`/`sessionInterruptionEnded`/
+  `cameraDidChangeTrackingState` handlers) — none of these have ever been compiled or run; the
+  LiDAR raycast/mesh-scan code in particular needs a physical LiDAR device (no simulator support)
+  to verify at all — and the new Car/Truck body-type toggle (`Vehicle.bodyType`, the `Picker` in
+  `EditCaseSheet.swift`, and `ImpactSilhouetteView`'s bumper/fender landmarks).
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

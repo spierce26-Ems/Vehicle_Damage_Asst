@@ -23,6 +23,16 @@ final class LiDARService: NSObject, ObservableObject {
     @Published private(set) var pointCloudCount: Int = 0
     @Published private(set) var lastError: ScanError?
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's on-device report
+    /// ("Lidar took a while to start and the lidar crashed/stop"). This
+    /// is a *transient* status message (tracking initializing/degraded),
+    /// distinct from `lastError` (a hard failure) -- surfaced so the user
+    /// sees *why* nothing seems to be happening ("Initializing — hold the
+    /// phone steady") instead of an unexplained delay that looks frozen
+    /// or crashed. `nil` when tracking is normal. See
+    /// `session(_:cameraDidChangeTrackingState:)` below.
+    @Published private(set) var trackingStateMessage: String?
+
     // MARK: Internal
 
     // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
@@ -56,7 +66,15 @@ final class LiDARService: NSObject, ObservableObject {
 
     /// Begins a LiDAR scan. Throws if the device lacks a LiDAR sensor.
     func startScan() throws {
-        guard isAvailable else { throw ScanError.unsupportedDevice }
+        guard isAvailable else {
+            // NOTE(AI Developer): publish to `lastError` in addition to
+            // throwing, so `LiDARScanView`'s `.alert(... lidarService.lastError
+            // ...)` actually shows this -- previously this only threw,
+            // and the view's `catch` block was empty, so an
+            // unsupported-device failure was silently invisible.
+            lastError = .unsupportedDevice
+            throw ScanError.unsupportedDevice
+        }
 
         let config = ARWorldTrackingConfiguration()
         config.sceneReconstruction = .mesh
@@ -72,6 +90,17 @@ final class LiDARService: NSObject, ObservableObject {
 
         session.run(config, options: [.resetTracking, .removeExistingAnchors])
         isScanning = true
+    }
+
+    /// NOTE(AI Developer), added 2026-07 alongside the new
+    /// `LiDARScanView` error alert: `lastError` is `private(set)` (only
+    /// this service can set it), so the alert's "OK" button needs an
+    /// explicit way to clear it -- otherwise `.alert(isPresented:
+    /// .constant(lidarService.lastError != nil), ...)` would never
+    /// actually dismiss (a `.constant` binding ignores SwiftUI's own
+    /// attempt to set it back to `false` on dismissal).
+    func clearError() {
+        lastError = nil
     }
 
     /// Stops the scan and returns a serialized snapshot of the captured data.
@@ -176,6 +205,73 @@ extension LiDARService: ARSessionDelegate {
         Task { @MainActor in
             self.lastError = .session(error.localizedDescription)
             self.isScanning = false
+        }
+    }
+
+    // NOTE(AI Developer), added 2026-07 per Sean's on-device report
+    // ("Lidar took a while to start and the lidar crashed/stop"). Two
+    // separate gaps this closes:
+    //
+    // 1. "Took a while to start": ARKit's world-tracking + scene
+    //    reconstruction needs a few seconds of camera motion/parallax
+    //    before tracking quality reaches `.normal` -- this is normal
+    //    ARKit behavior, not a hang, but the UI gave zero indication of
+    //    it, so a genuinely slow-but-working start looked identical to a
+    //    frozen one. `cameraDidChangeTrackingState` now publishes a
+    //    human-readable `trackingStateMessage` (e.g. "Initializing... "
+    //    or the specific `.limited(reason:)` text) that `LiDARScanView`
+    //    shows in `topStatus`, `nil` once tracking is `.normal`.
+    //
+    // 2. "Crashed/stop": `didFailWithError` (above) only fires for a
+    //    genuinely fatal session error -- it does NOT fire for a
+    //    *interruption* (e.g. the system briefly takes the camera for a
+    //    phone call / Control Center / multitasking), which instead
+    //    calls `sessionWasInterrupted`/`sessionInterruptionEnded` and,
+    //    critically, leaves `isScanning` sitting at `true` with no mesh
+    //    data arriving -- from the user's point of view, indistinguishable
+    //    from an actual crash ("the lidar... stop"). Previously this
+    //    service had no `sessionWasInterrupted`/`sessionInterruptionEnded`
+    //    handling at all. Now an interruption surfaces as a
+    //    `trackingStateMessage` immediately, and ending the interruption
+    //    resets tracking (matching Apple's own recommendation for
+    //    scene-reconstruction sessions, where stale mesh anchors from
+    //    before the interruption are not worth preserving) so scanning
+    //    reliably resumes instead of silently sitting stalled.
+    nonisolated func sessionWasInterrupted(_ session: ARSession) {
+        Task { @MainActor in
+            self.trackingStateMessage = "Scan interrupted — hold the vehicle in view to resume."
+        }
+    }
+
+    nonisolated func sessionInterruptionEnded(_ session: ARSession) {
+        Task { @MainActor in
+            guard let config = self.configuration else { return }
+            self.trackingStateMessage = nil
+            self.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+        }
+    }
+
+    nonisolated func session(_ session: ARSession, cameraDidChangeTrackingState camera: ARCamera) {
+        Task { @MainActor in
+            switch camera.trackingState {
+            case .normal:
+                self.trackingStateMessage = nil
+            case .notAvailable:
+                self.trackingStateMessage = "Tracking not available yet…"
+            case .limited(let reason):
+                switch reason {
+                case .initializing:
+                    self.trackingStateMessage = "Initializing — hold the phone steady…"
+                case .excessiveMotion:
+                    self.trackingStateMessage = "Moving too fast — slow down for better tracking."
+                case .insufficientFeatures:
+                    self.trackingStateMessage = "Can't find enough detail — try better lighting or a less plain surface."
+                case .relocalizing:
+                    self.trackingStateMessage = "Relocalizing…"
+                @unknown default:
+                    self.trackingStateMessage = "Tracking limited…"
+                }
+            }
         }
     }
 }

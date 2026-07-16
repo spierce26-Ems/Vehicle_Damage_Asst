@@ -186,18 +186,26 @@ struct ImpactMarkerView: View {
 /// A simplified top-down vehicle outline the user taps to mark where the
 /// vehicle was struck.
 ///
-/// NOTE(AI Developer): Originally a single generic rounded-rectangle used
-/// for every vehicle. Per Sean's follow-up request ("can we have a better
-/// image to tap... if its a truck we should be able to better identify
-/// the location of the impact instead of a generic square we tap") this
-/// now draws one of two outlines based on `Vehicle.bodyType`
-/// (`Vehicle.bodyType`, set via the Car/Truck toggle in
-/// `EditCaseSheet.swift`):
-///   - `.car`: the original rounded-rectangle body (unchanged).
-///   - `.truck`: a narrower front cab plus a separate, visually distinct
-///     rear cargo bed -- so a tap in "the bed" vs. "the cab" is an
-///     obviously different part of the outline, not just a different spot
-///     on the same undifferentiated box.
+/// NOTE(AI Developer), revised 2026-07 per Sean's second round of
+/// feedback on the Car/Truck toggle ("I dont like the new truck
+/// silhouette. Still a little confusing on how to mark the spot of
+/// impact. need to see fenders and bumpers to clearing mark impact
+/// spots."). The first revision only changed the truck's overall body
+/// shape (cab + bed) but neither outline had any of the actual
+/// recognizable landmarks people use to describe where a vehicle was
+/// hit -- "front bumper," "driver-side front fender," etc. Both outlines
+/// now draw:
+///   - A distinct **front bumper** bar and **rear bumper** bar (each
+///     labeled), instead of plain "FRONT"/"REAR" text floating with no
+///     visual reference.
+///   - Four **fender** bulges, one over each wheel position, each with a
+///     darker **wheel well** ellipse inside it -- the corners of a real
+///     vehicle where fender-bender damage most commonly lands, and
+///     exactly the landmarks Sean asked to see.
+/// `.truck` additionally keeps a narrower front cab / wider rear bed
+/// distinction (subtler than the previous revision, since Sean's
+/// complaint was specifically about that shape), so the truck silhouette
+/// still reads as a truck and not just a second car.
 ///
 /// Deliberately still not a make/model-accurate shape -- precision within
 /// a few percent of the vehicle's actual perimeter is more than
@@ -208,10 +216,11 @@ struct ImpactMarkerView: View {
 ///
 /// IMPORTANT: both outlines keep the exact same (0,0)-(1,1) tap-point
 /// contract -- front-center at (0.5, 0), rear-center at (0.5, 1) -- that
-/// `Vehicle.impactRelativeAngleDegrees` assumes. The truck outline's cab
-/// and bed are simply drawn at different points within that same 0-1
-/// vertical range (cab in the front third, bed in the back two-thirds),
-/// so the existing angle math is unaffected; only the drawing changes.
+/// `Vehicle.impactRelativeAngleDegrees` assumes. The bumper bars and
+/// fender bulges are purely decorative landmarks layered on top of that
+/// same 0-1 canvas; a tap on a fender or bumper is recorded at exactly
+/// the screen point tapped, same as before. Only the drawing changes, not
+/// the angle math.
 struct ImpactSilhouetteView: View {
     @Binding var tapPoint: CGPoint?
     var bodyType: VehicleBodyType = .car
@@ -227,12 +236,6 @@ struct ImpactSilhouetteView: View {
                 case .truck:
                     truckOutline(w: w, h: h)
                 }
-
-                // Directional labels around the silhouette.
-                Text("FRONT").font(.caption2.bold()).foregroundStyle(.secondary)
-                    .position(x: w / 2, y: 12)
-                Text("REAR").font(.caption2.bold()).foregroundStyle(.secondary)
-                    .position(x: w / 2, y: h - 12)
 
                 if let tapPoint {
                     Circle()
@@ -253,42 +256,115 @@ struct ImpactSilhouetteView: View {
         }
     }
 
-    /// The original generic rounded-rectangle body, unchanged.
-    private func carOutline(w: CGFloat, h: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: min(w, h) * 0.18)
-            .fill(Color(.systemGray5))
-            .overlay(
-                RoundedRectangle(cornerRadius: min(w, h) * 0.18)
-                    .stroke(Color(.systemGray3), lineWidth: 2)
-            )
+    // MARK: Shared landmark pieces
+
+    /// A short, wide capsule representing a bumper, with a caption
+    /// centered on it. Used for both the front and rear bumper on both
+    /// outlines.
+    private func bumperBar(width: CGFloat, height: CGFloat, label: String) -> some View {
+        ZStack {
+            Capsule()
+                .fill(Color(.systemGray3))
+                .overlay(Capsule().stroke(Color(.systemGray2), lineWidth: 1.5))
+            Text(label)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: width, height: height)
     }
 
-    /// A narrower front cab plus a wider, visually separate rear cargo
-    /// bed, so tapping "on the bed" vs. "on the cab" is unambiguous. Cab
-    /// occupies roughly the front third (y: 0-0.38), bed the rear
-    /// two-thirds (y: 0.42-1.0), with a small gap between them so the two
-    /// pieces read as distinct sections at a glance.
-    private func truckOutline(w: CGFloat, h: CGFloat) -> some View {
-        let cornerRadius = min(w, h) * 0.14
-        let cabWidth = w * 0.62
-        let cabHeight = h * 0.38
-        let bedTop = h * 0.42
-        let bedHeight = h * 0.58
+    /// A fender bulge (rounded rectangle) with a darker wheel-well
+    /// ellipse inside it, positioned at `centerX`/`centerY`. One of these
+    /// sits over each of the vehicle's four wheel positions on both
+    /// outlines -- these corners are where fender-bender damage most
+    /// commonly lands, so making them visible landmarks (rather than an
+    /// undifferentiated edge of a box) is the whole point of this
+    /// revision.
+    private func fenderMarker(centerX: CGFloat, centerY: CGFloat, width: CGFloat, height: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: height * 0.35)
+                .fill(Color(.systemGray4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: height * 0.35)
+                        .stroke(Color(.systemGray3), lineWidth: 1.5)
+                )
+                .frame(width: width, height: height)
+            Ellipse()
+                .fill(Color(.systemGray2))
+                .frame(width: width * 0.5, height: height * 0.55)
+        }
+        .position(x: centerX, y: centerY)
+    }
+
+    /// A sedan-like body: a rounded-rectangle cabin/body with a front
+    /// bumper, rear bumper, and four fender+wheel-well bulges at the
+    /// corners (front-left/right, rear-left/right).
+    private func carOutline(w: CGFloat, h: CGFloat) -> some View {
+        let bodyWidth = w * 0.64
+        let bodyHeight = h * 0.90
+        let cornerRadius = min(w, h) * 0.16
+        let bumperHeight = h * 0.06
+        let bumperWidth = bodyWidth * 0.82
+        let fenderWidth = w * 0.15
+        let fenderHeight = h * 0.13
+        let frontAxleY = h * 0.24
+        let rearAxleY = h * 0.80
+        let leftFenderX = w * 0.15
+        let rightFenderX = w * 0.85
 
         return ZStack {
-            // Cargo bed (rear two-thirds) -- drawn first so the cab
-            // visually overlaps/sits in front of it at the seam.
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(Color(.systemGray5))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .stroke(Color(.systemGray3), lineWidth: 2)
                 )
-                .frame(width: w, height: bedHeight)
+                .frame(width: bodyWidth, height: bodyHeight)
+                .position(x: w / 2, y: h / 2)
+
+            bumperBar(width: bumperWidth, height: bumperHeight, label: "FRONT BUMPER")
+                .position(x: w / 2, y: bumperHeight / 2 + 3)
+            bumperBar(width: bumperWidth, height: bumperHeight, label: "REAR BUMPER")
+                .position(x: w / 2, y: h - bumperHeight / 2 - 3)
+
+            fenderMarker(centerX: leftFenderX, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            fenderMarker(centerX: rightFenderX, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            fenderMarker(centerX: leftFenderX, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+            fenderMarker(centerX: rightFenderX, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+        }
+    }
+
+    /// A pickup-truck-like body: a narrower front cab, a wider rear bed,
+    /// a front bumper, a rear bumper (tailgate), and four fender+wheel-well
+    /// bulges positioned under the cab (front axle) and under the bed
+    /// (rear axle).
+    private func truckOutline(w: CGFloat, h: CGFloat) -> some View {
+        let cornerRadius = min(w, h) * 0.13
+        let cabWidth = w * 0.58
+        let cabHeight = h * 0.34
+        let bedWidth = w * 0.82
+        let bedTop = h * 0.38
+        let bedHeight = h * 0.62
+        let bumperHeight = h * 0.05
+        let fenderWidth = w * 0.16
+        let fenderHeight = h * 0.13
+        let frontAxleY = h * 0.22
+        let rearAxleY = h * 0.72
+        let frontFenderX = (w * 0.19, w * 0.81)
+        let rearFenderX = (w * 0.09, w * 0.91)
+
+        return ZStack {
+            // Cargo bed (rear two-thirds), drawn first.
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(Color(.systemGray5))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(Color(.systemGray3), lineWidth: 2)
+                )
+                .frame(width: bedWidth, height: bedHeight)
                 .position(x: w / 2, y: bedTop + bedHeight / 2)
 
-            // Cab (front third) -- narrower than the bed, echoing a real
-            // pickup truck's silhouette from above.
+            // Cab (front third), narrower than the bed.
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(Color(.systemGray4))
                 .overlay(
@@ -298,8 +374,15 @@ struct ImpactSilhouetteView: View {
                 .frame(width: cabWidth, height: cabHeight)
                 .position(x: w / 2, y: cabHeight / 2)
 
-            Text("BED").font(.caption2.bold()).foregroundStyle(.secondary)
-                .position(x: w / 2, y: bedTop + 14)
+            bumperBar(width: cabWidth * 0.85, height: bumperHeight, label: "FRONT BUMPER")
+                .position(x: w / 2, y: bumperHeight / 2 + 3)
+            bumperBar(width: bedWidth * 0.7, height: bumperHeight, label: "TAILGATE")
+                .position(x: w / 2, y: h - bumperHeight / 2 - 3)
+
+            fenderMarker(centerX: frontFenderX.0, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            fenderMarker(centerX: frontFenderX.1, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            fenderMarker(centerX: rearFenderX.0, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+            fenderMarker(centerX: rearFenderX.1, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
         }
     }
 }
