@@ -22,11 +22,42 @@
 - **LiDAR depth capture** (`Views/LiDAR/LiDARScanView`, `Services/LiDARService`) on supported
   devices, for height/alignment analysis.
 - **Camera-roll photo import** as an alternative to live capture.
+- **Skip-a-shot** (added 2026-07, per Sean's decision): every entry in the 10-shot protocol is
+  skippable — no mandatory photos — via a dedicated skip button next to the shutter/photo-library
+  buttons in `CaptureCameraView`. A confirmation dialog captures why ("No matching photo in camera
+  roll" / "No longer near the vehicle"), logged to the chain-of-custody audit trail
+  (`AuditAction.photoSkipped`). A skipped shot counts as "done" for completion purposes
+  (`Vehicle.skippedShotIndices`, tracked separately from the real `photos` array so a skip can
+  never be mistaken for — or silently rendered as — a blank/empty photo). Skipped shots are called
+  out as "Shot X was skipped: not available" on both the in-app Results screen
+  (`MatchResultsView`, via `AnalysisViewModel.skippedShotsSummary`) and the PDF report
+  (`PDFReportGenerator`).
 - **7-factor correlation engine** (`ForensicEngine/`): `MatchScoreCalculator` orchestrates
   `PaintTransferAnalyzer` (CIEDE2000 color-delta matching), `DeformationMatcher`
   (Vision `VNDetectContoursRequest`-based shape comparison), `HeightAlignmentAnalyzer`, plus
   synchronous heuristic scorers, producing a weighted composite score (0–100) with a
   correlation-strength label and confidence banding.
+  - **Composite score renormalization** (added 2026-07, per Sean's decision): a case where one or
+    more factors are `dataQuality: .unavailable` (no real data captured for that factor) no
+    longer permanently caps the max achievable score. The composite is now `weightedSum /
+    usableWeightTotal` over only the *usable* factors, so a case with a flawless match on the
+    factors it does have data for reads close to 100, not capped around 20–40.
+- **Impact location + direction-of-travel capture** (added 2026-07, per Sean's decision — "Option
+  A"): a new **required** step in the capture flow (`Views/Capture/ImpactMarkerView.swift`),
+  gating `ForensicCase.isReadyForAnalysis` and the Continue/Run-Analysis buttons in
+  `CaptureFlowView`, alongside the 10-shot photo protocol (photos themselves remain skippable —
+  see below). For each vehicle:
+  1. **Tap the point of impact** on a top-down car silhouette (`ImpactSilhouetteView`) — free
+     tap-anywhere, not a fixed zone picker.
+  2. **Direction of travel at impact** — either read live from the device compass
+     (`Services/HeadingProvider.swift`, a dedicated short-lived `CLLocationManager` scoped to this
+     screen only) or set manually via a drag-to-set compass dial (`DirectionDialView`).
+  This data (`Vehicle.impactTapPoint`, `directionOfTravelDegrees`, and the derived
+  `impactBearingDegrees`) revives the previously-dead **Impact Geometry** factor (15% weight) in
+  the correlation engine — `scoreImpactGeometry` now checks that the two vehicles' impact
+  bearings are reciprocal (~180° apart) instead of always reporting `.unavailable`.
+  Precise physical measurement (bumper height, paint chemistry, mm-level dimensions) is
+  deferred to a later phase per Sean's decision — this step only captures location + direction.
 - **Case management** (`ViewModels/CaseListViewModel`, `Views/Dashboard/`): create, edit, search,
   and delete cases; each case carries a full chain-of-custody `auditLog`
   (`Models/Case.swift` — `ForensicCase`, `AuditEntry`, `AuditAction`).
@@ -120,7 +151,12 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   Genspark GitHub OAuth (`setup_github_environment`) has not succeeded for this project in any
   session — pushes require Sean to provide a fine-grained Personal Access Token each session, as
   the sandbox does not persist credentials across sessions.
-- **Last updated**: 2026-07-08
+- **Last updated**: 2026-07-16
+- **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot)
+  were written in the Genspark sandbox, which has no Xcode/Swift toolchain — only brace/paren
+  balance was checked, not a real compile. Build and test on-device before relying on this,
+  especially the new tap/drag UI (`ImpactMarkerView`) and the live-compass path
+  (`HeadingProvider`), which need a physical device or a simulator with location services.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
