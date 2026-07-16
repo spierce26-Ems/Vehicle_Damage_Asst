@@ -44,17 +44,63 @@ final class AnalysisViewModel: ObservableObject {
     // MARK: Public API
 
     /// Run the full forensic analysis pipeline.
+    ///
+    /// NOTE(AI Developer), 2026-07: after 3 confirmed real fixes (imported-
+    /// photo resize cap, AVFoundation session-lifecycle crash,
+    /// `CameraService.capturedPhotos` memory leak) the "Running correlation
+    /// analysis" hang STILL recurred for Sean on a fresh pull. New
+    /// hypothesis under investigation: `calculator` (`MatchScoreCalculator`)
+    /// is a plain, non-actor-isolated `struct`, and `DeformationMatcher
+    /// .analyze(...)` inside it (called via `async let`) is itself a
+    /// *synchronous* function containing real, blocking work
+    /// (`VNImageRequestHandler.perform` contour detection). Under Swift's
+    /// concurrency model, a nonisolated async function that never hits an
+    /// actor-isolated suspension point of its own can simply continue
+    /// running on whatever executor was already active when it was
+    /// awaited — which, called directly from this `@MainActor` method, is
+    /// the MainActor. That would mean Vision's contour detection runs
+    /// inline on the UI thread and blocks it for its full duration,
+    /// independent of all three bugs already fixed.
+    ///
+    /// `Task.detached` here removes the ambiguity entirely by forcing this
+    /// work onto the background cooperative thread pool, mirroring the
+    /// same pattern already used (and confirmed working) in
+    /// `StorageService.save(_:)`/`loadAllCases()`. `calculator` and
+    /// `forensicCase` are both plain value types with no reference-type
+    /// storage, so capturing them by value across the isolation boundary
+    /// is safe (same reasoning already documented on `StorageService
+    /// .save(_:)`).
+    ///
+    /// Also added timestamped `print()` instrumentation bracketing each
+    /// stage so that if this recurs again, Sean's Xcode console output
+    /// will show exactly which stage (analysis vs. save) — and, inside
+    /// `MatchScoreCalculator.evaluate`, exactly which factor — is actually
+    /// consuming the "few minutes." Cheap to remove once the real cause is
+    /// nailed down; deliberately left visible for now rather than guessing
+    /// again without data.
     func runAnalysis() async {
         isRunning = true
         lastError = nil
-        let result = await calculator.evaluate(case: forensicCase)
+        let overallStart = Date()
+        print("[AnalysisViewModel] runAnalysis() started")
+
+        let result = await Task.detached(priority: .userInitiated) { [calculator, forensicCase] in
+            await calculator.evaluate(case: forensicCase)
+        }.value
+
+        print("[AnalysisViewModel] calculator.evaluate finished after \(String(format: "%.2f", Date().timeIntervalSince(overallStart)))s")
+
         forensicCase.matchResult = result
         forensicCase.status = .analyzed  // matches Models/Case.swift CaseStatus
         // NOTE(AI Developer): Chain-of-custody entry per Sean's decision to
         // add the audit log (2026-07).
         forensicCase.recordAudit(.analysisRun, detail: String(format: "Composite score: %.1f", result.compositeScore))
         matchResult = result
+
+        let saveStart = Date()
         await storage.save(forensicCase)
+        print("[AnalysisViewModel] storage.save finished after \(String(format: "%.2f", Date().timeIntervalSince(saveStart)))s — total runAnalysis() time \(String(format: "%.2f", Date().timeIntervalSince(overallStart)))s")
+
         isRunning = false
     }
 

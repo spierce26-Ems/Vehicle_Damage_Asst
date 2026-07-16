@@ -19,8 +19,22 @@ struct MatchScoreCalculator {
     // MARK: Entry point
 
     /// Run all 7 factor analyses and combine into a final result.
+    ///
+    /// NOTE(AI Developer), 2026-07: added timestamped `print()`
+    /// instrumentation around the concurrent `async let` factors while
+    /// investigating a recurred "Running correlation analysis" hang (see
+    /// the matching note on `AnalysisViewModel.runAnalysis()` for the full
+    /// hypothesis — the real suspect here is `deformScore`, since
+    /// `DeformationMatcher.analyze(...)` is a synchronous function doing
+    /// real Vision-framework work). Cheap, temporary, safe to remove once
+    /// Sean's console output confirms/refutes which factor is actually
+    /// slow.
     func evaluate(case forensicCase: ForensicCase) async -> MatchResult {
         let started = Date()
+        func log(_ msg: String) {
+            print("[MatchScoreCalculator] +\(String(format: "%.2f", Date().timeIntervalSince(started)))s \(msg)")
+        }
+        log("evaluate() started")
         guard let suspect = forensicCase.suspectVehicle else {
             return MatchResult(
                 compositeScore: 0,
@@ -46,6 +60,7 @@ struct MatchScoreCalculator {
             victimBumperHeight: victim.bumperHeightInches,
             suspectBumperHeight: suspect.bumperHeightInches)
 
+        log("bestDamageImage lookups + async let dispatch done, awaiting deformScore next")
         async let deformScore = deformationMatcher.analyze(
             victimDamageImage: bestDamageImage(in: victim),
             suspectDamageImage: bestDamageImage(in: suspect))
@@ -55,16 +70,25 @@ struct MatchScoreCalculator {
         let dimensionScore = scoreDamageDimensions(victim: vZone, suspect: sZone)
         let materialScore = scoreMaterialTransfer(victim: vZone, suspect: sZone)
         let temporalScore = scoreTemporalConsistency(case: forensicCase)
+        log("synchronous heuristic factors done, awaiting concurrent factors")
 
-        let factors: [FactorScore] = await [
-            paintScore,
-            heightScore,
+        let resolvedDeformScore = await deformScore
+        log("deformScore (Vision contour matching) resolved")
+        let resolvedPaintScore = await paintScore
+        log("paintScore resolved")
+        let resolvedHeightScore = await heightScore
+        log("heightScore resolved")
+
+        let factors: [FactorScore] = [
+            resolvedPaintScore,
+            resolvedHeightScore,
             geometryScore,
-            deformScore,
+            resolvedDeformScore,
             dimensionScore,
             materialScore,
             temporalScore
         ]
+        log("all factors resolved")
 
         let weighted = factors.reduce(0.0) { acc, fs in
             acc + (fs.rawScore * fs.weight * fs.dataQuality.penaltyMultiplier)
