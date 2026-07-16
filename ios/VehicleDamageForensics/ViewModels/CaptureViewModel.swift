@@ -75,32 +75,36 @@ final class CaptureViewModel: ObservableObject {
 
     // MARK: Public API
 
-    /// Record a new photo into the case under the active vehicle role.
-    func record(image: UIImage) async {
-        guard let type = nextShotType else { return }
-        // NOTE(AI Developer), 2026-07: `resizedForStorage` is a no-op here
-        // in practice (CameraService already caps capture resolution
-        // upstream), but calling it unconditionally means this path can't
-        // silently regress into the oversized-payload hang class again if
-        // that upstream cap is ever changed/removed. See `importPhoto(_:)`
-        // for the case where this guard is load-bearing.
-        let stored = resizedForStorage(image)
-        let data = stored.jpegData(compressionQuality: 0.85) ?? Data()
-        let thumb = stored.preparingThumbnail(of: CGSize(width: 240, height: 240))?
-            .jpegData(compressionQuality: 0.6)
-
-        let photo = CapturedPhoto(
-            imageData: data,
-            thumbnailData: thumb,
-            captureDate: Date(),
-            photoType: type,
-            qualityScore: estimateQuality(for: image),
-            qualityFlags: lastQualityFlags,
-            sensorData: currentSensorData,
-            gpsCoordinate: currentLocation(),
-            cameraSettings: CameraSettings(),
-            sequenceIndex: currentShotIndex + 1
-        )
+    /// Record a live-captured photo into the case under the active vehicle role.
+    ///
+    /// NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+    /// ("terminated due to using too much memory", Xcode debug code 9):
+    /// this used to take a `UIImage` and *rebuild* a brand-new
+    /// `CapturedPhoto` from scratch -- but the caller
+    /// (`CaptureCameraView.captureNextShot()`) already has a fully-formed
+    /// `CapturedPhoto` straight from `CameraService.capturePhoto(...)`,
+    /// complete with the correct GPS coordinate, gravity-corrected sensor
+    /// reading (`SensorReading`/`CameraLevelMath`), and a real
+    /// roll/pitch/brightness-based quality score. To call this old
+    /// signature, the caller had to decode that photo's `imageData` back
+    /// into a full-resolution `UIImage` (~46.5MB bitmap) purely so this
+    /// method could re-encode it to JPEG *again* and throw together a
+    /// second, strictly worse `CapturedPhoto` (`estimateQuality(for:)`'s
+    /// placeholder score instead of the camera's real one, no GPS via
+    /// `currentLocation()` -- see NOTE below -- and `currentSensorData`/
+    /// `lastQualityFlags`, which are just late CoreMotion snapshots on
+    /// this view model, not necessarily the exact reading at the instant
+    /// of capture). That decode+re-encode round trip was a third
+    /// full-resolution image operation per shot, on top of the two fixed
+    /// in `CameraService.generateThumbnail`/`estimateBrightness` this same
+    /// round -- and it was strictly *lossy* for the forensic record.
+    /// Fixed by accepting the camera's own `CapturedPhoto` directly: no
+    /// image decode of any kind happens here anymore, and the persisted
+    /// record now uses the camera's own accurate metadata unconditionally.
+    func record(photo capturedPhoto: CapturedPhoto) async {
+        guard nextShotType != nil else { return }
+        var photo = capturedPhoto
+        photo.sequenceIndex = currentShotIndex + 1
         capturedPhotos.append(photo)
         switch captureRole {
         case .victim:
@@ -114,7 +118,7 @@ final class CaptureViewModel: ObservableObject {
         // NOTE(AI Developer): Chain-of-custody entry per Sean's decision to
         // add the audit log (2026-07). Recorded before save so the entry is
         // persisted atomically with the photo it describes.
-        forensicCase.recordAudit(.photoCaptured, detail: "\(captureRole.displayName): \(type.displayName) (#\(photo.sequenceIndex))")
+        forensicCase.recordAudit(.photoCaptured, detail: "\(captureRole.displayName): \(photo.photoType.displayName) (#\(photo.sequenceIndex))")
         await storage.save(forensicCase)
         updateGuidance()
     }
@@ -128,7 +132,7 @@ final class CaptureViewModel: ObservableObject {
     /// useful when e.g. a bystander already snapped a photo of the
     /// suspect vehicle before Sean arrived, or a photo was taken on a
     /// different device and AirDropped over. Deliberately mirrors
-    /// `record(image:)`'s structure (same audit-then-save ordering, same
+    /// `record(photo:)`'s structure (same audit-then-save ordering, same
     /// role-based routing) so the two capture paths can't silently drift
     /// apart, but marks the result `wasImported: true` and skips
     /// sensor/GPS/quality scoring -- there's no live sensor reading for a
@@ -138,9 +142,9 @@ final class CaptureViewModel: ObservableObject {
         guard let type = nextShotType else { return }
         // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
         // ("its been 'running correlation analysis' for a few minutes
-        // again"): unlike `record(image:)`, whose source `UIImage` comes
-        // from `CameraService.capturePhoto()` (already capped via
-        // `photoOutput.maxPhotoDimensions`), this path's `image` comes
+        // again"): unlike the live-capture path (`record(photo:)`), whose
+        // source photo comes from `CameraService.capturePhoto()` (already
+        // capped via `photoOutput.maxPhotoDimensions`), this path's `image` comes
         // straight from `PhotosPicker`/`loadTransferable` with NO
         // resolution cap -- a picked photo can be the device's full
         // native resolution (e.g. a 48MP ProRAW-derived JPEG), which
@@ -238,11 +242,6 @@ final class CaptureViewModel: ObservableObject {
         locationManager.requestWhenInUseAuthorization()
     }
 
-    private func currentLocation() -> GPSCoordinate? {
-        guard let loc = locationManager.location else { return nil }
-        return GPSCoordinate(location: loc)
-    }
-
     /// NOTE(AI Developer), rewritten 2026-07 per Sean's feedback ("pitch
     /// and roll is tough to use, needs to be easier to follow and more
     /// intuitive... maybe add better directions or cues"). Previously this
@@ -271,14 +270,18 @@ final class CaptureViewModel: ObservableObject {
         }
     }
 
-    private func estimateQuality(for image: UIImage) -> Double {
-        // Placeholder: real implementation would run a Core ML quality model
-        // and combine with QualityFlags. For MVP we trust the sensor checks.
-        var score = 0.85
-        if abs(currentSensorData.rollDegrees) > 10 { score -= 0.2 }
-        if abs(currentSensorData.pitchDegrees) > 20 { score -= 0.1 }
-        return max(0, min(1, score))
-    }
+    // NOTE(AI Developer), removed 2026-07: `estimateQuality(for:)` used to
+    // live here -- a placeholder quality estimator (fixed 0.85 base
+    // score, adjusted only by this view model's own late CoreMotion
+    // snapshot) that `record(image:)` used to pass to a `CapturedPhoto`
+    // it rebuilt from scratch. Now that `record(photo:)` takes the
+    // camera's own already-scored `CapturedPhoto` directly (see NOTE on
+    // `record(photo:)` above), this placeholder had no remaining caller
+    // and would only ever have produced a *worse* score than
+    // `CameraService.evaluateQuality` (which factors in real
+    // roll/pitch-vs-step-target deltas and actual image brightness).
+    // Removed rather than left dead, since it's strictly superseded, not
+    // reserved for future use.
 
     /// Caps `image`'s pixel dimensions before it's ever handed to
     /// `jpegData(compressionQuality:)`, mirroring the ~12MP

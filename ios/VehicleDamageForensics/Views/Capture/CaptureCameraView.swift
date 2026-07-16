@@ -234,9 +234,22 @@ struct CaptureCameraView: View {
                 forStep: step,
                 sequenceIndex: viewModel.currentShotIndex + 1
             )
-            if let img = UIImage(data: photo.imageData) {
-                await viewModel.record(image: img)
-            }
+            // NOTE(AI Developer), fixed 2026-07 per Sean's on-device
+            // report ("terminated due to using too much memory", Xcode
+            // debug code 9): this used to do `UIImage(data: photo.imageData)`
+            // -- decoding the ~12MP JPEG `CameraService` just produced
+            // back into a full ~46.5MB uncompressed bitmap -- purely to
+            // hand it to `viewModel.record(image:)`, which then
+            // re-encoded it to JPEG *again* and rebuilt a second, weaker
+            // `CapturedPhoto` from scratch (see NOTE on
+            // `CaptureViewModel.record(photo:)`). `camera.capturePhoto`
+            // already returns a complete, correctly-scored
+            // `CapturedPhoto` with real GPS/sensor data -- there was
+            // never a reason to go through `UIImage` here at all. Passing
+            // it straight through removes a third full-resolution
+            // decode+re-encode per shot and fixes a real metadata-quality
+            // regression at the same time.
+            await viewModel.record(photo: photo)
         } catch {
             lastError = error.localizedDescription
         }

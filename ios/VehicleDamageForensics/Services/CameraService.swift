@@ -6,6 +6,7 @@ import AVFoundation
 import CoreMotion
 import CoreLocation
 import UIKit
+import ImageIO
 import Combine
 
 // MARK: - Camera Service
@@ -340,12 +341,41 @@ final class CameraService: NSObject, ObservableObject {
         }
     }
 
+    // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+    // ("terminated due to using too much memory", Xcode debug code 9,
+    // screenshot showing CameraService.swift behind the dialog -- i.e.
+    // this happened during capture, not during analysis): this used to
+    // do `UIImage(data: data)` on the *original* ~12MP JPEG straight out
+    // of the camera (up to ~46.5MB once decoded to an uncompressed
+    // bitmap) purely to draw a 200x200 thumbnail from it -- on every
+    // single shot of the 30-shot protocol, for both vehicles. Combined
+    // with the identical mistake in `estimateBrightness` below (also
+    // called on every shot, also decoding the same full-size JPEG a
+    // second time), that's ~93MB of transient full-resolution decode
+    // churn per shutter press, ~5.6GB of churn across a full two-vehicle
+    // protocol run -- on top of whatever the camera preview, previously
+    // captured JPEGs, and (if the LiDAR screen was visited) ARKit are
+    // already holding. That repeated pressure is a very plausible
+    // contributor to hitting the OS memory ceiling mid-capture.
+    //
+    // Fixed by switching to `CGImageSourceCreateThumbnailAtIndex`
+    // (ImageIO), the same technique used in `MatchScoreCalculator`'s
+    // `bestDamageImage` fix last round: this decodes the JPEG directly
+    // at the target thumbnail size *during* decompression, so the full
+    // ~46.5MB bitmap is never materialized at all -- only pixels at (or
+    // near) the actual output size are ever decoded.
     private func generateThumbnail(from data: Data) -> Data? {
-        guard let image = UIImage(data: data) else { return nil }
-        let size = CGSize(width: 200, height: 200)
-        return UIGraphicsImageRenderer(size: size).jpegData(withCompressionQuality: 0.6) { _ in
-            image.draw(in: CGRect(origin: .zero, size: size))
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 200
+        ]
+        guard let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
         }
+        let thumbImage = UIImage(cgImage: cgThumb)
+        return thumbImage.jpegData(compressionQuality: 0.6)
     }
 
     // MARK: - Quality Evaluation
@@ -377,9 +407,28 @@ final class CameraService: NSObject, ObservableObject {
         return flags
     }
 
+    // NOTE(AI Developer), fixed 2026-07 alongside `generateThumbnail`
+    // above, same root cause: `UIImage(data: data)` here decoded the
+    // *original* full-resolution JPEG a second time (this function and
+    // `generateThumbnail` are both called from `capturePhoto` on every
+    // shot) purely to compute a single average-brightness value via
+    // `CIAreaAverage` -- a filter that averages over the *entire* image
+    // extent regardless of input resolution, so a small thumbnail
+    // produces effectively the same average as the full 12MP original,
+    // at a fraction of the decode cost. Switched to the same
+    // `CGImageSourceCreateThumbnailAtIndex` pattern (256px cap is more
+    // than enough resolution for a single averaged brightness value) so
+    // the full-size bitmap is never materialized here either.
     private func estimateBrightness(from data: Data) -> Double {
-        guard let image = UIImage(data: data),
-              let cgImage = image.cgImage else { return 0.5 }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return 0.5 }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 256
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return 0.5
+        }
         let context = CIContext()
         let ciImage = CIImage(cgImage: cgImage)
         let filter = CIFilter(name: "CIAreaAverage", parameters: [
