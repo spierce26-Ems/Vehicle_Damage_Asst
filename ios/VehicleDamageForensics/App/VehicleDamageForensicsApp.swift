@@ -44,12 +44,30 @@ struct VehicleDamageForensicsApp: App {
 
     var body: some Scene {
         WindowGroup {
+            // NOTE(AI Developer), 2026-07, found while investigating Sean's
+            // OS memory-kill report ("Terminated by the operating system
+            // because it is using too much memory"): this `.onAppear` used
+            // to call `appState.loadCases(from: storageService)`, which
+            // decodes every persisted case (including all embedded photo
+            // `Data`) into `AppState.cases` on every app launch. But per the
+            // existing NOTE on `AppState` below, no View anywhere reads
+            // `appState.cases` -- `DashboardView` drives its list from its
+            // own `CaseListViewModel`, which independently calls
+            // `storage.loadAllCases()` in its own `.task` (see
+            // `DashboardView.swift`). So every launch was decoding every
+            // case's full photo set into memory TWICE: once into
+            // `StorageService.cases` (the copy that's actually used) and a
+            // second, wasted time into `AppState.cases` (read by nothing).
+            // For a user with several cases, each holding ~20 photos of
+            // embedded JPEG data, that's a real, avoidable duplicate
+            // decode sitting in memory from the moment the app opens --
+            // before the user has even navigated anywhere. Removed the
+            // dead load call; `AppState` itself is kept (ContentView still
+            // uses it for the app-level error alert) but no longer
+            // performs this redundant work.
             ContentView()
                 .environmentObject(appState)
                 .environmentObject(storageService)
-                .onAppear {
-                    Task { await appState.loadCases(from: storageService) }
-                }
         }
     }
 }

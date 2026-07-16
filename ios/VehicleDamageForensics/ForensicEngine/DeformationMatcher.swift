@@ -16,12 +16,16 @@ struct DeformationMatcher {
 
     /// Compare deformation patterns between paired damage photos.
     /// - Parameters:
-    ///   - victimDamageImage: best closeup damage image of the victim
-    ///   - suspectDamageImage: best closeup damage image of the suspect
+    ///   - victimDamageImage: best closeup damage image of the victim,
+    ///     already downsampled by the caller (see `MatchScoreCalculator
+    ///     .bestDamageImage(in:)` — decoded directly at reduced size via
+    ///     ImageIO rather than as a full-resolution `UIImage`, to avoid
+    ///     an unnecessary ~48MB-per-image decode at analysis time).
+    ///   - suspectDamageImage: best closeup damage image of the suspect,
+    ///     same as above.
     /// - Returns: a `FactorScore` for `.deformationPattern`.
-    func analyze(victimDamageImage: UIImage?, suspectDamageImage: UIImage?) -> FactorScore {
-        guard let v = victimDamageImage, let s = suspectDamageImage,
-              let vCG = v.cgImage, let sCG = s.cgImage else {
+    func analyze(victimDamageImage: CGImage?, suspectDamageImage: CGImage?) -> FactorScore {
+        guard let vCG = victimDamageImage, let sCG = suspectDamageImage else {
             return FactorScore(
                 factor: .deformationPattern,
                 rawScore: 0,

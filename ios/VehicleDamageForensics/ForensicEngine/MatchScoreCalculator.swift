@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import ImageIO
 
 // MARK: - Match Score Calculator
 
@@ -172,12 +173,45 @@ struct MatchScoreCalculator {
 
     // MARK: Helpers
 
-    private func bestDamageImage(in vehicle: Vehicle) -> UIImage? {
+    /// NOTE(AI Developer), 2026-07, added alongside the `Task.detached`
+    /// fix in `AnalysisViewModel.runAnalysis()` while continuing to
+    /// investigate memory pressure Sean reported ("terminated by the
+    /// operating system because it is using too much memory") during
+    /// analysis specifically: this used to be
+    /// `UIImage(data: candidates.first?.imageData)`, which fully decodes
+    /// the photo's original ~12MP JPEG into an uncompressed in-memory
+    /// bitmap (12MP RGBA ≈ 48MB) — for BOTH victim and suspect, i.e.
+    /// ~96MB just to hand off to `DeformationMatcher`, which then
+    /// immediately re-downsamples to 1024px internally via
+    /// `VNDetectContoursRequest.maximumImageDimension` anyway. That
+    /// intermediate full-size decode was pure waste sitting right at the
+    /// peak of the app's memory footprint (right after all 20 photos'
+    /// `imageData` are already loaded into `forensicCase` for this
+    /// analysis run).
+    ///
+    /// Now uses `CGImageSourceCreateThumbnailAtIndex` with
+    /// `kCGImageSourceCreateThumbnailFromImageAlways` + a
+    /// `kCGImageSourceThumbnailMaxPixelSize` cap: this decodes directly
+    /// to the target size during JPEG decompression itself (a real
+    /// ImageIO capability, not decode-then-resize), so the full-size
+    /// bitmap is never materialized at all. Capped at 1024px to match
+    /// `DeformationMatcher`'s own `maximumImageDimension` exactly — no
+    /// detail is lost since Vision was already going to downsample to
+    /// that size regardless.
+    private func bestDamageImage(in vehicle: Vehicle) -> CGImage? {
         let candidates = vehicle.photos
             .filter { $0.photoType == .closeupDamage || $0.photoType == .paintTransfer }
             .sorted { $0.qualityScore > $1.qualityScore }
-        guard let data = candidates.first?.imageData else { return nil }
-        return UIImage(data: data)
+        guard let data = candidates.first?.imageData,
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return nil
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: 1024
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
     /// NOTE(AI Developer): Renamed from `probabilityRangeString` per Sean's
