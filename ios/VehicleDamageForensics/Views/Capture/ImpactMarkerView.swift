@@ -85,10 +85,19 @@ struct ImpactMarkerView: View {
                 Button {
                     Task { await save() }
                 } label: {
-                    if isSaving {
-                        ProgressView().tint(.white)
-                    } else {
-                        Label("Save Impact Profile", systemImage: "checkmark.circle.fill")
+                    // NOTE(AI Developer): `.frame`/`.font` cannot be
+                    // chained directly onto the closing brace of an
+                    // if/else *statement* inside a ViewBuilder closure --
+                    // that produced "Instance member 'frame' cannot be
+                    // used on type 'View'" at build time. Wrapping the
+                    // conditional in `Group` gives the modifiers a single
+                    // View instance to attach to.
+                    Group {
+                        if isSaving {
+                            ProgressView().tint(.white)
+                        } else {
+                            Label("Save Impact Profile", systemImage: "checkmark.circle.fill")
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .font(.headline)
