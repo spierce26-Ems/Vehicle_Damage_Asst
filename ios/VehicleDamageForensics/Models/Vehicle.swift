@@ -23,6 +23,21 @@ struct Vehicle: Identifiable, Codable, Equatable {
     var bumperHeightInches: Double?
     var lidarScanData: LiDARScanData?
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("we need the
+    /// use of Lidar as an extra tool"). A physical damage height, in
+    /// inches, measured directly from the LiDAR-reconstructed mesh during
+    /// `LiDARScanView`'s tap-to-measure step: the user taps the ground
+    /// beside the vehicle, then taps the damage point on the vehicle
+    /// body, and the vertical (gravity-aligned Y-axis) distance between
+    /// those two AR-world-space raycast hits is this value. Unlike
+    /// `bumperHeightInches` (a manual-entry field that nothing in the app
+    /// has ever populated), this is captured directly from real 3D scan
+    /// data, so `MatchScoreCalculator` prefers it over `bumperHeightInches`
+    /// wherever both are present -- see the call site in
+    /// `MatchScoreCalculator.evaluate()`. `nil` until a measurement is
+    /// taken and saved.
+    var lidarMeasuredHeightInches: Double?
+
     /// NOTE(AI Developer), added 2026-07 per Sean's request ("should we
     /// identify the location of the damage on each vehicle and always
     /// identify the direction of traveling at impact... to help
@@ -79,6 +94,7 @@ struct Vehicle: Identifiable, Codable, Equatable {
         damageZones: [DamageZone] = [],
         bumperHeightInches: Double? = nil,
         lidarScanData: LiDARScanData? = nil,
+        lidarMeasuredHeightInches: Double? = nil,
         impactTapPoint: CGPoint? = nil,
         directionOfTravelDegrees: Double? = nil,
         skippedShotIndices: [Int] = []
@@ -96,6 +112,7 @@ struct Vehicle: Identifiable, Codable, Equatable {
         self.damageZones = damageZones
         self.bumperHeightInches = bumperHeightInches
         self.lidarScanData = lidarScanData
+        self.lidarMeasuredHeightInches = lidarMeasuredHeightInches
         self.impactTapPoint = impactTapPoint
         self.directionOfTravelDegrees = directionOfTravelDegrees
         self.skippedShotIndices = skippedShotIndices
@@ -130,6 +147,7 @@ struct Vehicle: Identifiable, Codable, Equatable {
         damageZones = try c.decode([DamageZone].self, forKey: .damageZones)
         bumperHeightInches = try c.decodeIfPresent(Double.self, forKey: .bumperHeightInches)
         lidarScanData = try c.decodeIfPresent(LiDARScanData.self, forKey: .lidarScanData)
+        lidarMeasuredHeightInches = try c.decodeIfPresent(Double.self, forKey: .lidarMeasuredHeightInches)
         impactTapPoint = try c.decodeIfPresent(CGPoint.self, forKey: .impactTapPoint)
         directionOfTravelDegrees = try c.decodeIfPresent(Double.self, forKey: .directionOfTravelDegrees)
         skippedShotIndices = try c.decodeIfPresent([Int].self, forKey: .skippedShotIndices) ?? []
@@ -143,6 +161,22 @@ struct Vehicle: Identifiable, Codable, Equatable {
     }
 
     var hasLiDARData: Bool { lidarScanData != nil }
+
+    /// True once a real physical height has been measured off the LiDAR
+    /// mesh for this vehicle (see `lidarMeasuredHeightInches`). Distinct
+    /// from `hasLiDARData`, which is just "a scan was saved" -- a scan
+    /// can exist with no measurement taken yet if the user only did the
+    /// mesh-coverage pass and skipped the tap-to-measure step.
+    var hasLiDARMeasurement: Bool { lidarMeasuredHeightInches != nil }
+
+    /// The damage height `HeightAlignmentAnalyzer` should actually use:
+    /// the LiDAR-measured value when available (real 3D-scan data, more
+    /// precise and harder to get wrong than a manual guess), falling back
+    /// to the manually-entered `bumperHeightInches` otherwise. See
+    /// `MatchScoreCalculator.evaluate()`'s call site.
+    var effectiveBumperHeightInches: Double? {
+        lidarMeasuredHeightInches ?? bumperHeightInches
+    }
 
     var photosByType: [PhotoType: [CapturedPhoto]] {
         Dictionary(grouping: photos) { $0.photoType }

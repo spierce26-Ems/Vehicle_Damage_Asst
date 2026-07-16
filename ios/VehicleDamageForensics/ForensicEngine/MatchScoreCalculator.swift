@@ -55,11 +55,22 @@ struct MatchScoreCalculator {
             victimVehicleColor: victim.colorRGB,
             suspectVehicleColor: suspect.colorRGB)
 
+        // NOTE(AI Developer), added 2026-07 per Sean's request ("wire LiDAR
+        // data into the Height Alignment factor... we need the use of
+        // Lidar as an extra tool"). `effectiveBumperHeightInches` prefers
+        // `lidarMeasuredHeightInches` (a real measurement taken from the
+        // LiDAR-reconstructed mesh via LiDARScanView's tap-to-measure step)
+        // and falls back to the manually-entered `bumperHeightInches`
+        // (which nothing in the app populates today, but is kept as a
+        // fallback for a possible future manual-entry UI). Previously this
+        // read raw `bumperHeightInches` directly, which was always nil —
+        // Height Alignment (20% weight) was permanently `.unavailable` in
+        // every real run.
         async let heightScore = heightAnalyzer.analyze(
             victim: vZone,
             suspect: sZone,
-            victimBumperHeight: victim.bumperHeightInches,
-            suspectBumperHeight: suspect.bumperHeightInches)
+            victimBumperHeight: victim.effectiveBumperHeightInches,
+            suspectBumperHeight: suspect.effectiveBumperHeightInches)
 
         log("bestDamageImage lookups + async let dispatch done, awaiting deformScore next")
         async let deformScore = deformationMatcher.analyze(

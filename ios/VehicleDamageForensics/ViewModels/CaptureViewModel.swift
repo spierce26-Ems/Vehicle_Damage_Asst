@@ -332,6 +332,43 @@ final class CaptureViewModel: ObservableObject {
         await storage.save(forensicCase)
     }
 
+    /// Record a physical damage height (inches) measured directly off the
+    /// LiDAR-reconstructed mesh, via `LiDARScanView`'s tap-to-measure step
+    /// (tap the ground, then tap the damage point; the vertical distance
+    /// between the two raycast hits is `inches`).
+    ///
+    /// NOTE(AI Developer), added 2026-07 per Sean's explicit request ("wire
+    /// LiDAR data into the Height Alignment factor as a next step... we
+    /// need the use of Lidar as an extra tool"). Mirrors
+    /// `recordImpactProfile(tapPoint:directionDegrees:)`'s structure
+    /// (role-based switch, `wasAlreadyRecorded` guard so re-measuring
+    /// doesn't spam the audit log, then persist). Sets
+    /// `Vehicle.lidarMeasuredHeightInches`, which
+    /// `Vehicle.effectiveBumperHeightInches` prefers over the
+    /// never-actually-populated manual-entry `bumperHeightInches` field --
+    /// see that computed property and its use in
+    /// `MatchScoreCalculator.evaluate()`.
+    func recordLiDARMeasurement(inches: Double) async {
+        let wasAlreadyRecorded: Bool
+        switch captureRole {
+        case .victim:
+            wasAlreadyRecorded = forensicCase.victimVehicle.hasLiDARMeasurement
+            forensicCase.victimVehicle.lidarMeasuredHeightInches = inches
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            wasAlreadyRecorded = forensicCase.suspectVehicle?.hasLiDARMeasurement ?? false
+            forensicCase.suspectVehicle?.lidarMeasuredHeightInches = inches
+        }
+        // Only log the audit entry the first time this vehicle gets a
+        // measurement, not on every subsequent re-measure.
+        if !wasAlreadyRecorded {
+            forensicCase.recordAudit(.lidarMeasurementRecorded, detail: "\(captureRole.displayName) vehicle: \(String(format: "%.1f", inches))\"")
+        }
+        await storage.save(forensicCase)
+    }
+
     /// Switch to capturing the suspect vehicle after victim is complete.
     /// NOTE(AI Developer), simplified 2026-07 alongside the `capturedPhotos`
     /// removal above: no explicit reset needed here anymore --

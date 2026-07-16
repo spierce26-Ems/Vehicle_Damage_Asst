@@ -399,6 +399,13 @@ enum AuditAction: String, Codable {
     // identify the direction of traveling at impact"). Recorded once per
     // vehicle when `Vehicle.hasImpactProfile` first becomes true.
     case impactProfileRecorded = "impact_profile_recorded"
+    // NOTE(AI Developer), added 2026-07 per Sean's explicit request ("wire
+    // LiDAR data into the Height Alignment factor... we need the use of
+    // Lidar as an extra tool"). Recorded once per vehicle when a real
+    // ground-to-damage height is captured via `LiDARScanView`'s
+    // tap-to-measure step -- see `Vehicle.lidarMeasuredHeightInches` and
+    // `CaptureViewModel.recordLiDARMeasurement(inches:)`.
+    case lidarMeasurementRecorded = "lidar_measurement_recorded"
 
     var displayName: String {
         switch self {
@@ -413,6 +420,7 @@ enum AuditAction: String, Codable {
         case .caseUnlocked: return "Report Unlocked"
         case .photoSkipped: return "Photo Skipped"
         case .impactProfileRecorded: return "Impact Location/Direction Recorded"
+        case .lidarMeasurementRecorded: return "LiDAR Height Measurement Recorded"
         }
     }
 }

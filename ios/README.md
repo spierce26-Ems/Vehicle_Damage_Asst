@@ -37,6 +37,23 @@
   (Vision `VNDetectContoursRequest`-based shape comparison), `HeightAlignmentAnalyzer`, plus
   synchronous heuristic scorers, producing a weighted composite score (0–100) with a
   correlation-strength label and confidence banding.
+  - **LiDAR-measured height wired into Height Alignment** (added 2026-07, per Sean's decision —
+    "we need the use of Lidar as an extra tool"): previously the LiDAR scan (`LiDARScanData`) was
+    captured and saved but never actually read by any scoring factor — Height Alignment (20%
+    weight) was permanently `dataQuality: .unavailable` in every real run, since neither
+    `DamageZone` nor `Vehicle.bumperHeightInches` had any writer anywhere in the app. Now,
+    `Views/LiDAR/LiDARScanView` has a **"Measure Height"** button (independent of "Save Scan")
+    that starts a tap-to-measure flow: tap the ground beside the vehicle, then tap the damage
+    point on the vehicle body; `LiDARService.worldY(from:at:)` raycasts each tap against the
+    reconstructed mesh (`ARView.raycast(from:allowing:.estimatedPlane,alignment:)`, which — unlike
+    a plane-only raycast — intersects the actual non-planar mesh geometry from
+    `sceneReconstruction = .mesh`), and `heightFromWorldPositions(groundY:damageY:)` converts the
+    vertical distance between the two hits into inches. Confirmed and saved via
+    `CaptureViewModel.recordLiDARMeasurement(inches:)` into the new
+    `Vehicle.lidarMeasuredHeightInches` field (`AuditAction.lidarMeasurementRecorded`).
+    `Vehicle.effectiveBumperHeightInches` (`lidarMeasuredHeightInches ?? bumperHeightInches`) is
+    what `MatchScoreCalculator` now passes to `HeightAlignmentAnalyzer`, so a completed LiDAR
+    measurement gives Height Alignment real data for the first time.
   - **Composite score renormalization** (added 2026-07, per Sean's decision): a case where one or
     more factors are `dataQuality: .unavailable` (no real data captured for that factor) no
     longer permanently caps the max achievable score. The composite is now `weightedSum /
@@ -152,11 +169,14 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   session — pushes require Sean to provide a fine-grained Personal Access Token each session, as
   the sandbox does not persist credentials across sessions.
 - **Last updated**: 2026-07-16
-- **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot)
-  were written in the Genspark sandbox, which has no Xcode/Swift toolchain — only brace/paren
-  balance was checked, not a real compile. Build and test on-device before relying on this,
-  especially the new tap/drag UI (`ImpactMarkerView`) and the live-compass path
-  (`HeadingProvider`), which need a physical device or a simulator with location services.
+- **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
+  LiDAR tap-to-measure height wiring) were written in the Genspark sandbox, which has no
+  Xcode/Swift toolchain — only brace/paren/bracket balance was checked, not a real compile.
+  Build and test on-device before relying on this, especially the new tap/drag UI
+  (`ImpactMarkerView`), the live-compass path (`HeadingProvider`), and the new LiDAR
+  tap-to-measure flow (`LiDARScanView`'s "Measure Height" button, `LiDARService.worldY`/
+  `heightFromWorldPositions`) — none of these have ever been compiled or run; the LiDAR raycast
+  code in particular needs a physical LiDAR device (no simulator support) to verify at all.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

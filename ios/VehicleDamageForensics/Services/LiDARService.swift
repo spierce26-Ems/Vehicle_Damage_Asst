@@ -95,6 +95,49 @@ final class LiDARService: NSObject, ObservableObject {
         return PixelBufferEncoder.encode(depth.depthMap)
     }
 
+    // MARK: Tap-to-measure
+
+    // NOTE(AI Developer), added 2026-07 per Sean's explicit request ("wire
+    // LiDAR data into the Height Alignment factor as a next step... we
+    // need the use of Lidar as an extra tool"). This is the piece that
+    // turns a saved LiDAR scan into an actual usable measurement instead
+    // of an inert blob: `LiDARScanView` calls this once for a tap on the
+    // ground beside the vehicle and once for a tap on the damage point,
+    // then hands both world-space Y values to
+    // `heightFromWorldPositions(groundY:damageY:)` below to get a real
+    // number of inches for `Vehicle.lidarMeasuredHeightInches`.
+    //
+    // Uses `ARView.raycast(from:allowing:alignment:)` with
+    // `.estimatedPlane`, not `.existingPlaneGeometry` -- per Apple's own
+    // scene-reconstruction docs ("Visualizing and interacting with a
+    // reconstructed scene"), `.estimatedPlane` is the target that lets a
+    // raycast intersect the *non-planar* reconstructed mesh triangles
+    // (vehicle body panels, ground texture, etc.), not just the flat
+    // plane anchors from `ARWorldTrackingConfiguration.planeDetection`.
+    // That mesh-level intersection is exactly what `LiDARService.startScan()`
+    // already enables via `config.sceneReconstruction = .mesh`.
+    //
+    // Returns `nil` if the tap doesn't land on any reconstructed surface
+    // (e.g. pointed at open space) -- `LiDARScanView` should tell the user
+    // to try again rather than silently recording a bogus measurement.
+    func worldY(from arView: ARView, at screenPoint: CGPoint) -> Float? {
+        let results = arView.raycast(from: screenPoint, allowing: .estimatedPlane, alignment: .any)
+        guard let hit = results.first else { return nil }
+        // `worldTransform` is a simd_float4x4; column 3 is the translation
+        // (position) component, and its `y` is the vertical (gravity-
+        // aligned) world-space coordinate, in meters, matching how ARKit's
+        // world-tracking origin is oriented (Y up).
+        return hit.worldTransform.columns.3.y
+    }
+
+    /// Converts two world-space Y coordinates (meters, from `worldY`) into
+    /// a positive height in inches. Order of the two taps doesn't matter --
+    /// this is always the absolute vertical distance between them.
+    func heightFromWorldPositions(groundY: Float, damageY: Float) -> Double {
+        let meters = abs(Double(damageY) - Double(groundY))
+        return MeasurementHelpers.convert(meters, from: .meters, to: .inches)
+    }
+
     // MARK: Coverage estimation
 
     /// Rough coverage based on mesh anchor count and total tracked area.
