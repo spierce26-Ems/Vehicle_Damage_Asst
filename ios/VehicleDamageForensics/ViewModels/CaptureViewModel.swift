@@ -19,7 +19,6 @@ final class CaptureViewModel: ObservableObject {
 
     @Published var forensicCase: ForensicCase
     @Published var captureRole: VehicleRole = .victim
-    @Published private(set) var capturedPhotos: [CapturedPhoto] = []
     @Published private(set) var currentSensorData: SensorData = SensorData()
     @Published private(set) var lastQualityFlags: QualityFlags = QualityFlags()
     @Published var statusMessage: String = "Position phone perpendicular to damage."
@@ -34,7 +33,37 @@ final class CaptureViewModel: ObservableObject {
     /// drift out of sync with `ForensicCase.isReadyForAnalysis` again.
     let protocolShots: [PhotoType] = PhotoType.requiredCaptureProtocol
 
-    var currentShotIndex: Int { capturedPhotos.count }
+    // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+    // ("terminated due to using too much memory", Xcode debug code 9,
+    // recurring even after the CameraService-level fixes this same
+    // round): this used to be `capturedPhotos.count`, backed by a
+    // `@Published private(set) var capturedPhotos: [CapturedPhoto] = []`
+    // that `record(photo:)`/`importPhoto(_:)` appended to on every shot
+    // and `switchToSuspect()` cleared via `.removeAll()`. That array's
+    // *only* real purpose was this shot count -- nothing ever read its
+    // contents (confirmed via a full-codebase grep) -- but every photo
+    // appended to it is *also* already stored in
+    // `forensicCase.victimVehicle.photos`/`.suspectVehicle.photos` right
+    // below in the same functions. That's the exact same dead-duplicate-
+    // array bug fixed in `CameraService.capturedPhotos` two rounds ago,
+    // just one level higher in the call stack, and it slipped through
+    // that audit specifically because `.count` on it looked like a real
+    // reader. A full two-vehicle, 30-shot protocol run was keeping a
+    // *third* full-resolution copy of every photo's `imageData` in
+    // memory for the entire capture session because of this. Removed
+    // the array entirely; the shot count is derived directly from
+    // whichever vehicle's photo list matches the active `captureRole`,
+    // which is the actual source of truth and needs no separate
+    // bookkeeping (it also naturally resets to 0 the moment
+    // `switchToSuspect()` flips `captureRole`, since
+    // `forensicCase.suspectVehicle?.photos` starts empty -- no explicit
+    // `.removeAll()` call needed there anymore either).
+    var currentShotIndex: Int {
+        switch captureRole {
+        case .victim: return forensicCase.victimVehicle.photos.count
+        case .suspect: return forensicCase.suspectVehicle?.photos.count ?? 0
+        }
+    }
 
     var nextShotType: PhotoType? {
         guard currentShotIndex < protocolShots.count else { return nil }
@@ -52,24 +81,35 @@ final class CaptureViewModel: ObservableObject {
     // MARK: Dependencies
 
     private let storage: StorageService
-    private let cameraService: CameraService
     private let motionManager = CMMotionManager()
     private let locationManager = CLLocationManager()
 
-    /// NOTE(AI Developer): `storage`/`cameraService` default to `nil` here
-    /// (rather than `= .shared` / `= CameraService()` directly in the
-    /// parameter list) because default-argument expressions are evaluated
-    /// in a non-isolated context under Swift 6 strict concurrency, and
-    /// both `StorageService.shared` and `CameraService.init()` are
-    /// `@MainActor`-isolated. Resolving the actual default inside the
-    /// (MainActor-isolated) init body avoids the "Call to main
-    /// actor-isolated ... from synchronous nonisolated context" error.
+    /// NOTE(AI Developer): `storage` defaults to `nil` here (rather than
+    /// `= .shared` directly in the parameter list) because default-argument
+    /// expressions are evaluated in a non-isolated context under Swift 6
+    /// strict concurrency, and `StorageService.shared` is `@MainActor`-
+    /// isolated. Resolving the actual default inside the (MainActor-
+    /// isolated) init body avoids the "Call to main actor-isolated ...
+    /// from synchronous nonisolated context" error.
+    ///
+    /// NOTE(AI Developer), fixed 2026-07 per Sean's on-device report
+    /// ("terminated due to using too much memory", Xcode debug code 9):
+    /// this used to also accept/store a `cameraService: CameraService?`
+    /// parameter, defaulting to a brand-new `CameraService()` -- but
+    /// nothing on `self.cameraService` was ever called anywhere in this
+    /// class (confirmed via grep) and no caller ever passed one in either
+    /// (`CaptureFlowView` only ever calls `CaptureViewModel(forensicCase:)`).
+    /// `CaptureCameraView` creates and drives its own, completely separate
+    /// `CameraService` instance for the actual live preview/capture --
+    /// this one was a second, fully-idle copy, whose own `init()` starts
+    /// a second `CMMotionManager` (30Hz device-motion updates) and a
+    /// second `CLLocationManager` (continuous location updates) that ran
+    /// for the entire capture session for no purpose. Removed the
+    /// property and parameter entirely.
     init(forensicCase: ForensicCase,
-         storage: StorageService? = nil,
-         cameraService: CameraService? = nil) {
+         storage: StorageService? = nil) {
         self.forensicCase = forensicCase
         self.storage = storage ?? .shared
-        self.cameraService = cameraService ?? CameraService()
         startSensors()
     }
 
@@ -105,7 +145,6 @@ final class CaptureViewModel: ObservableObject {
         guard nextShotType != nil else { return }
         var photo = capturedPhoto
         photo.sequenceIndex = currentShotIndex + 1
-        capturedPhotos.append(photo)
         switch captureRole {
         case .victim:
             forensicCase.victimVehicle.photos.append(photo)
@@ -173,7 +212,6 @@ final class CaptureViewModel: ObservableObject {
             annotationNotes: "Imported from photo library",
             wasImported: true
         )
-        capturedPhotos.append(photo)
         switch captureRole {
         case .victim:
             forensicCase.victimVehicle.photos.append(photo)
@@ -189,9 +227,13 @@ final class CaptureViewModel: ObservableObject {
     }
 
     /// Switch to capturing the suspect vehicle after victim is complete.
+    /// NOTE(AI Developer), simplified 2026-07 alongside the `capturedPhotos`
+    /// removal above: no explicit reset needed here anymore --
+    /// `currentShotIndex` now reads `forensicCase.suspectVehicle?.photos.count`
+    /// for the `.suspect` role, which is naturally 0 until photos are
+    /// actually appended to it.
     func switchToSuspect() {
         captureRole = .suspect
-        capturedPhotos.removeAll()
         statusMessage = "Capturing suspect vehicle. Maintain consistent angle and distance."
     }
 
