@@ -150,10 +150,27 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     /// Per Sean's decision, this now derives from the single canonical
     /// shot list (`PhotoType.requiredCaptureProtocol`) so the three can
     /// never drift out of sync again.
+    ///
+    /// NOTE(AI Developer), updated 2026-07 per Sean's "skip a shot"
+    /// request: a slot is now considered "filled" if it was either
+    /// captured/imported (`photos.count`) OR explicitly skipped
+    /// (`skippedShotIndices.count`) -- per Sean's answer ("a skipped shot
+    /// should account for done unless the image is absolutely necessary"
+    /// + "let's not allow mandatory shots"), every shot in the protocol is
+    /// skippable, so `photos.count + skippedShotIndices.count >= required`
+    /// is the full completion condition, not just `photos.count`.
+    ///
+    /// Also now requires `hasImpactProfile` on both vehicles per Sean's
+    /// explicit decision that impact location + direction of travel is a
+    /// REQUIRED (non-skippable) step, separate from the skippable photo
+    /// protocol -- see `Vehicle.hasImpactProfile`.
     var isReadyForAnalysis: Bool {
         let required = PhotoType.requiredCaptureProtocol.count
-        return victimVehicle.photos.count >= required &&
-            (suspectVehicle?.photos.count ?? 0) >= required
+        let victimFilled = victimVehicle.photos.count + victimVehicle.skippedShotIndices.count
+        let suspectFilled = (suspectVehicle?.photos.count ?? 0) + (suspectVehicle?.skippedShotIndices.count ?? 0)
+        let photosReady = victimFilled >= required && suspectFilled >= required
+        let impactReady = victimVehicle.hasImpactProfile && (suspectVehicle?.hasImpactProfile ?? false)
+        return photosReady && impactReady
     }
 
     /// Human-friendly title for lists/navigation: prefers the user-entered
@@ -371,6 +388,17 @@ enum AuditAction: String, Codable {
     // log alongside every other meaningful mutation, and useful for
     // Sean's own support/troubleshooting if a user disputes a charge.
     case caseUnlocked = "case_unlocked"
+    // NOTE(AI Developer), added 2026-07 per Sean's "skip a shot" request:
+    // a distinct audit action (rather than silently omitting the slot) so
+    // the chain-of-custody log honestly records that a required shot was
+    // deliberately not captured for this case, and why (see
+    // `CaptureViewModel.skipCurrentShot(reason:)`'s `detail` string).
+    case photoSkipped = "photo_skipped"
+    // NOTE(AI Developer), added 2026-07 per Sean's request ("should we
+    // identify the location of the damage on each vehicle and always
+    // identify the direction of traveling at impact"). Recorded once per
+    // vehicle when `Vehicle.hasImpactProfile` first becomes true.
+    case impactProfileRecorded = "impact_profile_recorded"
 
     var displayName: String {
         switch self {
@@ -383,6 +411,8 @@ enum AuditAction: String, Codable {
         case .caseEdited: return "Case Edited"
         case .caseClosed: return "Case Closed"
         case .caseUnlocked: return "Report Unlocked"
+        case .photoSkipped: return "Photo Skipped"
+        case .impactProfileRecorded: return "Impact Location/Direction Recorded"
         }
     }
 }

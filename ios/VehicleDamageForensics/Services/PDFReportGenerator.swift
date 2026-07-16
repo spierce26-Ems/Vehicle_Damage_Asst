@@ -124,16 +124,37 @@ struct PDFReportGenerator {
             "Victim Vehicle: \(c.victimVehicle.displayName)",
             "  Color: \(c.victimVehicle.color)",
             "  License: \(c.victimVehicle.licensePlate ?? "—")",
-            "  VIN: \(c.victimVehicle.vin ?? "—")",
+            "  VIN: \(c.victimVehicle.vin ?? "—")"
+        ] + impactProfileLines(for: c.victimVehicle) + [
             "",
             "Suspect Vehicle: \(c.suspectVehicle?.displayName ?? "—")",
             "  Color: \(c.suspectVehicle?.color ?? "—")",
             "  License: \(c.suspectVehicle?.licensePlate ?? "—")"
-        ]
+        ] + (c.suspectVehicle.map { impactProfileLines(for: $0) } ?? [])
         for line in lines {
-            line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12))
+            line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
             y += 18
         }
+    }
+
+    // NOTE(AI Developer), added 2026-07 per Sean's approved "Option A"
+    // (impact location + direction-of-travel capture): surfaces
+    // `Vehicle.impactZoneDescription` / `directionOfTravelDegrees` /
+    // `impactBearingDegrees` on the summary page so the report documents
+    // the same required impact-profile data the app now gates analysis
+    // readiness on. Returns an empty array (no extra lines) if the
+    // profile was never recorded, rather than printing confusing "n/a"
+    // rows for older/incomplete cases.
+    private func impactProfileLines(for vehicle: Vehicle) -> [String] {
+        guard vehicle.hasImpactProfile else { return [] }
+        var lines = ["  Impact Location: \(vehicle.impactZoneDescription ?? "—")"]
+        if let travel = vehicle.directionOfTravelDegrees {
+            lines.append("  Direction of Travel: \(String(format: "%.0f", travel))°")
+        }
+        if let bearing = vehicle.impactBearingDegrees {
+            lines.append("  Impact Bearing: \(String(format: "%.0f", bearing))°")
+        }
+        return lines
     }
 
     private func drawFactorBreakdown(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
@@ -160,7 +181,8 @@ struct PDFReportGenerator {
     private func drawPhotoEvidence(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
         let allPhotos = c.victimVehicle.photos + (c.suspectVehicle?.photos ?? [])
         let usable = allPhotos.filter { $0.isUsable }.prefix(8)
-        guard !usable.isEmpty else { return }
+        let skipped = skippedShotLines(for: c)
+        guard !usable.isEmpty || !skipped.isEmpty else { return }
 
         ctx.beginPage()
         var y: CGFloat = 50
@@ -191,6 +213,49 @@ struct PDFReportGenerator {
                 }
             }
         }
+
+        // NOTE(AI Developer), added 2026-07 per Sean's explicit answer on
+        // skipped-shot messaging ("Shot X was skipped: not available").
+        // Mirrors `AnalysisViewModel.skippedShotsSummary`'s exact wording
+        // so the PDF report and the in-app Results screen never disagree.
+        // `PDFReportGenerator` works directly off `ForensicCase` rather
+        // than through the view model, so the same derivation is
+        // duplicated here against `Vehicle.skippedShotIndices`.
+        if !skipped.isEmpty {
+            if x != 50 { x = 50; y += cellSize * 0.75 + 40 }
+            if y > rect.height - 100 {
+                ctx.beginPage()
+                y = 50
+            }
+            "Skipped Shots".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14))
+            y += 22
+            for line in skipped {
+                if y > rect.height - 60 {
+                    ctx.beginPage()
+                    y = 50
+                }
+                line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+                y += 16
+            }
+        }
+    }
+
+    /// Produces "Shot X was skipped: not available" lines for both
+    /// vehicles, in the same format as `AnalysisViewModel.skippedShotsSummary`.
+    private func skippedShotLines(for c: ForensicCase) -> [String] {
+        let protocolShots = PhotoType.requiredCaptureProtocol
+        func describe(_ vehicle: Vehicle, roleLabel: String) -> [String] {
+            vehicle.skippedShotIndices.sorted().compactMap { index in
+                guard index < protocolShots.count else { return nil }
+                let type = protocolShots[index]
+                return "\(roleLabel) — Shot \(index + 1) (\(type.displayName)) was skipped: not available"
+            }
+        }
+        var lines = describe(c.victimVehicle, roleLabel: "Victim")
+        if let suspect = c.suspectVehicle {
+            lines += describe(suspect, roleLabel: "Suspect")
+        }
+        return lines
     }
 
     private func drawChainOfCustody(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {

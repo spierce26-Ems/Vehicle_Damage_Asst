@@ -57,6 +57,9 @@ struct CaptureCameraView: View {
     // `UIImage` is loaded asynchronously in `importSelectedPhoto` below.
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isImportingPhoto = false
+    // NOTE(AI Developer), added 2026-07 per Sean's "skip a shot" request
+    // -- see `skipButton`/`skipConfirmationDialog` below.
+    @State private var showSkipConfirmation = false
 
     var body: some View {
         ZStack {
@@ -106,14 +109,22 @@ struct CaptureCameraView: View {
                 // (thumbnail/library button opposite the flash toggle,
                 // shutter centered) so it reads as a familiar affordance
                 // rather than a bolted-on extra control.
+                //
+                // NOTE(AI Developer), updated 2026-07 per Sean's explicit
+                // answer on where the skip control should live ("a button
+                // next to the shutter/photo-library buttons"): the trailing
+                // slot that used to be an empty `Color.clear` spacer
+                // (there purely to keep the shutter button visually
+                // centered against `photoLibraryButton`'s width) is now
+                // `skipButton`, so the row reads library — shutter — skip,
+                // and the shutter stays centered since both side buttons
+                // are the same 56x56 size.
                 HStack {
                     photoLibraryButton
                     Spacer()
                     shutterButton
                     Spacer()
-                    // Empty spacer view of the same size as the library
-                    // button keeps the shutter button visually centered.
-                    Color.clear.frame(width: 56, height: 56)
+                    skipButton
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
@@ -136,6 +147,30 @@ struct CaptureCameraView: View {
         .onChange(of: selectedPhotoItem) { _, newItem in
             guard let newItem else { return }
             Task { await importSelectedPhoto(newItem) }
+        }
+        // NOTE(AI Developer), added 2026-07 per Sean's "skip a shot"
+        // request. A confirmation dialog (rather than skipping instantly
+        // on tap) avoids an accidental tap silently dropping a required
+        // shot -- and the two reason options double as the audit-log
+        // detail text, directly reflecting the two scenarios Sean
+        // described ("if we dont have an image in the camera roll or are
+        // no longer near the vehicle").
+        .confirmationDialog(
+            "Skip this shot?",
+            isPresented: $showSkipConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("No matching photo in camera roll", role: .destructive) {
+                Task { await viewModel.skipCurrentShot(reason: "No matching photo in camera roll") }
+            }
+            Button("No longer near the vehicle", role: .destructive) {
+                Task { await viewModel.skipCurrentShot(reason: "No longer near vehicle") }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let type = viewModel.nextShotType {
+                Text("\(type.displayName) will be marked as skipped and excluded from the analysis. This shot type isn't required — you can still run the full analysis without it.")
+            }
         }
     }
 
@@ -168,6 +203,29 @@ struct CaptureCameraView: View {
                 .frame(width: 56, height: 56)
                 .overlay(
                     Image(systemName: "photo.on.rectangle")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                )
+        }
+        .disabled(viewModel.isComplete || isImportingPhoto)
+    }
+
+    /// NOTE(AI Developer), added 2026-07 per Sean's "skip a shot" request
+    /// -- placed as the third button in the shutter row (his explicit
+    /// answer: "a button next to the shutter/photo-library buttons"),
+    /// same 56x56 footprint as `photoLibraryButton` so the shutter button
+    /// stays visually centered between the two. Disabled once the
+    /// protocol is already complete, mirroring `shutterButton`/
+    /// `photoLibraryButton`'s own disabled conditions.
+    private var skipButton: some View {
+        Button {
+            showSkipConfirmation = true
+        } label: {
+            Circle()
+                .fill(.black.opacity(0.45))
+                .frame(width: 56, height: 56)
+                .overlay(
+                    Image(systemName: "arrow.uturn.forward")
                         .font(.title3)
                         .foregroundStyle(.white)
                 )

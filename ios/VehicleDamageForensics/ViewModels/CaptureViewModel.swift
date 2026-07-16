@@ -58,10 +58,24 @@ final class CaptureViewModel: ObservableObject {
     // `switchToSuspect()` flips `captureRole`, since
     // `forensicCase.suspectVehicle?.photos` starts empty -- no explicit
     // `.removeAll()` call needed there anymore either).
+    //
+    // NOTE(AI Developer), updated 2026-07 per Sean's "skip a shot"
+    // request: now counts explicitly-skipped slots (`Vehicle.
+    // skippedShotIndices`) toward the pointer as well as actually
+    // captured/imported photos, so skipping a slot correctly advances
+    // to the next one instead of leaving `nextShotType` stuck asking for
+    // the shot that was just skipped. Both `photos` and
+    // `skippedShotIndices` are only ever appended to in protocol order,
+    // so their combined count is still a correct pointer into
+    // `protocolShots`.
     var currentShotIndex: Int {
         switch captureRole {
-        case .victim: return forensicCase.victimVehicle.photos.count
-        case .suspect: return forensicCase.suspectVehicle?.photos.count ?? 0
+        case .victim:
+            return forensicCase.victimVehicle.photos.count
+                + forensicCase.victimVehicle.skippedShotIndices.count
+        case .suspect:
+            return (forensicCase.suspectVehicle?.photos.count ?? 0)
+                + (forensicCase.suspectVehicle?.skippedShotIndices.count ?? 0)
         }
     }
 
@@ -76,6 +90,19 @@ final class CaptureViewModel: ObservableObject {
 
     var isComplete: Bool {
         currentShotIndex >= protocolShots.count
+    }
+
+    /// True once the active vehicle's impact location + direction of
+    /// travel have both been recorded. NOTE(AI Developer), added 2026-07
+    /// per Sean's decision that this step is REQUIRED (unlike the
+    /// skippable photo protocol) -- drives the "Continue to Suspect" /
+    /// "Run Analysis" button gating in `CaptureFlowView` alongside
+    /// `isComplete`. See `Vehicle.hasImpactProfile`.
+    var hasImpactProfile: Bool {
+        switch captureRole {
+        case .victim: return forensicCase.victimVehicle.hasImpactProfile
+        case .suspect: return forensicCase.suspectVehicle?.hasImpactProfile ?? false
+        }
     }
 
     // MARK: Dependencies
@@ -224,6 +251,85 @@ final class CaptureViewModel: ObservableObject {
         forensicCase.recordAudit(.photoImported, detail: "\(captureRole.displayName): \(type.displayName) (#\(photo.sequenceIndex))")
         await storage.save(forensicCase)
         updateGuidance()
+    }
+
+    /// Explicitly skip the current required shot slot without capturing
+    /// or importing a photo for it, advancing to the next shot in the
+    /// protocol.
+    ///
+    /// NOTE(AI Developer), added 2026-07 per Sean's explicit request
+    /// ("we should be able to skip a certain image view if we dont have
+    /// an image in the camera roll or are no longer near the vehicle...
+    /// most times this will likely be images uploaded after the fact")
+    /// and his follow-up answers: skipping counts a slot as "done" for
+    /// completion purposes ("a skipped shot should account for done
+    /// unless the image is absolutely necessary"), and no shot type is
+    /// mandatory/unskippable ("let's not allow mandatory shots" — every
+    /// entry in `protocolShots` can be skipped). Records the skip in the
+    /// chain-of-custody audit log (distinct `.photoSkipped` action, see
+    /// `AuditAction`) with the shot type and reason so the gap is
+    /// transparent in the report rather than silently missing -- see
+    /// Sean's decision on the results/PDF wording ("Shot X was skipped:
+    /// not available"), rendered by `MatchResultsView`/`PDFReportGenerator`
+    /// reading `Vehicle.skippedShotIndices` against `protocolShots`.
+    ///
+    /// `reason` is free text describing *why* (surfaced to the button's
+    /// confirmation dialog in `CaptureCameraView` — e.g. "No matching
+    /// photo in camera roll" or "No longer near vehicle") so the audit
+    /// trail records intent, not just the fact that a slot was skipped.
+    func skipCurrentShot(reason: String) async {
+        guard let type = nextShotType else { return }
+        let skippedIndex = currentShotIndex
+        switch captureRole {
+        case .victim:
+            forensicCase.victimVehicle.skippedShotIndices.append(skippedIndex)
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            forensicCase.suspectVehicle?.skippedShotIndices.append(skippedIndex)
+        }
+        forensicCase.recordAudit(.photoSkipped, detail: "\(captureRole.displayName): \(type.displayName) (#\(skippedIndex + 1)) — \(reason)")
+        await storage.save(forensicCase)
+        updateGuidance()
+    }
+
+    /// Record the active vehicle's impact location (tap point on the
+    /// top-down silhouette, normalized 0-1/0-1) and direction of travel
+    /// at impact (compass degrees, 0-360).
+    ///
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("should we
+    /// identify the location of the damage on each vehicle and always
+    /// identify the direction of traveling at impact... to help
+    /// correlating data") and his follow-up decision that this step is
+    /// REQUIRED (unlike photo skipping). Called from `ImpactMarkerView`
+    /// once the user has both tapped a damage location and set a heading
+    /// (live compass or manual dial — see that view for the two entry
+    /// modes). Feeds `MatchScoreCalculator.scoreImpactGeometry` via
+    /// `Vehicle.impactBearingDegrees` — see that property's doc comment
+    /// for why this specific combination of inputs produces a real,
+    /// usable impact-angle-reciprocity score where none existed before.
+    func recordImpactProfile(tapPoint: CGPoint, directionDegrees: Double) async {
+        let wasAlreadyRecorded: Bool
+        switch captureRole {
+        case .victim:
+            wasAlreadyRecorded = forensicCase.victimVehicle.hasImpactProfile
+            forensicCase.victimVehicle.impactTapPoint = tapPoint
+            forensicCase.victimVehicle.directionOfTravelDegrees = directionDegrees
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            wasAlreadyRecorded = forensicCase.suspectVehicle?.hasImpactProfile ?? false
+            forensicCase.suspectVehicle?.impactTapPoint = tapPoint
+            forensicCase.suspectVehicle?.directionOfTravelDegrees = directionDegrees
+        }
+        // Only log the audit entry the first time this vehicle's profile
+        // is completed, not on every subsequent adjustment/re-tap.
+        if !wasAlreadyRecorded {
+            forensicCase.recordAudit(.impactProfileRecorded, detail: "\(captureRole.displayName) vehicle")
+        }
+        await storage.save(forensicCase)
     }
 
     /// Switch to capturing the suspect vehicle after victim is complete.

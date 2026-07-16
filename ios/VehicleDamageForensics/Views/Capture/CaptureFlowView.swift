@@ -11,6 +11,13 @@ struct CaptureFlowView: View {
     @State private var showLiDAR = false
     @State private var showAnalysis = false
     @State private var showEditCase = false
+    // NOTE(AI Developer), added 2026-07 per Sean's request to identify
+    // damage location + direction of travel per vehicle -- see
+    // `ImpactMarkerView`. Presented as a sheet rather than a
+    // `navigationDestination` since it's a required, focused sub-task
+    // (record one profile, then return here), not a flow the user
+    // navigates deeper from.
+    @State private var showImpactMarker = false
 
     init(forensicCase: ForensicCase) {
         _viewModel = StateObject(wrappedValue: CaptureViewModel(forensicCase: forensicCase))
@@ -45,6 +52,15 @@ struct CaptureFlowView: View {
                 Task { await viewModel.applyEdits(updated) }
             }
         }
+        // NOTE(AI Developer), added 2026-07 per Sean's request ("should
+        // we identify the location of the damage on each vehicle and
+        // always identify the direction of traveling at impact") -- see
+        // `ImpactMarkerView` and `impactMarkerButton` below.
+        .sheet(isPresented: $showImpactMarker) {
+            NavigationStack {
+                ImpactMarkerView(viewModel: viewModel)
+            }
+        }
     }
 
     // MARK: Header
@@ -69,32 +85,59 @@ struct CaptureFlowView: View {
     // MARK: Footer
 
     private var footerControls: some View {
-        HStack(spacing: 16) {
+        VStack(spacing: 8) {
+            // NOTE(AI Developer), added 2026-07 per Sean's decision that
+            // impact location + direction of travel is a REQUIRED step
+            // (unlike the skippable photo protocol) -- surfaced as its
+            // own row so it's visible and actionable independent of shot
+            // count, with a checkmark once `hasImpactProfile` is true so
+            // it's clear at a glance whether this vehicle still needs it.
             Button {
-                showLiDAR = true
+                showImpactMarker = true
             } label: {
-                Label("LiDAR Scan", systemImage: "scanner.fill")
+                Label(
+                    viewModel.hasImpactProfile ? "Impact Location & Direction — Recorded" : "Impact Location & Direction — Required",
+                    systemImage: viewModel.hasImpactProfile ? "checkmark.circle.fill" : "exclamationmark.circle"
+                )
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .tint(viewModel.hasImpactProfile ? .green : .orange)
 
-            Spacer()
+            HStack(spacing: 16) {
+                Button {
+                    showLiDAR = true
+                } label: {
+                    Label("LiDAR Scan", systemImage: "scanner.fill")
+                }
+                .buttonStyle(.bordered)
 
-            if viewModel.captureRole == .victim {
-                Button {
-                    viewModel.switchToSuspect()
-                } label: {
-                    Label("Continue to Suspect", systemImage: "arrow.right.circle.fill")
+                Spacer()
+
+                // NOTE(AI Developer), updated 2026-07: both buttons below
+                // now also require `viewModel.hasImpactProfile` alongside
+                // `isComplete` -- per Sean's decision that impact
+                // location/direction is required, this gate is what
+                // actually enforces that at the UI level (in addition to
+                // `ForensicCase.isReadyForAnalysis` guarding the analysis
+                // engine itself).
+                if viewModel.captureRole == .victim {
+                    Button {
+                        viewModel.switchToSuspect()
+                    } label: {
+                        Label("Continue to Suspect", systemImage: "arrow.right.circle.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!(viewModel.isComplete && viewModel.hasImpactProfile))
+                } else {
+                    Button {
+                        showAnalysis = true
+                    } label: {
+                        Label("Run Analysis", systemImage: "wand.and.stars")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!(viewModel.isComplete && viewModel.hasImpactProfile))
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isComplete == false)
-            } else {
-                Button {
-                    showAnalysis = true
-                } label: {
-                    Label("Run Analysis", systemImage: "wand.and.stars")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isComplete == false)
             }
         }
         .padding()

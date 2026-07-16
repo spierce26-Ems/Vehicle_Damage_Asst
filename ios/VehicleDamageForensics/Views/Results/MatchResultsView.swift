@@ -34,6 +34,9 @@ struct MatchResultsView: View {
                 disclaimerCard
                 if viewModel.isUnlocked {
                     factorBreakdown
+                    if !viewModel.skippedShotsSummary.isEmpty {
+                        skippedShotsSection
+                    }
                     recommendations
                     reportSection
                 } else {
@@ -198,6 +201,26 @@ struct MatchResultsView: View {
             Text("Per-Factor Breakdown").font(.headline)
             ForEach(viewModel.topFactors) { f in
                 FactorBar(factor: f)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: Skipped Shots
+
+    /// NOTE(AI Developer), added 2026-07 per Sean's explicit answer on
+    /// how a skipped shot should be presented ("Shot X was skipped: not
+    /// available") -- see `AnalysisViewModel.skippedShotsSummary`. Shown
+    /// only when at least one shot was actually skipped, so cases with a
+    /// full capture never show an empty/pointless section.
+    private var skippedShotsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Skipped Shots").font(.headline)
+            ForEach(viewModel.skippedShotsSummary, id: \.self) { line in
+                Label(line, systemImage: "minus.circle")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding()

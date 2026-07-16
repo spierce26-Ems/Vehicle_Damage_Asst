@@ -215,4 +215,28 @@ final class AnalysisViewModel: ObservableObject {
     /// Standard disclaimer to render alongside every result — see
     /// `MatchResult.disclaimerText` for the full rationale.
     var disclaimerText: String { MatchResult.disclaimerText }
+
+    /// Human-readable list of every shot slot that was explicitly skipped
+    /// during capture, across both vehicles.
+    ///
+    /// NOTE(AI Developer), added 2026-07 per Sean's explicit wording for
+    /// how a skipped shot should be surfaced ("Shot X was skipped: not
+    /// available") -- rendered by `MatchResultsView.skippedShotsSection`
+    /// so the gap in evidence is visible on the results screen, not just
+    /// buried in the audit log.
+    var skippedShotsSummary: [String] {
+        let protocolShots = PhotoType.requiredCaptureProtocol
+        func describe(_ vehicle: Vehicle, roleLabel: String) -> [String] {
+            vehicle.skippedShotIndices.sorted().compactMap { index in
+                guard index < protocolShots.count else { return nil }
+                let type = protocolShots[index]
+                return "\(roleLabel) — Shot \(index + 1) (\(type.displayName)) was skipped: not available"
+            }
+        }
+        var lines = describe(forensicCase.victimVehicle, roleLabel: "Victim")
+        if let suspect = forensicCase.suspectVehicle {
+            lines += describe(suspect, roleLabel: "Suspect")
+        }
+        return lines
+    }
 }
