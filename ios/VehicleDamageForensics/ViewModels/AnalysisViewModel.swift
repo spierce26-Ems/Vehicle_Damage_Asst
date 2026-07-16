@@ -110,7 +110,26 @@ final class AnalysisViewModel: ObservableObject {
     /// for why this is stored per-case rather than derived live from
     /// subscription status.
     var isUnlocked: Bool {
-        forensicCase.isUnlocked || purchases.hasUnlimitedAccess
+        // NOTE(AI Developer), added 2026-07 per Sean's explicit request
+        // ("lets unlock the full report for a few test sessions") --
+        // forces every case unlocked in Debug builds only (Xcode's
+        // default Run scheme builds Debug, so this takes effect
+        // automatically without any extra setup) so the per-factor
+        // breakdown -- where the LiDAR-driven Height Alignment score is
+        // actually visible -- can be inspected without a real/sandbox
+        // StoreKit purchase each test run. Has zero effect on a
+        // Release/TestFlight/App Store build, where the real paywall
+        // gating below still applies.
+        //
+        // TODO(Sean): remove this `#if DEBUG` block (keep just the
+        // `return forensicCase.isUnlocked || purchases.hasUnlimitedAccess`
+        // line) once you're done testing the LiDAR height feature and
+        // want the paywall to gate results in your own Debug runs again.
+        #if DEBUG
+        return true
+        #else
+        return forensicCase.isUnlocked || purchases.hasUnlimitedAccess
+        #endif
     }
 
     /// Attempts to unlock this case by spending one purchased case
