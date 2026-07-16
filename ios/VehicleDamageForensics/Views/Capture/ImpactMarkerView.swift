@@ -47,6 +47,17 @@ struct ImpactMarkerView: View {
                     Text("Tap the top-down outline below at the spot where this vehicle was hit.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                    // NOTE(AI Developer), added 2026-07 per Sean's
+                    // explicit request/example: "on the impact-location
+                    // tap step, a one-line 'this helps confirm both
+                    // vehicles were hit in a way that matches' would
+                    // help a panicked/upset user understand why they're
+                    // tapping a fender diagram instead of just taking
+                    // photos." Wording matches Sean's own phrasing
+                    // almost verbatim, placed directly under the step
+                    // instructions so it reads as "why," not just
+                    // "what."
+                    whyThisMattersNote("This helps confirm both vehicles were hit in a way that matches — not just that damage exists on each one.")
                     ImpactSilhouetteView(tapPoint: $tapPoint, bodyType: vehicle.bodyType)
                         .frame(height: 260)
                 }
@@ -59,6 +70,12 @@ struct ImpactMarkerView: View {
                     Text("Which way was this vehicle heading the moment it was hit?")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                    // NOTE(AI Developer), added 2026-07: same "why this
+                    // matters" pattern applied to the direction-of-travel
+                    // step, since it feeds the exact same impact-geometry
+                    // check as step 1 -- the tap point alone can't tell
+                    // which way the vehicle was moving when it was hit.
+                    whyThisMattersNote("Combined with the tap above, this shows the angle of impact — the key detail that ties this vehicle's damage to the other vehicle's.")
 
                     // NOTE(AI Developer): Two entry modes per the design
                     // discussion with Sean -- live compass only makes
@@ -122,6 +139,26 @@ struct ImpactMarkerView: View {
         .onChange(of: heading.headingDegrees) { _, newValue in
             if useLiveHeading, let newValue { directionDegrees = newValue }
         }
+    }
+
+    // MARK: Why this matters
+
+    /// A short, low-key "why" line placed directly under a step's
+    /// instructions. NOTE(AI Developer), added 2026-07 per Sean's
+    /// request for in-flow guidance on why each step matters -- kept
+    /// deliberately understated (small font, lightbulb icon, secondary
+    /// color) so it reads as a helpful aside rather than another
+    /// instruction competing for attention with the actual task.
+    @ViewBuilder
+    private func whyThisMattersNote(_ text: String) -> some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: "lightbulb.fill")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.bottom, 4)
     }
 
     // MARK: Header

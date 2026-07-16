@@ -104,6 +104,20 @@ struct CaptureFlowView: View {
             .buttonStyle(.bordered)
             .tint(viewModel.hasImpactProfile ? .green : .orange)
 
+            // NOTE(AI Developer), added 2026-07 per Sean's request for
+            // in-flow "why this matters" guidance -- this button is the
+            // entry point to `ImpactMarkerView` (where the fuller
+            // one-line explanation also lives), but a user deciding
+            // whether to tap it here benefits from knowing why it's
+            // required *before* opening the sheet, not just that it is.
+            if !viewModel.hasImpactProfile {
+                Text("Required because it's what lets the app confirm both vehicles were hit in a way that matches — not just photos of separate damage.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
+            }
+
             HStack(spacing: 16) {
                 Button {
                     showLiDAR = true

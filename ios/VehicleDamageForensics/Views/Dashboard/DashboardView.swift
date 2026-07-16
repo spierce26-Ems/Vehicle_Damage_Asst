@@ -13,6 +13,18 @@ struct DashboardView: View {
     @State private var editingCase: ForensicCase?
     @State private var caseToDelete: ForensicCase?
 
+    // NOTE(AI Developer), added 2026-07 per Sean's request for a
+    // first-time "how this works" intro. `@AppStorage` (not `AppState`,
+    // which is dead/unused code -- see the NOTE in
+    // `VehicleDamageForensicsApp.swift`) persists this flag across
+    // launches so the intro only auto-shows once. `showingOnboarding` is
+    // a separate `@State` (not derived directly from the flag) so the
+    // "How does this work?" link in `emptyState` can re-open the same
+    // intro on demand later without un-setting the "already seen it"
+    // flag for the auto-show-on-first-launch behavior.
+    @AppStorage("hasSeenOnboarding") private var hasSeenOnboarding = false
+    @State private var showingOnboarding = false
+
     var body: some View {
         NavigationStack {
             Group {
@@ -36,6 +48,21 @@ struct DashboardView: View {
             }
             .searchable(text: $viewModel.searchText, prompt: "Search cases")
             .task { await viewModel.load() }
+            .task {
+                // Auto-show the intro exactly once, the very first time
+                // the dashboard appears. Deliberately a separate `.task`
+                // from the data `.load()` above so a slow load never
+                // delays or blocks the onboarding check.
+                if !hasSeenOnboarding {
+                    showingOnboarding = true
+                }
+            }
+            .fullScreenCover(isPresented: $showingOnboarding) {
+                OnboardingView {
+                    hasSeenOnboarding = true
+                    showingOnboarding = false
+                }
+            }
             .sheet(isPresented: $showingNewCase) {
                 NewCaseSheet { draft in
                     showingNewCase = false
@@ -89,15 +116,49 @@ struct DashboardView: View {
 
     // MARK: Subviews
 
+    // NOTE(AI Developer), rewritten 2026-07 per Sean's request: the old
+    // version was just "No cases yet" / "Tap + to start a new case." --
+    // accurate, but gives a first-time (likely stressed, just-hit)
+    // user zero context on what the app actually does before asking
+    // them to act. Now explains the app's purpose in one line, gives a
+    // full-width primary CTA button (not just the small toolbar "+",
+    // which is easy to miss) that opens the same "New Case" sheet, and
+    // a secondary link back into the 3-screen intro (`OnboardingView`)
+    // for anyone who skipped/dismissed it too fast the first time.
     private var emptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
+            Spacer()
             Image(systemName: "car.front.waves.up.fill")
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
-            Text("No cases yet")
-                .font(.title2.bold())
-            Text("Tap + to start a new case.")
-                .foregroundStyle(.secondary)
+            VStack(spacing: 6) {
+                Text("No cases yet")
+                    .font(.title2.bold())
+                Text("Document a hit-and-run in a few guided steps — photos, an optional LiDAR scan, and where each vehicle was hit.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            Button {
+                showingNewCase = true
+            } label: {
+                Label("Start New Case", systemImage: "plus.circle.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(.horizontal, 40)
+
+            Button("How does this work?") {
+                showingOnboarding = true
+            }
+            .font(.footnote)
+
+            Spacer()
+            Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

@@ -120,6 +120,32 @@
 - **Case management** (`ViewModels/CaseListViewModel`, `Views/Dashboard/`): create, edit, search,
   and delete cases; each case carries a full chain-of-custody `auditLog`
   (`Models/Case.swift` — `ForensicCase`, `AuditEntry`, `AuditAction`).
+- **First-launch onboarding + enhanced empty state** (added 2026-07, per Sean's request — "right
+  now a first-time user lands on an empty dashboard with no explanation of what to do"):
+  - `Views/Dashboard/OnboardingView.swift` — a new 3-screen "how this works" intro (purpose →
+    the 3-step flow → why the impact-marking step matters), shown automatically the first time
+    `DashboardView` appears (gated by an `@AppStorage("hasSeenOnboarding")` flag — deliberately
+    **not** routed through `AppState`, which is dead/unused code; see the NOTE in
+    `VehicleDamageForensicsApp.swift`). Presented as a `.fullScreenCover` from `DashboardView`,
+    not a nested `NavigationStack`.
+  - `DashboardView.emptyState` rewritten: previously just "No cases yet / Tap + to start a new
+    case." — now explains what the app does in one line, adds a full-width primary **"Start New
+    Case"** button (the small toolbar "+" was easy to miss), and a **"How does this work?"** link
+    that re-opens the same onboarding intro on demand (so dismissing/skipping it too fast the
+    first time, plausible for a stressed user, isn't a dead end).
+- **In-flow "why this matters" guidance** (added 2026-07, per Sean's request — "a one-line...
+  would help a panicked/upset user understand why they're tapping a fender diagram instead of
+  just taking photos"): short, low-key one-line explanations (lightbulb icon, secondary/caption
+  styling — not competing for attention with the actual instructions) added at the three points
+  in the capture flow that aren't self-evidently photo-like:
+  - `ImpactMarkerView.swift` — under both the impact-tap step and the direction-of-travel step
+    (the explicit example Sean gave), explaining that these steps confirm the two vehicles' damage
+    actually matches, not just that damage exists.
+  - `LiDARScanView.swift` — under the "tap the ground" prompt in the height-measurement banner,
+    explaining what the height measurement is for.
+  - `CaptureFlowView.swift` — under the "Impact Location & Direction — Required" button itself
+    (shown only while still unrecorded), so the reasoning is visible *before* a user opens the
+    sheet, not only after.
 - **PDF report export** (`Services/PDFReportGenerator`, `Views/Reports/PDFReportView`): an
   investigative-documentation PDF with case header, vehicle details, per-factor breakdown,
   photos, and the chain-of-custody trail.
@@ -213,17 +239,21 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 - **Last updated**: 2026-07-16
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
   LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, LiDAR
-  startup/interruption feedback, and the Car/Truck silhouette toggle with fender/bumper
-  landmarks) were written in the Genspark sandbox, which has no Xcode/Swift toolchain — only
-  brace/paren/bracket balance was checked, not a real compile. Build and test on-device before
-  relying on this, especially the new tap/drag UI (`ImpactMarkerView`), the live-compass path
-  (`HeadingProvider`), the LiDAR tap-to-measure flow (`LiDARScanView`'s "Measure Height" button,
+  startup/interruption feedback, the Car/Truck silhouette toggle with fender/bumper landmarks,
+  first-launch onboarding + enhanced empty state, and in-flow "why this matters" guidance) were
+  written in the Genspark sandbox, which has no Xcode/Swift toolchain — only brace/paren/bracket
+  balance was checked, not a real compile. Build and test on-device before relying on this,
+  especially the new tap/drag UI (`ImpactMarkerView`), the live-compass path (`HeadingProvider`),
+  the LiDAR tap-to-measure flow (`LiDARScanView`'s "Measure Height" button,
   `LiDARService.worldY`/`heightFromWorldPositions`, the `automaticallyConfigureSession = false`
   fix, and the new `sessionWasInterrupted`/`sessionInterruptionEnded`/
   `cameraDidChangeTrackingState` handlers) — none of these have ever been compiled or run; the
   LiDAR raycast/mesh-scan code in particular needs a physical LiDAR device (no simulator support)
-  to verify at all — and the new Car/Truck body-type toggle (`Vehicle.bodyType`, the `Picker` in
-  `EditCaseSheet.swift`, and `ImpactSilhouetteView`'s bumper/fender landmarks).
+  to verify at all — the Car/Truck body-type toggle (`Vehicle.bodyType`, the `Picker` in
+  `EditCaseSheet.swift`, and `ImpactSilhouetteView`'s bumper/fender landmarks) — and the new
+  `OnboardingView.swift` (a new file, manually registered in `project.pbxproj` since there's no
+  Xcode GUI available in this sandbox to add it the normal way — double-check it appears under
+  the Dashboard group in Xcode after pulling).
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

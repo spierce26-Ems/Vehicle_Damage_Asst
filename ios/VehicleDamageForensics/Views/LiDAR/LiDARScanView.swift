@@ -136,6 +136,12 @@ struct LiDARScanView: View {
                 EmptyView()
             case .awaitingGroundTap:
                 Label("Tap the ground beside the vehicle", systemImage: "hand.tap.fill")
+                // NOTE(AI Developer), added 2026-07 per Sean's request
+                // for in-flow "why this matters" guidance on steps that
+                // aren't obviously self-explanatory -- measuring a
+                // height off the ground is one of those (unlike a
+                // photo, it's not obvious *why* you'd do this at all).
+                whyThisMattersNote("This measures how high off the ground the damage is — useful for confirming both vehicles' damage lines up at the same height.")
             case .awaitingDamageTap:
                 Label("Now tap the damage point on the vehicle", systemImage: "hand.tap.fill")
             case .tapMissedSurface:
@@ -172,6 +178,21 @@ struct LiDARScanView: View {
         .foregroundStyle(.white)
         .padding(12)
         .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// See the identical-purpose helper in `ImpactMarkerView.swift`.
+    /// Duplicated (rather than shared) since this view's banner sits on
+    /// a dark/black background, needing different text styling
+    /// (smaller caption, translucent white) than `ImpactMarkerView`'s
+    /// light-material card.
+    private func whyThisMattersNote(_ text: String) -> some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: "lightbulb.fill")
+        }
+        .font(.caption2)
+        .foregroundStyle(.white.opacity(0.75))
     }
 
     private var topStatus: some View {

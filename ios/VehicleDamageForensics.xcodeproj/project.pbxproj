@@ -41,6 +41,7 @@
 		678D300627E0BDAF3A5C6990 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12C34DECCB6201A262C6F298 /* PaywallView.swift */; };
 		D77C2BE627340BFD99713036 /* HeadingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF5307E605921A484C06DAB /* HeadingProvider.swift */; };
 		FDB59CC5B475210890C53AE7 /* ImpactMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */; };
+		8195D560484A4A3AB0C48CE4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0A9011D23F48B896AB6295 /* OnboardingView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -80,6 +81,7 @@
 		12C34DECCB6201A262C6F298 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaywallView.swift; path = VehicleDamageForensics/Views/Paywall/PaywallView.swift; sourceTree = SOURCE_ROOT; };
 		9EF5307E605921A484C06DAB /* HeadingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HeadingProvider.swift; path = VehicleDamageForensics/Services/HeadingProvider.swift; sourceTree = SOURCE_ROOT; };
 		C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ImpactMarkerView.swift; path = VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift; sourceTree = SOURCE_ROOT; };
+		0D0A9011D23F48B896AB6295 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = VehicleDamageForensics/Views/Dashboard/OnboardingView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -122,6 +124,7 @@
 			children = (
 				F205492EB0CDE9FB909D38A6 /* DashboardView.swift */,
 				1AAD2E52A036EA4FBD362F53 /* EditCaseSheet.swift */,
+				0D0A9011D23F48B896AB6295 /* OnboardingView.swift */,
 			);
 			name = Dashboard;
 			sourceTree = "<group>";
@@ -357,6 +360,7 @@
 				A79D428AA949C0E991EBE932 /* CaptureFlowView.swift in Sources */,
 				1CAD492F899427E15CDCF044 /* SensorGuidanceOverlay.swift in Sources */,
 				77E3497AA6202B6C61EE69E5 /* DashboardView.swift in Sources */,
+				8195D560484A4A3AB0C48CE4 /* OnboardingView.swift in Sources */,
 				C72F606866B6AB97ED0F82D4 /* EditCaseSheet.swift in Sources */,
 				62524C77B019CA248AA4CCE4 /* LiDARScanView.swift in Sources */,
 				EFFE47E3AB624AC000D1BAC5 /* PDFReportView.swift in Sources */,
