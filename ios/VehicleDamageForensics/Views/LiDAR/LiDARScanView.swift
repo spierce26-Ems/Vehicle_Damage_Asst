@@ -243,6 +243,27 @@ struct ARViewContainer: UIViewRepresentable {
 
     func makeUIView(context: Context) -> ARView {
         let arView = ARView(frame: .zero)
+        // NOTE(AI Developer), added 2026-07 per Sean's on-device report
+        // ("the lidar never activated during scan"). `ARView` defaults
+        // `automaticallyConfigureSession` to `true`, which means RealityKit
+        // silently runs (and can re-run, e.g. on scene-phase/window
+        // changes) its *own* auto-generated `ARWorldTrackingConfiguration`
+        // on this session -- one that, per Apple's own scene-reconstruction
+        // sample doc ("Visualizing and interacting with a reconstructed
+        // scene"), does NOT enable `.sceneReconstruction` by default,
+        // since RealityKit only turns that on for occlusion/physics when
+        // it judges it necessary. That auto-config can stomp on (replace)
+        // the custom `.sceneReconstruction = .mesh` configuration that
+        // `LiDARService.startScan()` explicitly builds and runs on this
+        // exact `session` an instant later -- which matches Sean's report
+        // that tap-to-measure raycasts still worked (raycasts can still
+        // hit plane-detection-derived surfaces) while the mesh-scanning
+        // wireframe/coverage never visibly engaged. Must be set to `false`
+        // before the session is even assigned below, so RealityKit never
+        // gets a chance to auto-run anything on it -- `LiDARService`'s own
+        // `session.run(config, ...)` in `startScan()` becomes the *only*
+        // thing that ever configures/runs this session.
+        arView.automaticallyConfigureSession = false
         arView.session = session
         arView.environment.sceneUnderstanding.options = [.occlusion, .receivesLighting]
         // NOTE(AI Developer), added 2026-07 per Sean's on-device feedback

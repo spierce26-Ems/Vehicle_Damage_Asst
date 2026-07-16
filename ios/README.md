@@ -54,6 +54,19 @@
     `Vehicle.effectiveBumperHeightInches` (`lidarMeasuredHeightInches ?? bumperHeightInches`) is
     what `MatchScoreCalculator` now passes to `HeightAlignmentAnalyzer`, so a completed LiDAR
     measurement gives Height Alignment real data for the first time.
+  - **Fixed: LiDAR mesh scan never visibly activating** (added 2026-07, per Sean's on-device
+    report — "tap and measure worked but the lidar never activated during scan"):
+    `ARViewContainer.makeUIView` (`Views/LiDAR/LiDARScanView.swift`) now sets
+    `arView.automaticallyConfigureSession = false` before assigning `arView.session`. `ARView`
+    defaults that flag to `true`, under which RealityKit can auto-generate and (re-)run its own
+    `ARWorldTrackingConfiguration` on the session — one that, per Apple's own scene-reconstruction
+    sample doc ("Visualizing and interacting with a reconstructed scene"), does not enable
+    `.sceneReconstruction` by default, which could stomp on the custom `.sceneReconstruction =
+    .mesh` configuration `LiDARService.startScan()` runs on the same session. This matches Sean's
+    report exactly: tap-to-measure raycasts (`.estimatedPlane`, which can also hit plane-detection
+    surfaces) still worked, while the mesh wireframe/coverage never engaged. `LiDARService`'s own
+    `session.run(...)` in `startScan()` is now the only thing that ever configures/runs the
+    session.
   - **Composite score renormalization** (added 2026-07, per Sean's decision): a case where one or
     more factors are `dataQuality: .unavailable` (no real data captured for that factor) no
     longer permanently caps the max achievable score. The composite is now `weightedSum /
