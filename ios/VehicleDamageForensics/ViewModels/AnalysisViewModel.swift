@@ -231,6 +231,29 @@ final class AnalysisViewModel: ObservableObject {
         forensicCase.matchResult?.recommendations ?? []
     }
 
+    /// NOTE(AI Developer), added 2026-07 for the Scar-Direction
+    /// Consistency feature -- exposes `MatchResult.scarDirectionCheck`
+    /// to `MatchResultsView`/`PDFReportGenerator`, mirroring how every
+    /// other `MatchResult` field is already exposed through this
+    /// presentation layer (`topFactors`, `recommendations`, etc.). `nil`
+    /// before analysis has run, or for a `MatchResult` produced before
+    /// this feature existed.
+    var scarDirectionCheck: ScarDirectionCheck? {
+        forensicCase.matchResult?.scarDirectionCheck
+    }
+
+    /// NOTE(AI Developer), added 2026-07 implementing Sean's explicit
+    /// hard exclusion rule. Non-nil means BOTH a Height Alignment
+    /// mismatch AND a Scar-Direction Consistency conflict were detected
+    /// for this suspect vehicle -- see
+    /// `MatchScoreCalculator.evaluateExclusionRule` for the exact
+    /// conditions. Deliberately does not hide/replace `topFactors` or
+    /// `recommendations` -- this is an additional, prominent warning the
+    /// UI should render on top of (not instead of) the normal breakdown.
+    var suspectExclusionReason: String? {
+        forensicCase.matchResult?.suspectExclusionReason
+    }
+
     /// Standard disclaimer to render alongside every result — see
     /// `MatchResult.disclaimerText` for the full rationale.
     var disclaimerText: String { MatchResult.disclaimerText }

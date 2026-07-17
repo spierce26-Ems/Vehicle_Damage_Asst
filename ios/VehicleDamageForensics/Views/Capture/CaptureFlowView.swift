@@ -18,6 +18,16 @@ struct CaptureFlowView: View {
     // (record one profile, then return here), not a flow the user
     // navigates deeper from.
     @State private var showImpactMarker = false
+    // NOTE(AI Developer), added 2026-07 for the Scar-Direction
+    // Consistency feature (Sean's fix for the parallel-parking
+    // direction-of-travel blind spot). Presented as a sheet, same
+    // pattern as `showImpactMarker` -- see `ScarCaptureView`.
+    // Deliberately OPTIONAL (unlike Impact Location/Direction above),
+    // per Sean's explicit answer that a missing/inconclusive scar
+    // reading should let the other 6 factors decide rather than block
+    // analysis -- so there is no `hasScarDirection` gate on the
+    // "Continue"/"Run Analysis" buttons below.
+    @State private var showScarCapture = false
 
     init(forensicCase: ForensicCase) {
         _viewModel = StateObject(wrappedValue: CaptureViewModel(forensicCase: forensicCase))
@@ -60,6 +70,15 @@ struct CaptureFlowView: View {
             NavigationStack {
                 ImpactMarkerView(viewModel: viewModel)
             }
+        }
+        // NOTE(AI Developer), added 2026-07 for the Scar-Direction
+        // Consistency feature -- see `showScarCapture`/`scarCaptureButton`.
+        // `ScarCaptureView` wraps its own `NavigationStack` internally
+        // (it has two internal stages with their own toolbar), unlike
+        // `ImpactMarkerView` above, so it isn't wrapped in a second one
+        // here.
+        .sheet(isPresented: $showScarCapture) {
+            ScarCaptureView(viewModel: viewModel)
         }
     }
 
@@ -112,6 +131,41 @@ struct CaptureFlowView: View {
             // required *before* opening the sheet, not just that it is.
             if !viewModel.hasImpactProfile {
                 Text("Required because it's what lets the app confirm both vehicles were hit in a way that matches — not just photos of separate damage.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
+            }
+
+            // NOTE(AI Developer), added 2026-07 for the Scar-Direction
+            // Consistency feature -- deliberately styled/worded as
+            // OPTIONAL ("Recommended", not "Required"), unlike the
+            // Impact Location row above, per Sean's explicit answer
+            // that a missing/inconclusive scar reading should let the
+            // other 6 correlation factors decide rather than block
+            // analysis. Three visual states: not yet attempted (gray/
+            // outline), photo taken but direction inconclusive (orange,
+            // "Inconclusive" -- a real, expected outcome for a blunt
+            // dent with no taper to read, not an error), and resolved
+            // (green, checkmark).
+            Button {
+                showScarCapture = true
+            } label: {
+                Label(
+                    viewModel.hasScarDirection ? "Scar Direction — Recorded"
+                        : viewModel.hasScarPhoto ? "Scar Direction — Inconclusive (tap to retry)"
+                        : "Scar Direction — Recommended",
+                    systemImage: viewModel.hasScarDirection ? "checkmark.circle.fill"
+                        : viewModel.hasScarPhoto ? "questionmark.circle"
+                        : "camera.viewfinder"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(viewModel.hasScarDirection ? .green : viewModel.hasScarPhoto ? .orange : .secondary)
+
+            if !viewModel.hasScarDirection {
+                Text("Optional, but a physical scar's paint taper can reveal the true direction of motion — even when the vehicle was reversing (e.g. backing out of a parking space) in a way a guessed compass heading can't.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

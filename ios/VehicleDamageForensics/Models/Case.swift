@@ -445,6 +445,25 @@ enum AuditAction: String, Codable {
     // `.photoCaptured`/`.photoImported` since it's a separate, later
     // step against an already-captured photo, not the capture itself.
     case paintReferenceRecorded = "paint_reference_recorded"
+    // NOTE(AI Developer), added 2026-07 as part of the Scar-Direction
+    // Consistency feature (Sean's fix for the parallel-parking
+    // direction-of-travel blind spot). Recorded once per vehicle the
+    // first time a scar line's paint-transfer taper is successfully
+    // resolved into a `Vehicle.scarSlideDirection` -- see
+    // `CaptureViewModel.recordScarDirection`. Distinct from
+    // `.paintReferenceRecorded` since this is a separate, later,
+    // optional step against the same paint-transfer photo, not the
+    // required damage/reference color sampling itself.
+    case scarDirectionRecorded = "scar_direction_recorded"
+    // NOTE(AI Developer), added 2026-07 alongside the dedicated guided
+    // scar-capture camera (`ScarCaptureView`). Recorded once per
+    // successful capture of `Vehicle.scarPhoto` -- distinct from
+    // `.photoCaptured` since this photo is NOT part of the counted
+    // 10-shot protocol (see `Vehicle.scarPhoto`'s doc comment), and
+    // distinct from `.scarDirectionRecorded` since capturing the photo
+    // and successfully resolving a direction from its marked line are
+    // two separate steps that can each fail/retry independently.
+    case scarPhotoCaptured = "scar_photo_captured"
 
     var displayName: String {
         switch self {
@@ -461,6 +480,8 @@ enum AuditAction: String, Codable {
         case .impactProfileRecorded: return "Impact Location/Direction Recorded"
         case .lidarMeasurementRecorded: return "LiDAR Height Measurement Recorded"
         case .paintReferenceRecorded: return "Paint Reference Sample Recorded"
+        case .scarDirectionRecorded: return "Scar Direction Recorded"
+        case .scarPhotoCaptured: return "Scar Photo Captured"
         }
     }
 }

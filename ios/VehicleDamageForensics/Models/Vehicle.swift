@@ -91,6 +91,56 @@ struct Vehicle: Identifiable, Codable, Equatable {
     /// mandatory/unskippable carve-outs).
     var skippedShotIndices: [Int]
 
+    /// NOTE(AI Developer), added 2026-07 as the raw evidence-derived
+    /// input to the "Scar-Direction Consistency" feature -- Sean's fix for
+    /// a real blind spot he identified in the existing Impact Geometry
+    /// check: a maneuvering vehicle's self-reported
+    /// `directionOfTravelDegrees` is unreliable (a vehicle parallel
+    /// parking can produce the IDENTICAL damage location on both vehicles
+    /// via two opposite, both-physically-valid directions of travel --
+    /// reversing in vs. pulling forward out -- and for a hit-and-run
+    /// specifically, the victim often never got a clean look at which way
+    /// the suspect was actually moving in the first place). Sean's fix:
+    /// read the true direction of relative sliding motion off the
+    /// PHYSICAL scar itself, which requires no one's memory or guess.
+    ///
+    /// Set once by `CaptureViewModel.recordScarDirection`, which samples
+    /// ΔE2000 paint-transfer density at multiple points along the marked
+    /// scar line (`CapturedPhoto.scarLineStart`/`scarLineEnd`) and
+    /// determines which end reads as the thicker transfer -- contact was
+    /// sliding TOWARD that end (paint piles up in the direction of
+    /// motion), away from the thinner end where the two surfaces
+    /// separated. `.towardFront`/`.towardRear` states are relative to
+    /// this vehicle's own body, using the same front/rear reference the
+    /// two scar endpoints were tagged against
+    /// (`CapturedPhoto.scarFrontEndpoint`) -- NOT a compass direction.
+    ///
+    /// `nil` whenever this signal isn't available (no scar line marked --
+    /// a blunt dent has no taper to read -- or the density sampling along
+    /// the line was inconclusive). Per Sean's explicit answer, this is
+    /// deliberately allowed to be "not determinable": see
+    /// `scarTravelBearingDegrees` below and `MatchScoreCalculator
+    /// .scoreScarDirectionConsistency` for how the scoring engine lets the
+    /// other 6/7 factors decide when this is `nil`, rather than treating
+    /// a missing scar as a negative result.
+    var scarSlideDirection: ScarSlideDirection?
+
+    /// NOTE(AI Developer), added 2026-07 alongside the dedicated
+    /// scar-marking capture flow (`ScarCaptureView`). Deliberately a
+    /// SEPARATE slot from `photos`, not another entry appended to that
+    /// array: `photos.count + skippedShotIndices.count` is exactly what
+    /// `CaptureViewModel.currentShotIndex` uses to track position in the
+    /// fixed-length, required 10-shot v1 protocol
+    /// (`PhotoType.requiredCaptureProtocol`) -- appending a scar photo
+    /// there would silently desync that counter and consume/skip a real
+    /// required shot slot for a photo that isn't part of the protocol at
+    /// all. This capture is optional and can be (re)taken at any time,
+    /// independent of protocol progress, so it needs its own home.
+    /// `nil` until the user completes `ScarCaptureView`; overwritten (not
+    /// appended to) on a retake, since only the most recent scar photo
+    /// is ever meaningful. See `CaptureViewModel.captureScarPhoto`.
+    var scarPhoto: CapturedPhoto?
+
     // MARK: Init
 
     init(
@@ -111,7 +161,9 @@ struct Vehicle: Identifiable, Codable, Equatable {
         lidarMeasuredHeightInches: Double? = nil,
         impactTapPoint: CGPoint? = nil,
         directionOfTravelDegrees: Double? = nil,
-        skippedShotIndices: [Int] = []
+        skippedShotIndices: [Int] = [],
+        scarSlideDirection: ScarSlideDirection? = nil,
+        scarPhoto: CapturedPhoto? = nil
     ) {
         self.id = id
         self.role = role
@@ -131,6 +183,8 @@ struct Vehicle: Identifiable, Codable, Equatable {
         self.impactTapPoint = impactTapPoint
         self.directionOfTravelDegrees = directionOfTravelDegrees
         self.skippedShotIndices = skippedShotIndices
+        self.scarSlideDirection = scarSlideDirection
+        self.scarPhoto = scarPhoto
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -171,6 +225,17 @@ struct Vehicle: Identifiable, Codable, Equatable {
         impactTapPoint = try c.decodeIfPresent(CGPoint.self, forKey: .impactTapPoint)
         directionOfTravelDegrees = try c.decodeIfPresent(Double.self, forKey: .directionOfTravelDegrees)
         skippedShotIndices = try c.decodeIfPresent([Int].self, forKey: .skippedShotIndices) ?? []
+        // `scarSlideDirection` didn't exist before the Scar-Direction
+        // Consistency feature -- every case saved before this update
+        // decodes it as `nil` ("not determinable," never a false
+        // negative), same backward-compat pattern as every other
+        // Optional field in this initializer.
+        scarSlideDirection = try c.decodeIfPresent(ScarSlideDirection.self, forKey: .scarSlideDirection)
+        // `scarPhoto` didn't exist before the dedicated scar-capture flow
+        // -- every case saved before this update decodes it as `nil`
+        // (no scar photo taken yet), same backward-compat pattern as
+        // every other Optional field in this initializer.
+        scarPhoto = try c.decodeIfPresent(CapturedPhoto.self, forKey: .scarPhoto)
     }
 
     // MARK: Computed
@@ -253,6 +318,79 @@ struct Vehicle: Identifiable, Codable, Equatable {
     /// "Continue"/"Run Analysis" button gating.
     var hasImpactProfile: Bool {
         impactTapPoint != nil && directionOfTravelDegrees != nil
+    }
+
+    /// True once a scar-derived slide direction has actually been
+    /// resolved for this vehicle (see `scarSlideDirection`). Deliberately
+    /// NOT a required step, unlike `hasImpactProfile` -- Sean's explicit
+    /// decision was that a missing/undeterminable scar direction should
+    /// let the other 6 factors decide rather than blocking analysis.
+    var hasScarDirection: Bool { scarSlideDirection != nil }
+
+    /// True once a dedicated scar photo has been captured for this
+    /// vehicle via `ScarCaptureView`. Distinct from `hasScarDirection`:
+    /// a photo can exist with its line not yet marked, or marked but
+    /// inconclusive (taper too subtle to call) -- see `ScarCaptureView`'s
+    /// in-photo marking step for how `scarPhoto` and `scarSlideDirection`
+    /// relate.
+    var hasScarPhoto: Bool { scarPhoto != nil }
+
+    /// NOTE(AI Developer), added 2026-07 as the key piece that resolves
+    /// the parallel-parking blind spot while still reusing
+    /// `impactBearingDegrees`'s exact sum-to-180° reciprocity math, per
+    /// Sean's explicit request to confirm this design ("Scar direction
+    /// should be a perfect match, correct? they should line up perfectly
+    /// with height and basically be the inverse for both vehicles"). Yes
+    /// -- this is exactly the same reciprocal math, just fed a corrected
+    /// travel-direction input; see below for exactly what's corrected and
+    /// why.
+    ///
+    /// `directionOfTravelDegrees` is a COMPASS HEADING of the travel
+    /// vector. `impactBearingDegrees`'s formula (`travel + relative`)
+    /// implicitly assumes the vehicle was moving nose-first (forward) at
+    /// that heading -- true for the overwhelming majority of real
+    /// collisions, but false whenever the vehicle was actually reversing
+    /// (nose pointed the OPPOSITE way from the direction of travel). A
+    /// self-reported heading can't distinguish these two cases when the
+    /// resulting damage location is identical (Sean's parallel-parking
+    /// example), because the person recording it is guessing/recalling,
+    /// not measuring.
+    ///
+    /// The scar doesn't have that problem: per Sean's own framing, paint
+    /// transfer piles up in the direction the vehicle's own body was
+    /// sliding relative to the point of contact -- i.e. the thick end of
+    /// the taper is the direction this vehicle's body was actually moving
+    /// AT THAT PANEL. `scarSlideDirection == .towardFront` means the
+    /// vehicle's own front was the leading edge of that motion (ordinary
+    /// forward/nose-first driving); `.towardRear` means the REAR was the
+    /// leading edge (the vehicle was moving backward -- reversing).
+    ///
+    /// So the correction is simple and physically grounded: the vehicle's
+    /// actual NOSE heading equals the self-reported travel heading when
+    /// driving forward (`.towardFront`), but is travel + 180° when
+    /// reversing (`.towardRear`) -- nose points opposite the direction of
+    /// motion when backing up. Substituting that corrected nose heading
+    /// for the raw self-report in the EXACT SAME `nose + relative =
+    /// bearing` formula `impactBearingDegrees` already uses is the whole
+    /// fix: everything downstream (the `% 360` wrap, the sum-to-180°
+    /// reciprocity check in `MatchScoreCalculator
+    /// .scoreScarDirectionConsistency`) is identical to Impact Geometry.
+    ///
+    /// `nil` whenever any input is missing -- see
+    /// `hasScarDirection`/`hasImpactProfile`.
+    var scarTravelBearingDegrees: Double? {
+        guard let scarSlideDirection, let travel = directionOfTravelDegrees,
+              let relative = impactRelativeAngleDegrees else { return nil }
+        let noseHeading: Double
+        switch scarSlideDirection {
+        case .towardFront:
+            noseHeading = travel
+        case .towardRear:
+            noseHeading = (travel + 180).truncatingRemainder(dividingBy: 360)
+        }
+        var bearing = (noseHeading + relative).truncatingRemainder(dividingBy: 360)
+        if bearing < 0 { bearing += 360 }
+        return bearing
     }
 
     /// Human-readable 8-point description of `impactRelativeAngleDegrees`,
@@ -521,6 +659,27 @@ enum TransferDirection: String, Codable {
     case inward   // paint received (victim)
     case outward  // paint deposited (suspect)
     case both
+}
+
+// MARK: - Scar Slide Direction
+
+/// NOTE(AI Developer), added 2026-07 as part of the Scar-Direction
+/// Consistency feature. Which end of this vehicle's body was the
+/// "leading" edge of relative sliding motion at the moment of contact,
+/// as read off the physical paint-transfer taper along a marked scar
+/// line -- see `Vehicle.scarSlideDirection`/`scarTravelBearingDegrees`
+/// for the full derivation and why this is what actually resolves the
+/// parallel-parking direction-of-travel ambiguity.
+enum ScarSlideDirection: String, Codable {
+    /// Paint transfer is thickest toward the scar endpoint nearer this
+    /// vehicle's own front -- consistent with ordinary forward/nose-first
+    /// driving at the moment of contact.
+    case towardFront
+    /// Paint transfer is thickest toward the scar endpoint nearer this
+    /// vehicle's own rear -- consistent with this vehicle moving
+    /// backward (e.g. reversing into a parking space) at the moment of
+    /// contact.
+    case towardRear
 }
 
 // MARK: - LiDAR Scan Data

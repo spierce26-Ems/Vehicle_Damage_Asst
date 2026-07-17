@@ -105,6 +105,31 @@ final class CaptureViewModel: ObservableObject {
         }
     }
 
+    /// True once the active vehicle's scar photo has been captured
+    /// (`Vehicle.hasScarPhoto`). NOTE(AI Developer), added 2026-07 for
+    /// `CaptureFlowView`'s optional Scar Direction button -- unlike
+    /// `hasImpactProfile`, this deliberately does NOT gate
+    /// "Continue"/"Run Analysis" (Sean's explicit answer: a missing/
+    /// inconclusive scar reading should let the other 6 factors decide).
+    var hasScarPhoto: Bool {
+        switch captureRole {
+        case .victim: return forensicCase.victimVehicle.hasScarPhoto
+        case .suspect: return forensicCase.suspectVehicle?.hasScarPhoto ?? false
+        }
+    }
+
+    /// True once the active vehicle's scar direction has actually
+    /// resolved to a real value (not just "a photo was taken" -- see
+    /// `hasScarPhoto` for that weaker check). Drives the checkmark vs.
+    /// plain "optional" state on `CaptureFlowView`'s Scar Direction
+    /// button.
+    var hasScarDirection: Bool {
+        switch captureRole {
+        case .victim: return forensicCase.victimVehicle.hasScarDirection
+        case .suspect: return forensicCase.suspectVehicle?.hasScarDirection ?? false
+        }
+    }
+
     // MARK: Dependencies
 
     private let storage: StorageService
@@ -527,6 +552,148 @@ final class CaptureViewModel: ObservableObject {
         } else {
             vehicle.damageZones[0].paintAnalysis = analysis
         }
+    }
+
+    /// Record a marked scar line (endpoints + which end is toward this
+    /// vehicle's own front) against an already-captured `.paintTransfer`
+    /// photo, sample paint-transfer density along that line, and -- if
+    /// the resulting taper is conclusive -- set this vehicle's
+    /// `scarSlideDirection`.
+    ///
+    /// NOTE(AI Developer), added 2026-07 as the ViewModel-layer entry
+    /// point for the Scar-Direction Consistency feature, per Sean's "yes
+    /// build it" direction and his three explicit answers: (1) when the
+    /// taper isn't conclusive (or there's no reference color to compare
+    /// against yet), this deliberately leaves `scarSlideDirection == nil`
+    /// -- "not determinable," never a fabricated direction -- rather than
+    /// guessing; (2) this is a fully independent, optional step from
+    /// `recordImpactProfile`/Impact Geometry, callable any time after a
+    /// paint reference has been recorded for this vehicle; (3) the actual
+    /// keep/exclude formula this feeds lives in
+    /// `MatchScoreCalculator.scoreScarDirectionConsistency` and
+    /// `MatchResult.suspectShouldBeExcluded`, not here -- this function's
+    /// only job is turning marked pixels into a `ScarSlideDirection`.
+    ///
+    /// Mirrors `recordPaintReferenceTaps`'s structure (role-based switch,
+    /// `wasAlreadyRecorded` audit-dedup guard on `hasScarDirection`
+    /// specifically -- not just "was a line marked" -- so re-marking an
+    /// inconclusive line doesn't spam the audit log until it actually
+    /// resolves to a real direction, then `storage.save`).
+    ///
+    /// Requires a clean-panel reference color to compare transfer density
+    /// against -- reuses `Vehicle.primaryDamageZone?.paintAnalysis
+    /// .primaryColorRGB`, the same clean-panel sample already captured by
+    /// `recordPaintReferenceTaps` for the Paint Transfer factor, rather
+    /// than asking the user to tap a third reference point. If that
+    /// hasn't been recorded yet for this vehicle, the scar line's
+    /// endpoints are still saved (so the marking UI shows them on
+    /// re-open), but no direction can be derived yet -- the user should
+    /// complete the paint reference step first.
+    ///
+    /// NOTE(AI Developer), reworked 2026-07 alongside the dedicated
+    /// `ScarCaptureView`/`captureScarPhoto` flow: this used to search for
+    /// `photoID` inside `vehicle.photos` (the array `CaptureCameraView`'s
+    /// 30-shot -- v1: 10-shot -- protocol appends to and
+    /// `currentShotIndex` counts). That was fine only because the scar
+    /// line used to be marked on an ALREADY-required `.paintTransfer`
+    /// protocol shot. Now that scar evidence has its own dedicated,
+    /// non-protocol capture (`Vehicle.scarPhoto`, taken via
+    /// `ScarCaptureView`'s guided auto-capture), this reads/writes that
+    /// single slot directly instead of searching an array -- no
+    /// `photoID` parameter needed anymore since there's only ever one
+    /// candidate photo per vehicle.
+    func recordScarDirection(
+        lineStart: CGPoint,
+        lineEnd: CGPoint,
+        frontEndpoint: ScarEndpoint
+    ) async {
+        func resolvedDirection(image: UIImage, referenceColor: ColorRGB?) -> ScarSlideDirection? {
+            guard let referenceColor,
+                  let taper = ColorAnalysis.detectScarTaper(
+                    in: image, lineStart: lineStart, lineEnd: lineEnd, referenceColor: referenceColor
+                  ),
+                  taper.isConclusive
+            else { return nil }
+            return taper.thickerEnd == frontEndpoint ? .towardFront : .towardRear
+        }
+
+        let wasAlreadyRecorded: Bool
+        switch captureRole {
+        case .victim:
+            wasAlreadyRecorded = forensicCase.victimVehicle.hasScarDirection
+            guard forensicCase.victimVehicle.scarPhoto != nil,
+                  let image = UIImage(data: forensicCase.victimVehicle.scarPhoto!.imageData) else { return }
+            forensicCase.victimVehicle.scarPhoto?.scarLineStart = lineStart
+            forensicCase.victimVehicle.scarPhoto?.scarLineEnd = lineEnd
+            forensicCase.victimVehicle.scarPhoto?.scarFrontEndpoint = frontEndpoint
+            let referenceColor = forensicCase.victimVehicle.primaryDamageZone?.paintAnalysis?.primaryColorRGB
+            forensicCase.victimVehicle.scarSlideDirection = resolvedDirection(image: image, referenceColor: referenceColor)
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            wasAlreadyRecorded = forensicCase.suspectVehicle?.hasScarDirection ?? false
+            // Same `guard var suspect ... write-back-once` pattern as
+            // `recordPaintReferenceTaps`'s suspect branch -- see that
+            // function's comment for why (`inout Vehicle` needs a
+            // concrete, non-Optional local to mutate).
+            guard var suspect = forensicCase.suspectVehicle,
+                  let scarPhoto = suspect.scarPhoto,
+                  let image = UIImage(data: scarPhoto.imageData) else { return }
+            suspect.scarPhoto?.scarLineStart = lineStart
+            suspect.scarPhoto?.scarLineEnd = lineEnd
+            suspect.scarPhoto?.scarFrontEndpoint = frontEndpoint
+            let referenceColor = suspect.primaryDamageZone?.paintAnalysis?.primaryColorRGB
+            suspect.scarSlideDirection = resolvedDirection(image: image, referenceColor: referenceColor)
+            forensicCase.suspectVehicle = suspect
+        }
+
+        // Only log the audit entry the first time this vehicle's scar
+        // direction actually resolves to a real value, not on every
+        // re-mark attempt (including ones that stay inconclusive).
+        let isNowRecorded: Bool
+        switch captureRole {
+        case .victim: isNowRecorded = forensicCase.victimVehicle.hasScarDirection
+        case .suspect: isNowRecorded = forensicCase.suspectVehicle?.hasScarDirection ?? false
+        }
+        if !wasAlreadyRecorded && isNowRecorded {
+            forensicCase.recordAudit(.scarDirectionRecorded, detail: "\(captureRole.displayName) vehicle")
+        }
+        await storage.save(forensicCase)
+    }
+
+    /// Record a freshly-captured, guided scar photo (from `ScarCaptureView`
+    /// / `ScarCaptureCameraService`) as this vehicle's `scarPhoto`,
+    /// replacing any previous one (a retake supersedes, it doesn't
+    /// accumulate -- only the latest scar photo is ever meaningful).
+    ///
+    /// NOTE(AI Developer), added 2026-07 as the dedicated capture entry
+    /// point for the guided scar-line camera (Sean: "can we have the
+    /// hold the phone over the damage and automatically capture the
+    /// image when the phone is in the correct position... like the auto
+    /// capture when I remote deposit a check"). Deliberately separate
+    /// from `record(photo:)`: that function feeds the fixed-length,
+    /// counted 10-shot protocol (`nextShotType`/`currentShotIndex`) --
+    /// this one does not touch protocol state at all, since the scar
+    /// photo is optional/independent of it (see `Vehicle.scarPhoto`'s
+    /// doc comment). Clears any previously-marked line/direction on a
+    /// retake, since a brand-new photo has no marked line yet and any
+    /// stale direction derived from the OLD photo would misrepresent
+    /// evidence that no longer exists in the current photo.
+    func captureScarPhoto(_ photo: CapturedPhoto) async {
+        switch captureRole {
+        case .victim:
+            forensicCase.victimVehicle.scarPhoto = photo
+            forensicCase.victimVehicle.scarSlideDirection = nil
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            forensicCase.suspectVehicle?.scarPhoto = photo
+            forensicCase.suspectVehicle?.scarSlideDirection = nil
+        }
+        forensicCase.recordAudit(.scarPhotoCaptured, detail: "\(captureRole.displayName) vehicle")
+        await storage.save(forensicCase)
     }
 
     /// Switch to capturing the suspect vehicle after victim is complete.

@@ -332,4 +332,140 @@ enum ColorAnalysis {
             luminanceStdDev: stdDev
         )
     }
+
+    // MARK: Scar-line taper detection
+
+    /// Which endpoint of a marked scar line reads as the thicker
+    /// paint-transfer end, plus how confidently that could be
+    /// determined. NOTE(AI Developer), added 2026-07 as part of the
+    /// Scar-Direction Consistency feature (Sean: "infer direction of
+    /// travel from the physical scar's own paint-density taper"). See
+    /// `detectScarTaper(...)` below for the sampling methodology and
+    /// `CaptureViewModel.recordScarDirection` for how this feeds
+    /// `Vehicle.scarSlideDirection`.
+    struct ScarTaperResult {
+        /// The scar-line endpoint (`CapturedPhoto.scarLineStart` or
+        /// `.scarLineEnd`) where paint-transfer density reads highest --
+        /// i.e. the end contact was sliding TOWARD.
+        var thickerEnd: ScarEndpoint
+        /// Mean ΔE2000 (foreign-paint density, relative to the vehicle's
+        /// own clean-panel reference color) at the thicker end's sample
+        /// points.
+        var thickerEndMeanDeltaE: Double
+        /// Mean ΔE2000 at the thinner end's sample points.
+        var thinnerEndMeanDeltaE: Double
+        /// `true` only when the density difference between the two ends
+        /// is large enough, relative to the sample-to-sample noise seen
+        /// along the line, to call a real taper rather than uniform/noisy
+        /// transfer with no clear directionality. Callers should treat a
+        /// `false` result as "not determinable," per Sean's explicit
+        /// answer on the no-scar/inconclusive-scar fallback -- NEVER as a
+        /// disproven direction.
+        var isConclusive: Bool
+    }
+
+    /// Sample paint-transfer density (ΔE2000 vs. `referenceColor`, this
+    /// vehicle's own clean-panel color from the same photo's
+    /// `paintReferencePoint`/`PaintAnalysis.primaryColorRGB`) at evenly
+    /// spaced points along the marked scar line `lineStart → lineEnd`,
+    /// and determine which end shows heavier transfer.
+    ///
+    /// NOTE(AI Developer), added 2026-07 as the taper-detection algorithm
+    /// behind Scar-Direction Consistency. Methodology, per the design
+    /// worked out with Sean: paint transferred by a sliding/scraping
+    /// contact characteristically deposits MORE material at the end of
+    /// the scrape where the two surfaces were pressed together longest
+    /// and hardest (the direction of motion) and tapers off toward the
+    /// end where they separated -- the same "thick end / thin end" visual
+    /// cue an investigator reads by eye, made quantitative here via
+    /// ΔE2000 distance from the vehicle's own true paint color (reusing
+    /// the exact same perceptual color-distance math already validated
+    /// for the Paint Transfer factor, rather than inventing a second,
+    /// less rigorous metric).
+    ///
+    /// Deliberately compares the *first third* of samples against the
+    /// *last third* (discarding the noisier middle third) rather than
+    /// just the two literal endpoint pixels -- a single-pixel sample at
+    /// each end is highly vulnerable to exactly where the user's tap
+    /// landed; averaging several points near each end is far more robust
+    /// to a slightly-off tap without losing the taper signal, which by
+    /// definition is only visible across a run of points, not a single
+    /// one.
+    ///
+    /// - Parameters:
+    ///   - image: the same `.paintTransfer` photo the scar line was
+    ///     marked on.
+    ///   - lineStart: normalized 0-1/0-1 start point of the marked scar
+    ///     line (`CapturedPhoto.scarLineStart`).
+    ///   - lineEnd: normalized 0-1/0-1 end point (`CapturedPhoto.scarLineEnd`).
+    ///   - referenceColor: this vehicle's own clean-panel color, sampled
+    ///     from the same photo (see `PaintAnalysis.primaryColorRGB`).
+    ///   - sampleCount: number of evenly-spaced points along the line to
+    ///     sample, including both endpoints. Default 9 (three groups of
+    ///     three: start-third / middle-third / end-third).
+    ///   - minimumConclusiveDeltaE: the minimum ΔE2000 difference between
+    ///     the two ends' means required to call a real taper (rather than
+    ///     noise) -- default 1.5, well under the ΔE ≈ 3.0 threshold
+    ///     `CaptureViewModel.buildPaintAnalysis` already uses to call two
+    ///     samples "different colors at all," since this only needs to
+    ///     detect a relative difference between two already-transferred
+    ///     patches, not decide whether transfer happened in the first
+    ///     place.
+    /// - Returns: `nil` only if sampling itself fails outright (e.g.
+    ///   degenerate image data) -- an inconclusive taper still returns a
+    ///   result, with `isConclusive == false`, so the caller can
+    ///   distinguish "we tried and it wasn't clear enough" from "we
+    ///   couldn't sample the image at all."
+    static func detectScarTaper(
+        in image: UIImage,
+        lineStart: CGPoint,
+        lineEnd: CGPoint,
+        referenceColor: ColorRGB,
+        sampleCount: Int = 9,
+        minimumConclusiveDeltaE: Double = 1.5
+    ) -> ScarTaperResult? {
+        guard sampleCount >= 3 else { return nil }
+        let referenceLab = rgbToLab(referenceColor)
+
+        var deltaEs: [Double] = []
+        deltaEs.reserveCapacity(sampleCount)
+        for i in 0..<sampleCount {
+            let t = Double(i) / Double(sampleCount - 1)
+            let point = CGPoint(
+                x: lineStart.x + (lineEnd.x - lineStart.x) * t,
+                y: lineStart.y + (lineEnd.y - lineStart.y) * t
+            )
+            // A slightly smaller radius than the default paint-reference
+            // sample (0.015 vs 0.02) -- points along a scar line are
+            // packed closer together than the two widely-separated
+            // damage/reference taps, so a tighter radius keeps adjacent
+            // samples from overlapping and blurring the taper signal.
+            guard let sample = sampleColor(from: image, at: point, radiusFraction: 0.015) else {
+                return nil
+            }
+            deltaEs.append(deltaE2000(referenceLab, rgbToLab(sample.color)))
+        }
+
+        // Compare the start-third's mean density against the end-third's,
+        // discarding the noisier middle third -- see the methodology note
+        // above for why this is more robust than comparing the two raw
+        // endpoint samples directly.
+        let thirdSize = max(1, sampleCount / 3)
+        let startThird = Array(deltaEs.prefix(thirdSize))
+        let endThird = Array(deltaEs.suffix(thirdSize))
+        let startMean = startThird.reduce(0, +) / Double(startThird.count)
+        let endMean = endThird.reduce(0, +) / Double(endThird.count)
+
+        let thickerEnd: ScarEndpoint = startMean >= endMean ? .start : .end
+        let thickerMean = max(startMean, endMean)
+        let thinnerMean = min(startMean, endMean)
+        let isConclusive = (thickerMean - thinnerMean) >= minimumConclusiveDeltaE
+
+        return ScarTaperResult(
+            thickerEnd: thickerEnd,
+            thickerEndMeanDeltaE: thickerMean,
+            thinnerEndMeanDeltaE: thinnerMean,
+            isConclusive: isConclusive
+        )
+    }
 }

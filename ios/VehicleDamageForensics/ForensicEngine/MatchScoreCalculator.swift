@@ -89,6 +89,15 @@ struct MatchScoreCalculator {
         let dimensionScore = scoreDamageDimensions(victim: vZone, suspect: sZone)
         let materialScore = scoreMaterialTransfer(victim: vZone, suspect: sZone)
         let temporalScore = scoreTemporalConsistency(case: forensicCase)
+
+        // NOTE(AI Developer), added 2026-07 for the Scar-Direction
+        // Consistency feature -- Sean's explicit "second, independent
+        // check" alongside Impact Geometry (see
+        // `ScarDirectionCheck`'s doc comment and `scoreScarDirectionConsistency`
+        // below for the full design). Deliberately computed here but
+        // NEVER added to the `factors` array below -- it must not
+        // participate in the weighted composite score.
+        let scarCheck = scoreScarDirectionConsistency(victim: victim, suspect: suspect)
         log("synchronous heuristic factors done, awaiting concurrent factors")
 
         let resolvedDeformScore = await deformScore
@@ -151,14 +160,45 @@ struct MatchScoreCalculator {
         let confidence = ConfidenceLevel.from(score: composite, factorCount: usableFactorCount)
         let scoreRange = scoreRangeLabelString(for: composite, confidence: confidence)
 
+        // NOTE(AI Developer), added 2026-07 implementing Sean's explicit
+        // hard exclusion rule ("if height doesn't match AND scars don't
+        // align then remove [the suspect vehicle]"). BOTH conditions
+        // must independently fire:
+        //   1. Height Alignment mismatch -- reuses the exact same
+        //      `MeasurementHelpers.heightsAlign` boolean check
+        //      `HeightAlignmentAnalyzer` itself uses (2.0" default
+        //      tolerance), applied to whichever height inputs are
+        //      actually available (LiDAR-measured bumper height is the
+        //      most reliable signal we have, so it's checked first;
+        //      falls back to zone center height only if bumper height
+        //      wasn't captured for either vehicle). If NEITHER height
+        //      input is available for this pair, the height condition
+        //      cannot be evaluated at all, so the exclusion rule does
+        //      not fire (a missing measurement must never be treated as
+        //      a "mismatch" -- same non-punitive principle as
+        //      `DataQuality.unavailable` elsewhere in this engine).
+        //   2. Scar-Direction Consistency conflict -- `scarCheck.status
+        //      == .inconsistent` (which itself already requires BOTH
+        //      vehicles to have a determinable scar direction -- see
+        //      `scoreScarDirectionConsistency` below).
+        // Deliberately does NOT zero `composite` or hide `factors` --
+        // see `MatchResult.suspectExclusionReason`'s doc comment for why.
+        let suspectExclusionReason = evaluateExclusionRule(
+            victim: victim,
+            suspect: suspect,
+            scarCheck: scarCheck
+        )
+
         let elapsed = Date().timeIntervalSince(started)
         return MatchResult(
             compositeScore: composite,
             scoreRangeLabel: scoreRange,
             confidence: confidence,
             factors: factors,
-            recommendations: buildRecommendations(factors: factors, composite: composite),
-            processingTimeSeconds: elapsed
+            recommendations: buildRecommendations(factors: factors, composite: composite, exclusionReason: suspectExclusionReason),
+            processingTimeSeconds: elapsed,
+            scarDirectionCheck: scarCheck,
+            suspectExclusionReason: suspectExclusionReason
         )
     }
 
@@ -196,6 +236,172 @@ struct MatchScoreCalculator {
         return FactorScore(factor: .impactGeometry, rawScore: raw, dataQuality: .full,
                            notes: String(format: "Bearings %.0f° / %.0f°, reciprocity Δ=%.1f° → %.0f",
                                          vBearing, sBearing, delta, raw))
+    }
+
+    /// NOTE(AI Developer), added 2026-07 for the Scar-Direction
+    /// Consistency feature -- Sean's SECOND, INDEPENDENT check alongside
+    /// `scoreImpactGeometry` above (never blended into it or into
+    /// `factors`/`compositeScore` -- see `ScarDirectionCheck`'s doc
+    /// comment for the full rationale). Mirrors
+    /// `scoreImpactGeometry`'s sum-to-180° reciprocity math exactly,
+    /// substituting `Vehicle.scarTravelBearingDegrees` (scar-taper-
+    /// corrected) for `Vehicle.impactBearingDegrees` (self-reported) --
+    /// confirming Sean's explicit question that this "should be a
+    /// perfect match... basically be the inverse for both vehicles."
+    ///
+    /// Per Sean's explicit no-scar-fallback decision, returns
+    /// `.notDeterminable` (never a negative result) whenever either
+    /// vehicle lacks a resolvable `scarTravelBearingDegrees` -- i.e. no
+    /// scar line was marked, the taper sample was inconclusive, or the
+    /// underlying impact-profile inputs that formula also needs are
+    /// missing.
+    ///
+    /// Also builds the plain-language `scenarioNarrative` Sean explicitly
+    /// requested ("run a scenario, recreation, or match the scars with a
+    /// high level of probability/confidence one way or another") --
+    /// naming which specific maneuver (forward vs. reversing) each
+    /// vehicle's scar evidence points to, not just a raw score.
+    private func scoreScarDirectionConsistency(victim: Vehicle, suspect: Vehicle) -> ScarDirectionCheck {
+        func motionDescription(for vehicle: Vehicle) -> String? {
+            guard let slide = vehicle.scarSlideDirection else { return nil }
+            switch slide {
+            case .towardFront:
+                return "Scar evidence is consistent with this vehicle moving FORWARD (nose-first) at the moment of contact."
+            case .towardRear:
+                return "Scar evidence is consistent with this vehicle REVERSING (rear-first) at the moment of contact."
+            }
+        }
+        let victimMotion = motionDescription(for: victim)
+        let suspectMotion = motionDescription(for: suspect)
+
+        guard let vBearing = victim.scarTravelBearingDegrees,
+              let sBearing = suspect.scarTravelBearingDegrees else {
+            return ScarDirectionCheck(
+                status: .notDeterminable,
+                victimMotionDescription: victimMotion,
+                suspectMotionDescription: suspectMotion,
+                notes: "Scar-direction taper not marked/conclusive for one or both vehicles — Impact Geometry and the other 6 factors are unaffected."
+            )
+        }
+
+        let rawSum = (vBearing + sBearing).truncatingRemainder(dividingBy: 360)
+        let delta = min(abs(180 - rawSum), abs(180 - rawSum + 360), abs(180 - rawSum - 360))
+        let raw = max(0, 100 - delta * 5)
+        // Same reciprocity tolerance Sean's hard exclusion rule checks
+        // against below (`scarMismatchThresholdDegrees`).
+        let status: ScarDirectionCheck.Status = delta <= Self.scarMismatchThresholdDegrees ? .consistent : .inconsistent
+
+        // Cross-check against Impact Geometry's OWN (self-report-driven)
+        // reciprocity delta -- recomputed directly from
+        // `impactBearingDegrees` here (same tiny calculation
+        // `scoreImpactGeometry` does) rather than threading that
+        // function's result through as a parameter, so this function's
+        // signature stays focused on just the two vehicles like every
+        // other `score*` function in this file. `nil` (no comparison
+        // possible) if Impact Geometry itself isn't determinable.
+        var agrees: Bool? = nil
+        if let vGeoBearing = victim.impactBearingDegrees, let sGeoBearing = suspect.impactBearingDegrees {
+            let geoRawSum = (vGeoBearing + sGeoBearing).truncatingRemainder(dividingBy: 360)
+            let geoDelta = min(abs(180 - geoRawSum), abs(180 - geoRawSum + 360), abs(180 - geoRawSum - 360))
+            let geometryConsistent = geoDelta <= Self.scarMismatchThresholdDegrees
+            agrees = (status == .consistent) == geometryConsistent
+        }
+
+        let scenario = scarScenarioNarrative(
+            victim: victim, suspect: suspect,
+            status: status, delta: delta
+        )
+
+        return ScarDirectionCheck(
+            status: status,
+            victimScarBearingDegrees: vBearing,
+            suspectScarBearingDegrees: sBearing,
+            reciprocityDeltaDegrees: delta,
+            rawScore: raw,
+            agreesWithImpactGeometry: agrees,
+            victimMotionDescription: victimMotion,
+            suspectMotionDescription: suspectMotion,
+            scenarioNarrative: scenario,
+            notes: String(format: "Scar-corrected bearings %.0f° / %.0f°, reciprocity Δ=%.1f° → %.0f",
+                          vBearing, sBearing, delta, raw)
+        )
+    }
+
+    /// Degrees of reciprocity deviation tolerated before Scar-Direction
+    /// Consistency is called `.inconsistent` -- kept as its own named
+    /// constant (rather than a magic number inline) since Sean's hard
+    /// exclusion rule (`evaluateExclusionRule`) checks against this same
+    /// threshold. 15° is intentionally looser than a "perfect match"
+    /// would require (0°) to allow for real-world tap-placement and
+    /// compass-heading imprecision, while still catching a genuinely
+    /// contradictory (e.g. 90°+ off) reciprocity failure.
+    private static let scarMismatchThresholdDegrees: Double = 15
+
+    /// NOTE(AI Developer), added 2026-07 implementing Sean's explicit
+    /// hard exclusion rule ("if height doesn't match AND scars don't
+    /// align then remove [the suspect vehicle]"). Fires only when BOTH
+    /// conditions hold:
+    ///   1. A real height mismatch — checked via
+    ///      `MeasurementHelpers.heightsAlign`, preferring
+    ///      `Vehicle.effectiveBumperHeightInches` (LiDAR-measured when
+    ///      available) and falling back to `DamageZone.centerHeightInches`
+    ///      only when bumper height wasn't captured for either vehicle.
+    ///      If NEITHER input is available, the height condition cannot
+    ///      be evaluated, and the rule does not fire (a missing
+    ///      measurement is never treated as a mismatch).
+    ///   2. `scarCheck.status == .inconsistent` (already requires both
+    ///      vehicles to have a determinable scar direction).
+    /// Returns `nil` (no exclusion recommended) otherwise.
+    private func evaluateExclusionRule(
+        victim: Vehicle,
+        suspect: Vehicle,
+        scarCheck: ScarDirectionCheck
+    ) -> String? {
+        guard scarCheck.status == .inconsistent else { return nil }
+
+        let heightMismatch: (matched: Bool, note: String)?
+        if let vb = victim.effectiveBumperHeightInches, let sb = suspect.effectiveBumperHeightInches {
+            let aligned = MeasurementHelpers.heightsAlign(vb, sb)
+            heightMismatch = (aligned, String(format: "bumper heights %.1f\" vs %.1f\"", vb, sb))
+        } else if let vz = victim.primaryDamageZone, let sz = suspect.primaryDamageZone,
+                  vz.hasZoneHeightData, sz.hasZoneHeightData {
+            let aligned = MeasurementHelpers.heightsAlign(vz.centerHeightInches, sz.centerHeightInches)
+            heightMismatch = (aligned, String(format: "damage-zone heights %.1f\" vs %.1f\"", vz.centerHeightInches, sz.centerHeightInches))
+        } else {
+            heightMismatch = nil
+        }
+
+        guard let heightMismatch, heightMismatch.matched == false else { return nil }
+
+        let deltaText = scarCheck.reciprocityDeltaDegrees.map { String(format: "%.0f°", $0) } ?? "n/a"
+        return "Height Alignment mismatch (\(heightMismatch.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of Sean's hard exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
+    }
+
+    /// Builds the `scenarioNarrative` sentence Sean explicitly requested:
+    /// names which specific maneuver (forward vs. reversing) each
+    /// vehicle's scar evidence points to, and whether that combination
+    /// is or is not consistent with the marked impact locations.
+    private func scarScenarioNarrative(
+        victim: Vehicle, suspect: Vehicle,
+        status: ScarDirectionCheck.Status, delta: Double
+    ) -> String {
+        func maneuver(_ vehicle: Vehicle) -> String {
+            switch vehicle.scarSlideDirection {
+            case .towardFront: return "moving forward"
+            case .towardRear: return "reversing"
+            case .none: return "direction unknown"
+            }
+        }
+        let victimManeuver = maneuver(victim)
+        let suspectManeuver = maneuver(suspect)
+        switch status {
+        case .consistent:
+            return "Scar evidence on both vehicles is most consistent with the victim vehicle \(victimManeuver) and the suspect vehicle \(suspectManeuver) at the moment of contact (reciprocity Δ=\(String(format: "%.0f°", delta)))."
+        case .inconsistent:
+            return "Scar evidence suggests the victim vehicle was \(victimManeuver) and the suspect vehicle was \(suspectManeuver), but these directions do NOT reciprocate with the marked impact locations (reciprocity Δ=\(String(format: "%.0f°", delta))) — this combination is not physically consistent and warrants closer review."
+        case .notDeterminable:
+            return "Not enough scar evidence to reconstruct a scenario."
+        }
     }
 
     /// NOTE(AI Developer), fixed 2026-07 as an immediate follow-up to the
@@ -346,8 +552,16 @@ struct MatchScoreCalculator {
     /// never to an unvalidated on-device heuristic. Replaced with
     /// investigative next-steps language only; nothing here should ever
     /// read as legal advice or a certification of evidentiary sufficiency.
-    private func buildRecommendations(factors: [FactorScore], composite: Double) -> [String] {
+    private func buildRecommendations(factors: [FactorScore], composite: Double, exclusionReason: String? = nil) -> [String] {
         var recs: [String] = []
+        // NOTE(AI Developer), added 2026-07 for Sean's hard exclusion
+        // rule -- surfaced as the FIRST recommendation (highest
+        // visibility) whenever it fires, but does not suppress any of
+        // the normal composite-score-driven guidance below it; the
+        // investigator should still see the full picture.
+        if let exclusionReason {
+            recs.append("⚠️ \(exclusionReason)")
+        }
         if composite >= 90 {
             recs.append("Correlation is strong enough to warrant investigator follow-up. This is not a substitute for accredited forensic laboratory analysis.")
         } else if composite >= 75 {

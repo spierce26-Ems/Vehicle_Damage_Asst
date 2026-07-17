@@ -26,6 +26,34 @@ struct MatchResult: Codable, Equatable {
     var analysisDate: Date
     var processingTimeSeconds: Double
 
+    /// NOTE(AI Developer), added 2026-07 as part of the Scar-Direction
+    /// Consistency feature. Per Sean's explicit decision, this runs as a
+    /// SECOND, INDEPENDENT check alongside the existing Impact Geometry
+    /// factor -- NOT a replacement, and NOT blended into `compositeScore`/
+    /// `factors` (that would require rebalancing the 7 factor weights,
+    /// which sum to exactly 1.0 -- see `ForensicFactor.weight` -- and would
+    /// undercut Sean's framing of "a case can show both, and you can see
+    /// if they agree or conflict"). Kept as its own field entirely outside
+    /// the weighted-factor system for that reason. `nil` only for
+    /// `MatchResult`s produced before this feature existed (backward
+    /// compat) or the no-suspect-vehicle early-return case in
+    /// `MatchScoreCalculator.evaluate()`.
+    var scarDirectionCheck: ScarDirectionCheck?
+
+    /// NOTE(AI Developer), added 2026-07 implementing Sean's explicit hard
+    /// exclusion rule ("a formula like if height doesn't match AND scars
+    /// don't align then remove"). `nil` means no exclusion is being
+    /// recommended by this rule. Non-nil is a human-readable explanation
+    /// of why BOTH conditions (Height Alignment mismatch AND
+    /// Scar-Direction Consistency conflict) were met -- see
+    /// `MatchScoreCalculator.evaluate()`'s exclusion-rule computation for
+    /// the exact thresholds. Deliberately a separate flag rather than
+    /// forcing `compositeScore` to 0 or hiding the rest of the
+    /// breakdown -- an investigator should still be able to see every
+    /// factor's evidence even when this rule fires; this is a strong
+    /// negative signal layered on top, not a data-hiding mechanism.
+    var suspectExclusionReason: String?
+
     // MARK: Init
 
     init(
@@ -36,7 +64,9 @@ struct MatchResult: Codable, Equatable {
         factors: [FactorScore] = [],
         recommendations: [String] = [],
         analysisDate: Date = Date(),
-        processingTimeSeconds: Double = 0
+        processingTimeSeconds: Double = 0,
+        scarDirectionCheck: ScarDirectionCheck? = nil,
+        suspectExclusionReason: String? = nil
     ) {
         self.analysisID = analysisID
         self.compositeScore = compositeScore
@@ -46,6 +76,8 @@ struct MatchResult: Codable, Equatable {
         self.recommendations = recommendations
         self.analysisDate = analysisDate
         self.processingTimeSeconds = processingTimeSeconds
+        self.scarDirectionCheck = scarDirectionCheck
+        self.suspectExclusionReason = suspectExclusionReason
     }
 
     // MARK: Codable (backward-compatible with the old `probabilityRange` key)
@@ -67,11 +99,19 @@ struct MatchResult: Codable, Equatable {
         recommendations = try c.decodeIfPresent([String].self, forKey: .recommendations) ?? []
         analysisDate = try c.decode(Date.self, forKey: .analysisDate)
         processingTimeSeconds = try c.decodeIfPresent(Double.self, forKey: .processingTimeSeconds) ?? 0
+        // NOTE(AI Developer): decodeIfPresent so any MatchResult JSON
+        // persisted before the Scar-Direction Consistency feature existed
+        // still loads correctly (both fields simply come back nil, which
+        // is exactly the "not part of this old analysis" backward-compat
+        // behavior we want -- never treated as a negative result).
+        scarDirectionCheck = try c.decodeIfPresent(ScarDirectionCheck.self, forKey: .scarDirectionCheck)
+        suspectExclusionReason = try c.decodeIfPresent(String.self, forKey: .suspectExclusionReason)
     }
 
     private enum CodingKeys: String, CodingKey {
         case analysisID, compositeScore, scoreRangeLabel, confidence, factors,
-             recommendations, analysisDate, processingTimeSeconds
+             recommendations, analysisDate, processingTimeSeconds,
+             scarDirectionCheck, suspectExclusionReason
         case legacyProbabilityRange = "probabilityRange"
     }
 
@@ -95,6 +135,8 @@ struct MatchResult: Codable, Equatable {
         try c.encode(recommendations, forKey: .recommendations)
         try c.encode(analysisDate, forKey: .analysisDate)
         try c.encode(processingTimeSeconds, forKey: .processingTimeSeconds)
+        try c.encodeIfPresent(scarDirectionCheck, forKey: .scarDirectionCheck)
+        try c.encodeIfPresent(suspectExclusionReason, forKey: .suspectExclusionReason)
     }
 
     // MARK: Computed
@@ -152,6 +194,109 @@ struct MatchResult: Codable, Equatable {
     a peer-reviewed error rate. This report should not be represented as \
     conclusive proof of vehicle involvement in any legal proceeding.
     """
+}
+
+// MARK: - Scar Direction Check
+
+/// NOTE(AI Developer), added 2026-07 for the Scar-Direction Consistency
+/// feature. This is Sean's SECOND, INDEPENDENT check on top of the
+/// existing Impact Geometry factor -- it exists specifically to close a
+/// blind spot in Impact Geometry's self-reported/compass direction-of-
+/// travel input, which cannot distinguish a vehicle reversing into a
+/// parking space from pulling forward out of one (both produce identical
+/// damage locations but opposite, both-"valid" directions of travel,
+/// which breaks Impact Geometry's sum-to-180° reciprocity check in
+/// exactly the most common hit-and-run scenario: parking lots).
+///
+/// The math driving this check reuses the EXACT SAME reciprocity formula
+/// as Impact Geometry (`bearing = (noseHeading + relativeAngle) % 360`,
+/// then check victim+suspect bearings sum to ~180°) -- see
+/// `Vehicle.scarTravelBearingDegrees` -- confirming Sean's explicit
+/// question that scar direction "should line up perfectly with height
+/// and basically be the inverse for both vehicles." The only difference
+/// is the INPUT: instead of trusting the self-reported compass heading
+/// as-is, it corrects that heading using the physically-observed scar
+/// taper direction (which end of the scrape has denser transferred
+/// paint -- see `ColorAnalysis.detectScarTaper`), which cannot be fooled
+/// by a reversing-vs-forward ambiguity the way a self-report can.
+///
+/// Per Sean's decision, a missing/inconclusive scar on either vehicle
+/// must NEVER be treated as a negative result -- it simply makes this
+/// check `.notDeterminable`, leaving the other factors (including the
+/// original Impact Geometry factor) to decide on their own.
+struct ScarDirectionCheck: Codable, Equatable {
+    enum Status: String, Codable {
+        /// One or both vehicles lack a recorded scar direction (or lack
+        /// the impact-profile data the reciprocity math also needs).
+        /// Never scored as a negative -- just absent.
+        case notDeterminable = "not_determinable"
+        /// Scar-corrected bearings reciprocate to ~180° within tolerance
+        /// -- i.e. consistent with the two vehicles having actually
+        /// collided at the marked locations, given the true (scar-
+        /// verified, not self-reported) directions of travel.
+        case consistent = "consistent"
+        /// Scar-corrected bearings do NOT reciprocate -- a red flag,
+        /// especially in combination with a Height Alignment mismatch
+        /// (see `MatchResult.suspectExclusionReason`).
+        case inconsistent = "inconsistent"
+    }
+
+    var status: Status
+
+    /// Scar-corrected absolute compass bearing of the impact point for
+    /// each vehicle (see `Vehicle.scarTravelBearingDegrees`). `nil` when
+    /// that vehicle's check is not determinable.
+    var victimScarBearingDegrees: Double? = nil
+    var suspectScarBearingDegrees: Double? = nil
+
+    /// Degrees of deviation from the ideal 180° reciprocity sum. `nil`
+    /// when `status == .notDeterminable`. Mirrors
+    /// `MatchScoreCalculator.scoreImpactGeometry`'s `delta` calculation,
+    /// just fed scar-corrected bearings instead of self-reported ones.
+    var reciprocityDeltaDegrees: Double? = nil
+
+    /// 0-100 display score for UI parity with `FactorScore.rawScore`
+    /// (same `max(0, 100 - delta*5)` formula as Impact Geometry) --
+    /// **display-only**, deliberately NEVER folded into
+    /// `MatchResult.compositeScore` or any `ForensicFactor` weight.
+    var rawScore: Double? = nil
+
+    /// Whether this scar-based conclusion agrees with the existing,
+    /// self-report-driven Impact Geometry factor's conclusion. `nil` if
+    /// either check is not determinable. `false` is exactly the
+    /// situation this feature was built to catch: the self-reported
+    /// heading LOOKED reciprocal, but the physical scar evidence reveals
+    /// it wasn't (or vice versa).
+    var agreesWithImpactGeometry: Bool? = nil
+
+    /// Per-vehicle plain-language motion description derived from
+    /// `Vehicle.scarSlideDirection`, e.g. "Consistent with this vehicle
+    /// moving forward (nose-first) at the moment of contact." /
+    /// "...reversing (rear-first)...". `nil` when that vehicle's scar
+    /// direction was not recorded.
+    var victimMotionDescription: String? = nil
+    var suspectMotionDescription: String? = nil
+
+    /// Combined, human-readable "scenario" sentence answering Sean's
+    /// explicit request to "run a scenario, recreation, or match the
+    /// scars with a high level of probability/confidence one way or
+    /// another" -- e.g. "Scar evidence is most consistent with the
+    /// suspect vehicle REVERSING out of a parking space, striking the
+    /// victim vehicle's [zone] with its [zone]." `nil` when
+    /// `status == .notDeterminable`.
+    var scenarioNarrative: String? = nil
+
+    /// Analyst/algorithm notes, always populated (including when
+    /// `.notDeterminable`, to say why).
+    var notes: String = ""
+
+    var isDeterminable: Bool { status != .notDeterminable }
+
+    /// Convenience factory for the "not enough data" case, so call sites
+    /// don't have to repeat the all-nil boilerplate.
+    static func notDeterminable(notes: String) -> ScarDirectionCheck {
+        ScarDirectionCheck(status: .notDeterminable, notes: notes)
+    }
 }
 
 // MARK: - Confidence Level

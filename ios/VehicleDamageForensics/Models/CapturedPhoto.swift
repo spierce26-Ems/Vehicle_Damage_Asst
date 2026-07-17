@@ -61,6 +61,40 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     var paintDamagePoint: CGPoint?
     var paintReferencePoint: CGPoint?
 
+    /// NOTE(AI Developer), added 2026-07 as part of the "Scar-Direction
+    /// Consistency" feature (Sean: "infer direction of travel from the
+    /// physical scar's own paint-density taper" -- his fix for the
+    /// parallel-parking blind spot in the existing Impact Geometry check,
+    /// where a self-reported direction-of-travel heading can't
+    /// distinguish "reversing in" from "pulling forward out" when both
+    /// produce identical damage locations). These two points mark the
+    /// visible scar/scrape as a LINE (not a single point) on this same
+    /// `.paintTransfer` photo -- `scarLineStart`/`scarLineEnd`, normalized
+    /// 0-1/0-1 same convention as `paintDamagePoint`. `nil` until the scar
+    /// line has been marked. Optional/skippable: not every damage zone has
+    /// a linear scrape (a blunt dent has no taper to read), so leaving
+    /// this unset is expected and handled -- see
+    /// `DamageZone.scarTravelBearingDegrees`'s "not determinable" case.
+    var scarLineStart: CGPoint?
+    var scarLineEnd: CGPoint?
+
+    /// Which of the two line endpoints above is nearer this vehicle's own
+    /// front. NOTE(AI Developer): a close-up photo of a scrape has no
+    /// inherent "which way is toward the front" reference on its own
+    /// (unlike the top-down schematic `ImpactSilhouetteView` used for
+    /// Impact Geometry, whose (0.5,0)/(0.5,1) convention IS front/rear by
+    /// construction) -- the user provides this one anchor bit so the
+    /// line's real 2D orientation in the photo can be converted into a
+    /// body-relative fore/aft fact without needing any compass/heading
+    /// input at all. This is exactly the design choice that keeps
+    /// Scar-Direction Consistency independent of `directionOfTravelDegrees`
+    /// (the field whose forward/reverse ambiguity created the
+    /// parallel-parking blind spot in the first place) -- see
+    /// `MatchScoreCalculator.scoreScarDirectionConsistency`'s doc comment
+    /// for the full rationale. `nil` until set (only meaningful once both
+    /// line endpoints are also set).
+    var scarFrontEndpoint: ScarEndpoint?
+
     // MARK: Init
 
     init(
@@ -78,7 +112,10 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         annotationNotes: String = "",
         wasImported: Bool = false,
         paintDamagePoint: CGPoint? = nil,
-        paintReferencePoint: CGPoint? = nil
+        paintReferencePoint: CGPoint? = nil,
+        scarLineStart: CGPoint? = nil,
+        scarLineEnd: CGPoint? = nil,
+        scarFrontEndpoint: ScarEndpoint? = nil
     ) {
         self.id = id
         self.imageData = imageData
@@ -95,6 +132,9 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.wasImported = wasImported
         self.paintDamagePoint = paintDamagePoint
         self.paintReferencePoint = paintReferencePoint
+        self.scarLineStart = scarLineStart
+        self.scarLineEnd = scarLineEnd
+        self.scarFrontEndpoint = scarFrontEndpoint
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -126,6 +166,14 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         // backward-compat pattern as `wasImported` above.
         paintDamagePoint = try c.decodeIfPresent(CGPoint.self, forKey: .paintDamagePoint)
         paintReferencePoint = try c.decodeIfPresent(CGPoint.self, forKey: .paintReferencePoint)
+        // `scarLineStart`/`scarLineEnd`/`scarFrontEndpoint` didn't exist
+        // before the Scar-Direction Consistency feature -- every photo
+        // saved before this update decodes all three as `nil` (no scar
+        // line marked yet), same backward-compat pattern as
+        // `paintDamagePoint`/`paintReferencePoint` above.
+        scarLineStart = try c.decodeIfPresent(CGPoint.self, forKey: .scarLineStart)
+        scarLineEnd = try c.decodeIfPresent(CGPoint.self, forKey: .scarLineEnd)
+        scarFrontEndpoint = try c.decodeIfPresent(ScarEndpoint.self, forKey: .scarFrontEndpoint)
     }
 
     // MARK: Computed
@@ -149,7 +197,30 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     // good, user-selected evidence.
     var isUsable: Bool { wasImported || qualityScore >= 0.4 }
 
+    /// True once a scar line (both endpoints + which end is toward the
+    /// front) has been marked on this photo. See `scarLineStart`/
+    /// `scarLineEnd`/`scarFrontEndpoint`'s doc comment for the feature
+    /// this powers.
+    var hasScarLine: Bool {
+        scarLineStart != nil && scarLineEnd != nil && scarFrontEndpoint != nil
+    }
+
     static func == (lhs: CapturedPhoto, rhs: CapturedPhoto) -> Bool { lhs.id == rhs.id }
+}
+
+// MARK: - Scar Endpoint
+
+/// NOTE(AI Developer), added 2026-07 as part of the Scar-Direction
+/// Consistency feature. Identifies which end of a marked scar line
+/// (`CapturedPhoto.scarLineStart`/`scarLineEnd`) the user indicated is
+/// nearer this vehicle's own front -- see that pair's doc comment for why
+/// this single anchor bit is what lets a 2D line drawn on a close-up photo
+/// (which has no built-in "which way is front" reference the way the
+/// top-down `ImpactSilhouetteView` schematic does) be converted into a
+/// body-relative fore/aft direction.
+enum ScarEndpoint: String, Codable {
+    case start
+    case end
 }
 
 // MARK: - Quality Label
