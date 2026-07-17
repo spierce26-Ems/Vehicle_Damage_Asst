@@ -362,7 +362,7 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   Genspark GitHub OAuth (`setup_github_environment`) has not succeeded for this project in any
   session — pushes require Sean to provide a fine-grained Personal Access Token each session, as
   the sandbox does not persist credentials across sessions.
-- **Last updated**: 2026-07-17 (paint-color reference-normalization fix)
+- **Last updated**: 2026-07-17 (dead-end regression fix: Damage Dimensions / Height Alignment / Material Transfer false-confidence guards)
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
   LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, LiDAR
   startup/interruption feedback, the Car/Truck silhouette toggle with fender/bumper landmarks,
@@ -408,6 +408,28 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   full two-vehicle run through to Results to confirm the Paint Transfer factor now actually shows
   `dataQuality: .full`/`.partial` instead of permanently `.unavailable` once both vehicles' paint
   references are recorded.
+- **2026-07-17 changes, part 3** (dead-end regression fix, in response to Sean asking "are there
+  any other features that actually lead to a dead end right now"): the paint-transfer fix above
+  was itself the first code anywhere in the app to ever construct a real (non-nil) `DamageZone`
+  (`CaptureViewModel.applyPaintAnalysis`). Before it, `Vehicle.damageZones` was *always* empty in
+  every real case, so `MatchScoreCalculator.scoreDamageDimensions`/`scoreMaterialTransfer` and
+  `HeightAlignmentAnalyzer`'s zone-height block always hit their `nil` guard and correctly reported
+  `.unavailable`. Nothing in the app has ever populated `widthMM`/`heightMM`/`centerHeightInches`/
+  `topEdgeHeightInches`/`bottomEdgeHeightInches` or the rubber/plastic-transfer flags on
+  `PaintAnalysis` — so once a real zone exists (created only to carry paint data), those fields sit
+  at their struct default (`0.0`/`false`), and without a guard, comparing two zeros/two `false`s
+  would read as a false PERFECT match (`rawScore: 100, dataQuality: .full`) or a false confident
+  negative, instead of the correct `.unavailable`. Added `DamageZone.hasDimensionData`/
+  `.hasZoneHeightData` and `PaintAnalysis.materialTransferExamined` flags, and gated all three
+  affected call sites on them. A broader sweep of the rest of the app (`AnalysisViewModel`,
+  `CaseListViewModel`, `MatchResultsView`, `StorageService`, `PurchaseManager`, `PaywallView`,
+  `LiDARScanView`) found no other dead-ends of this severity — see the chat log for the full list
+  of lower-severity dead fields still outstanding (`DamageZone.impactAngleDegrees`/
+  `transferDirection`, the `TransferDirection` enum, `LiDARScanData.meshFileURL`/`depthMapData`,
+  `CameraSettings.whiteBalance`/etc., `Vehicle.colorRGB`) — none of these fabricate a false score,
+  they just silently carry no signal, so they were left as-is pending Sean's prioritization.
+  **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file;
+  only brace/paren/bracket balance was checked.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

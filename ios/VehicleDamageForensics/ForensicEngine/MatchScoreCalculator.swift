@@ -198,8 +198,24 @@ struct MatchScoreCalculator {
                                          vBearing, sBearing, delta, raw))
     }
 
+    /// NOTE(AI Developer), fixed 2026-07 as an immediate follow-up to the
+    /// Paint Transfer factor fix shipped moments earlier in the same
+    /// session (Sean: "are there any other features that actually lead to
+    /// a dead end right now"). That fix made `CaptureViewModel
+    /// .applyPaintAnalysis` the first code anywhere in the app to ever
+    /// construct a real (non-nil) `DamageZone`. Before it, `victim`/
+    /// `suspect` here were always `nil` and this guard always fired
+    /// correctly. Now that a zone can exist (created only to carry
+    /// `paintAnalysis`), `widthMM`/`heightMM` on it are still always `0.0`
+    /// -- nothing in the app has ever populated real dimension data --
+    /// so without the added `hasDimensionData` check below, this would
+    /// diff `0` against `0` and report a false PERFECT match (`rawScore:
+    /// 100, dataQuality: .full`) instead of the correct `.unavailable`,
+    /// fabricating evidence for a measurement that was never taken. See
+    /// `DamageZone.hasDimensionData`'s doc comment for the full root cause.
     private func scoreDamageDimensions(victim: DamageZone?, suspect: DamageZone?) -> FactorScore {
-        guard let v = victim, let s = suspect else {
+        guard let v = victim, let s = suspect,
+              v.hasDimensionData, s.hasDimensionData else {
             return FactorScore(factor: .damageDimensions, rawScore: 0, dataQuality: .unavailable,
                                notes: "Damage zones not measured")
         }
@@ -213,8 +229,22 @@ struct MatchScoreCalculator {
                            notes: String(format: "Δw=%.0fmm, Δh=%.0fmm", widthDiff, heightDiff))
     }
 
+    /// NOTE(AI Developer), fixed 2026-07 alongside `scoreDamageDimensions`
+    /// above -- same audit, same regression class. `hasRubberTransfer`/
+    /// `hasPlasticFragment` have zero real detectors anywhere in the app;
+    /// `CaptureViewModel.buildPaintAnalysis` hardcodes both to `false`
+    /// (there is no rubber/plastic-fragment detection step in the capture
+    /// flow today). Before the Paint Transfer fix, `paintAnalysis` was
+    /// always `nil` and this guard always correctly reported
+    /// `.unavailable`. Now that it's real/non-nil, without the added
+    /// `materialTransferExamined` check below this would read the two
+    /// hardcoded `false`s as a confident, examined "no transfer detected"
+    /// (`dataQuality: .full`, rawScore 0) instead of the honest "not
+    /// examined at all." See `PaintAnalysis.materialTransferExamined`'s
+    /// doc comment for the full root cause.
     private func scoreMaterialTransfer(victim: DamageZone?, suspect: DamageZone?) -> FactorScore {
-        guard let v = victim?.paintAnalysis, let s = suspect?.paintAnalysis else {
+        guard let v = victim?.paintAnalysis, let s = suspect?.paintAnalysis,
+              v.materialTransferExamined || s.materialTransferExamined else {
             return FactorScore(factor: .materialTransfer, rawScore: 0, dataQuality: .unavailable,
                                notes: "No paint analysis")
         }

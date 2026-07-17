@@ -23,8 +23,29 @@ struct HeightAlignmentAnalyzer {
         var notes: [String] = []
         var quality: DataQuality = .full
 
+        // NOTE(AI Developer), fixed 2026-07 as an immediate follow-up to
+        // the Paint Transfer factor fix shipped moments earlier in the
+        // same session. That fix made `CaptureViewModel
+        // .applyPaintAnalysis` the first code anywhere in the app to ever
+        // construct a real (non-nil) `DamageZone`. Before it, `victim`/
+        // `suspect` here were always `nil` and both blocks below always
+        // correctly fell into the `else` (`.partial`)/skip path. Now a
+        // zone can exist (created only to carry `paintAnalysis`), with
+        // `centerHeightInches`/`topEdgeHeightInches`/`bottomEdgeHeightInches`
+        // still always `0.0` -- nothing in the app has ever populated real
+        // zone-height data (LiDAR height comes from a *different* field,
+        // `Vehicle.lidarMeasuredHeightInches`, handled separately below).
+        // Without the added `hasZoneHeightData` check, both blocks would
+        // score `0` vs `0` as a false PERFECT alignment (100 each) and
+        // blend that into the average, instead of correctly treating this
+        // sub-signal as not having been measured. See
+        // `DamageZone.hasZoneHeightData`'s doc comment for the full root
+        // cause.
+        let victimHasZoneHeight = victim?.hasZoneHeightData ?? false
+        let suspectHasZoneHeight = suspect?.hasZoneHeightData ?? false
+
         // 1. Damage-zone center heights
-        if let v = victim, let s = suspect {
+        if let v = victim, let s = suspect, victimHasZoneHeight, suspectHasZoneHeight {
             let score = MeasurementHelpers.heightAlignmentScore(
                 v.centerHeightInches, s.centerHeightInches,
                 toleranceInches: toleranceInches
@@ -38,7 +59,7 @@ struct HeightAlignmentAnalyzer {
         }
 
         // 2. Top / bottom edges should also overlap.
-        if let v = victim, let s = suspect {
+        if let v = victim, let s = suspect, victimHasZoneHeight, suspectHasZoneHeight {
             let topScore = MeasurementHelpers.heightAlignmentScore(
                 v.topEdgeHeightInches, s.topEdgeHeightInches, toleranceInches: toleranceInches)
             let botScore = MeasurementHelpers.heightAlignmentScore(

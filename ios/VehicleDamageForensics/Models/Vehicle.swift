@@ -364,6 +364,36 @@ struct DamageZone: Identifiable, Codable, Equatable {
     }
 
     var areaMM2: Double { widthMM * heightMM }
+
+    /// NOTE(AI Developer), added 2026-07 as an immediate follow-up fix to
+    /// the Paint Transfer factor fix shipped moments earlier in the same
+    /// session. That fix made `CaptureViewModel.applyPaintAnalysis` the
+    /// first code anywhere in the app to ever construct a real (non-nil)
+    /// `DamageZone` -- before it, `Vehicle.damageZones` was *always*
+    /// empty in every real case, so `MatchScoreCalculator
+    /// .scoreDamageDimensions` and `HeightAlignmentAnalyzer`'s zone-height
+    /// block always hit their `nil` guard and correctly reported
+    /// `.unavailable`. Nothing in the app has ever populated
+    /// `widthMM`/`heightMM`/`centerHeightInches`/`topEdgeHeightInches`/
+    /// `bottomEdgeHeightInches` (confirmed via exhaustive grep -- no
+    /// capture step, no manual-entry UI), so a zone created only to carry
+    /// `paintAnalysis` has all of these sitting at their struct default
+    /// of `0.0`. Without this guard, `scoreDamageDimensions` would diff
+    /// `0` against `0` and report a false PERFECT match (`rawScore: 100,
+    /// dataQuality: .full`) instead of the correct `.unavailable` --
+    /// fabricating evidence for data that was never actually measured.
+    /// These two flags let both call sites tell "a zone exists but only
+    /// carries paint data" apart from "a zone with real physical
+    /// measurements," without having to guess at a fragile epsilon
+    /// threshold on individual fields.
+    var hasDimensionData: Bool { widthMM > 0 && heightMM > 0 }
+
+    /// See `hasDimensionData` above for the full regression this guards
+    /// against -- same root cause, applied to `HeightAlignmentAnalyzer`'s
+    /// zone-height comparison block instead of `scoreDamageDimensions`.
+    var hasZoneHeightData: Bool {
+        centerHeightInches > 0 || topEdgeHeightInches > 0 || bottomEdgeHeightInches > 0
+    }
 }
 
 // MARK: - Paint Analysis
@@ -392,6 +422,26 @@ struct PaintAnalysis: Codable, Equatable {
     /// quality doesn't get spuriously downgraded.
     var sampleQualityIsGood: Bool = true
 
+    /// NOTE(AI Developer), added 2026-07 alongside the `hasDimensionData`/
+    /// `hasZoneHeightData` fix on `DamageZone` -- same regression class,
+    /// found during the same audit. `hasRubberTransfer`/`hasPlasticFragment`
+    /// have zero real detectors anywhere in the app; `CaptureViewModel
+    /// .buildPaintAnalysis` hardcodes both to `false` (there is no rubber/
+    /// plastic-fragment detection step in the capture flow today). Before
+    /// the Paint Transfer fix, `paintAnalysis` was always `nil`, so
+    /// `MatchScoreCalculator.scoreMaterialTransfer`'s `guard let ... =
+    /// victim?.paintAnalysis` always failed and correctly reported
+    /// `.unavailable`. Now that `paintAnalysis` is real/non-nil, that guard
+    /// passes, and without this flag the two hardcoded `false`s would read
+    /// as a confident, examined "no transfer detected" (`dataQuality:
+    /// .full`, rawScore 0) rather than the honest "not examined at all."
+    /// Defaults `false` and is only ever set `true` by a future real
+    /// rubber/plastic-fragment detector -- there isn't one yet, so this is
+    /// correctly `false` on every `PaintAnalysis` the app can produce
+    /// today, and `scoreMaterialTransfer` should treat that as
+    /// `.unavailable`, not a real negative result.
+    var materialTransferExamined: Bool = false
+
     enum SurfaceCondition: String, Codable {
         case fresh, weathered, rusted, repainted
     }
@@ -404,7 +454,8 @@ struct PaintAnalysis: Codable, Equatable {
         hasRubberTransfer: Bool = false,
         hasPlasticFragment: Bool = false,
         surfaceCondition: SurfaceCondition = .fresh,
-        sampleQualityIsGood: Bool = true
+        sampleQualityIsGood: Bool = true,
+        materialTransferExamined: Bool = false
     ) {
         self.primaryColorRGB = primaryColorRGB
         self.foreignPaintDetected = foreignPaintDetected
@@ -414,6 +465,7 @@ struct PaintAnalysis: Codable, Equatable {
         self.hasPlasticFragment = hasPlasticFragment
         self.surfaceCondition = surfaceCondition
         self.sampleQualityIsGood = sampleQualityIsGood
+        self.materialTransferExamined = materialTransferExamined
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -435,6 +487,7 @@ struct PaintAnalysis: Codable, Equatable {
         hasPlasticFragment = try c.decode(Bool.self, forKey: .hasPlasticFragment)
         surfaceCondition = try c.decode(SurfaceCondition.self, forKey: .surfaceCondition)
         sampleQualityIsGood = try c.decodeIfPresent(Bool.self, forKey: .sampleQualityIsGood) ?? true
+        materialTransferExamined = try c.decodeIfPresent(Bool.self, forKey: .materialTransferExamined) ?? false
     }
 }
 
