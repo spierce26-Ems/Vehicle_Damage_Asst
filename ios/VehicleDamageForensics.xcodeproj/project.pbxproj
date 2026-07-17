@@ -18,6 +18,7 @@
 		64324C4FA89D677E41CFFB6D /* MatchResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3124CA38EFEED2825EB2D4C /* MatchResult.swift */; };
 		69DF4129AE300B23C2FB2AF6 /* PaintTransferAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05DE4CACB89EE7477C7A53FD /* PaintTransferAnalyzer.swift */; };
 		6A82446B8156EC38F8D67E2A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB174E8294638E215E70BD72 /* Assets.xcassets */; };
+		BCB2A265121EC20EDD98808F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 71F4D3C7CAD764E03D6E56F8 /* PrivacyInfo.xcprivacy */; };
 		713545FDB1F5CB91F3D84D92 /* DeformationMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73E4F6CB83EA5EBD57032A6 /* DeformationMatcher.swift */; };
 		77E3497AA6202B6C61EE69E5 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F205492EB0CDE9FB909D38A6 /* DashboardView.swift */; };
 		C72F606866B6AB97ED0F82D4 /* EditCaseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AAD2E52A036EA4FBD362F53 /* EditCaseSheet.swift */; };
@@ -71,6 +72,7 @@
 		D3124CA38EFEED2825EB2D4C /* MatchResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MatchResult.swift; path = VehicleDamageForensics/Models/MatchResult.swift; sourceTree = SOURCE_ROOT; };
 		E138447CB45CB2F4E608D30F /* ColorAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ColorAnalysis.swift; path = VehicleDamageForensics/Utilities/ColorAnalysis.swift; sourceTree = SOURCE_ROOT; };
 		EB174E8294638E215E70BD72 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = VehicleDamageForensics/Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		71F4D3C7CAD764E03D6E56F8 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = VehicleDamageForensics/Resources/PrivacyInfo.xcprivacy; sourceTree = SOURCE_ROOT; };
 		EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SensorGuidanceOverlay.swift; path = VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift; sourceTree = SOURCE_ROOT; };
 		F0804E5FAEEB6B553790AF8B /* ModelExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModelExtensions.swift; path = VehicleDamageForensics/Utilities/ModelExtensions.swift; sourceTree = SOURCE_ROOT; };
 		F205492EB0CDE9FB909D38A6 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = VehicleDamageForensics/Views/Dashboard/DashboardView.swift; sourceTree = SOURCE_ROOT; };
@@ -152,6 +154,7 @@
 			isa = PBXGroup;
 			children = (
 				EB174E8294638E215E70BD72 /* Assets.xcassets */,
+				71F4D3C7CAD764E03D6E56F8 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -325,6 +328,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6A82446B8156EC38F8D67E2A /* Assets.xcassets in Resources */,
+				BCB2A265121EC20EDD98808F /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

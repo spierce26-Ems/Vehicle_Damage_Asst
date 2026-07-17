@@ -164,6 +164,66 @@
     `statusIcon` with a 44x44 rounded photo thumbnail (status-colored border + a small
     status-icon badge in the corner, so the at-a-glance status signal isn't lost), falling back
     to the original icon-only look for any case with no usable photo yet.
+- **App icon** (added 2026-07, per Sean's request — "app icon, Terms/Privacy Policy, Privacy
+  Manifest"): `Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` — a generated,
+  flat/geometric 1024×1024 icon (car silhouette + shield + magnifying glass/damage-point accent on
+  a deep-blue background), RGB with no alpha channel (verified — App Store icons must not have
+  transparency) and no baked-in rounded corners (iOS applies the mask). `Contents.json` in that
+  folder updated with the `"filename"` key referencing it. No `project.pbxproj` change was needed
+  for this — the whole `Assets.xcassets` folder is already registered as a single folder
+  reference, so new files placed inside an existing asset catalog don't need individual pbxproj
+  entries (unlike a new loose Swift/resource file added directly under `Views/` or `Resources/`).
+- **Privacy Manifest** (added 2026-07, same request as above): `Resources/PrivacyInfo.xcprivacy`
+  — a new file, declaring exactly the required-reason APIs this codebase actually uses, found by
+  exhaustively grepping every `.swift` file against Apple's 5 required-reason API categories:
+  - **File Timestamp** (`NSPrivacyAccessedAPICategoryFileTimestamp`, reason `C617.1`) — for
+    `StorageService.swift`'s use of `.contentModificationDateKey` when listing files inside the
+    app's own `Documents/Cases` folder to sort the case list. `C617.1` is the "access
+    timestamps/size/metadata of files inside your app's own container" reason — correct here since
+    this only ever touches the app's own sandboxed storage, never a shared/App Group container.
+  - **User Defaults** (`NSPrivacyAccessedAPICategoryUserDefaults`, reason `CA92.1`) — for
+    `PurchaseManager.swift`'s `CaseCreditsStore`, which uses plain `UserDefaults.standard` (no App
+    Group, no MDM) to persist the consumable case-credit balance. `CA92.1` is the
+    "app-only UserDefaults, not shared" reason — correct here since credits are never shared with
+    another app/extension.
+  - System Boot Time, Disk Space, and Active Keyboards categories are confirmed **not** used
+    anywhere in this codebase (targeted greps for their associated APIs returned zero matches), so
+    no entries for those were added. `UIDevice.identifierForVendor` (used in `Case.swift`) was
+    also checked and confirmed to **not** be one of Apple's 5 required-reason categories, so it
+    needs no manifest entry either.
+  - Top-level keys: `NSPrivacyTracking = false` and empty `NSPrivacyTrackingDomains` /
+    `NSPrivacyCollectedDataTypes` arrays, reflecting that the app has no analytics/ad SDKs, does
+    not track users across apps/sites, and collects no data off-device at all (100% local
+    storage — see Data Architecture below).
+  - Registered in `project.pbxproj` as a `PBXFileReference` + `PBXBuildFile` +
+    `PBXResourcesBuildPhase` entry (a bundled resource, like `Info.plist`/`Assets.xcassets`, not
+    compiled Swift source — so it does **not** go in the Sources build phase). New unique object
+    IDs were generated and checked against the existing file for collisions before use.
+- **Terms of Use / Privacy Policy** (added 2026-07, same request as above):
+  - `docs/privacy-policy.html` and `docs/terms-of-use.html` — standalone static HTML pages,
+    committed at the **repo root** `docs/` folder (not under `ios/`), specifically so GitHub
+    Pages' "Deploy from a branch" option can serve them directly (that feature only supports the
+    repo root or a root-level `/docs` folder, not an arbitrary nested path like `ios/docs`).
+  - Privacy Policy content accurately reflects this app's real, on-device-only data practices: no
+    backend, no analytics/ad SDKs/tracking, no data sold or shared, purchases handled entirely by
+    Apple/StoreKit, and a plain-English explanation of the two required-reason API uses (file
+    timestamps for case-list sorting, UserDefaults for the credit balance) alongside the four
+    Info.plist-declared permissions (camera, photo library read/add, location-when-in-use).
+  - Terms of Use content leans on Apple's standard EULA (linked) plus app-specific additions:
+    what the app is/isn't (explicitly **not** a certified forensic/legal determination tool),
+    ownership of user content, the required Guideline-3.1.2 auto-renewing-subscription disclosure
+    (length, price, cancel-anytime), and standard warranty/liability disclaimers.
+  - `Views/Paywall/PaywallView.swift` updated: added `privacyPolicyURL`/`termsOfUseURL` constants
+    (currently pointed at the GitHub Pages URL pattern for this repo,
+    `https://spierce26-ems.github.io/Vehicle_Damage_Asst/{privacy-policy,terms-of-use}.html`), and
+    two new `Link`s ("Terms of Use", "Privacy Policy") added to `legalFooter`, next to the
+    existing subscription-disclosure text.
+  - **Action needed from Sean, not done here**: GitHub Pages is not automatically turned on by
+    pushing these files — go to the repo's **Settings → Pages**, set Source to "Deploy from a
+    branch", branch `main`, folder `/docs`, and save. Once that's live the two `Link`s in the
+    paywall will resolve correctly. If Sean would rather host these somewhere else (his own
+    site, or as a page on the Cloudflare Pages web app in this same sandbox), the two URL
+    constants in `PaywallView.swift` are the only thing that needs to change.
 - **PDF report export** (`Services/PDFReportGenerator`, `Views/Reports/PDFReportView`): an
   investigative-documentation PDF with case header, vehicle details, per-factor breakdown,
   photos, and the chain-of-custody trail.
@@ -217,8 +277,11 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 **Still needed before this can be tested on-device / shipped**:
 1. Create the 4 In-App Purchase / Subscription products in App Store Connect with IDs matching
    `PurchaseManager.ProductID` **exactly**, and set up a subscription group for the two `pro.*`
-   products.
-2. Publish a Terms of Use / Privacy Policy (not yet drafted).
+   products. (Sean's own task in App Store Connect — not done here.)
+2. Turn on GitHub Pages for the repo (Settings → Pages → Deploy from branch `main`, folder
+   `/docs`) so the Terms of Use / Privacy Policy pages drafted in this session actually resolve at
+   the URLs now linked from `PaywallView.swift`. Text is drafted and committed; only the hosting
+   toggle is outstanding.
 3. Suggested pricing (not yet finalized with Sean): consumer $9.99–14.99 one-time per case;
    Pro ~$29.99/mo or ~$299/yr.
 
@@ -254,7 +317,7 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   Genspark GitHub OAuth (`setup_github_environment`) has not succeeded for this project in any
   session — pushes require Sean to provide a fine-grained Personal Access Token each session, as
   the sandbox does not persist credentials across sessions.
-- **Last updated**: 2026-07-16
+- **Last updated**: 2026-07-17
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
   LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, LiDAR
   startup/interruption feedback, the Car/Truck silhouette toggle with fender/bumper landmarks,
@@ -275,6 +338,18 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   pulling) — and `CaseRow`'s new thumbnail (`ForensicCase.thumbnailPhoto`,
   `UIImage(data:)` decode in `leadingVisual`), which needs a case with at least one real captured
   photo to actually exercise (a brand-new/empty case will just show the old icon fallback).
+- **2026-07-17 changes** (app icon, Privacy Manifest, Terms of Use/Privacy Policy — see the
+  sections above for full detail): also written with no Xcode/Swift toolchain available.
+  `PrivacyInfo.xcprivacy` was validated as syntactically-correct XML plist via Python's
+  `plistlib`, and its `project.pbxproj` registration follows the exact same
+  PBXFileReference/PBXBuildFile/PBXResourcesBuildPhase pattern already used for `Assets.xcassets`
+  — but neither has been opened in actual Xcode yet, so double-check both after pulling: (1) the
+  app icon should appear filled-in (not blank) in the AppIcon slot in the asset catalog editor,
+  and (2) Xcode's build log should confirm `PrivacyInfo.xcprivacy` is being copied into the app
+  bundle (Apple's App Store Connect upload step will also flag it if the manifest is missing or
+  malformed). The Privacy Policy/Terms pages are drafted and committed, but are **not live yet** —
+  see "Still needed" above; the two `Link`s in `PaywallView.swift` will 404 until Sean turns on
+  GitHub Pages for this repo.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

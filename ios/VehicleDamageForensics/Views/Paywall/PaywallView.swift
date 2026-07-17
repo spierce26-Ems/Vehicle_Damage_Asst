@@ -20,6 +20,23 @@ struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var purchases = PurchaseManager.shared
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request to finish the
+    /// three remaining App Store submission blockers ("app icon,
+    /// Terms/Privacy Policy, Privacy Manifest"). These point at GitHub
+    /// Pages served from the repo-root `docs/` folder (source HTML
+    /// committed alongside this change at `docs/privacy-policy.html` and
+    /// `docs/terms-of-use.html` — NOT under `ios/`, because GitHub Pages'
+    /// "Deploy from a branch" option only supports serving from the repo
+    /// root or a root-level `/docs` folder, not an arbitrary nested path).
+    /// This is a free host requiring no new account, but GitHub Pages is
+    /// NOT enabled automatically by pushing these files — Sean still needs
+    /// to turn it on once, in the repo's Settings → Pages, and pick
+    /// "Deploy from a branch" → `main` → `/docs`. If Sean prefers a
+    /// different host (his own site, or Cloudflare Pages), just swap these
+    /// two URLs.
+    private let privacyPolicyURL = URL(string: "https://spierce26-ems.github.io/Vehicle_Damage_Asst/privacy-policy.html")!
+    private let termsOfUseURL = URL(string: "https://spierce26-ems.github.io/Vehicle_Damage_Asst/terms-of-use.html")!
+
     /// Called once a purchase/credit-consumption successfully unlocks
     /// access. The caller is responsible for marking the specific case as
     /// unlocked and persisting it — this view only handles the
@@ -183,9 +200,17 @@ struct PaywallView: View {
     /// this change), but this inline disclosure is the part Apple
     /// specifically checks for on the purchase screen itself.
     private var legalFooter: some View {
-        Text("Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings > Apple ID > Subscriptions. Payment is charged to your Apple ID account at purchase confirmation.")
-            .font(.caption2)
-            .foregroundStyle(.tertiary)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings > Apple ID > Subscriptions. Payment is charged to your Apple ID account at purchase confirmation.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
+            HStack(spacing: 16) {
+                Link("Terms of Use", destination: termsOfUseURL)
+                Link("Privacy Policy", destination: privacyPolicyURL)
+            }
+            .font(.caption2.bold())
+        }
     }
 
     // MARK: Product filtering
