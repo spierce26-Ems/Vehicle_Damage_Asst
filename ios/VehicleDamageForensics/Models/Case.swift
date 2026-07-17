@@ -182,6 +182,37 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         return "Untitled Case"
     }
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("Case-list
+    /// thumbnail polish -- CaseRow currently shows an icon + text only,
+    /// a small photo thumbnail per case would make the list easier to
+    /// scan visually"). Picks the first *usable* captured/imported photo
+    /// across both vehicles to represent this case in `CaseRow` --
+    /// victim vehicle photos first (sorted by `sequenceIndex` so it's
+    /// always the earliest shot, not whatever order they happen to be
+    /// stored in), falling back to the suspect vehicle's photos if the
+    /// victim vehicle has none yet (e.g. right after creating a case and
+    /// only photographing the other vehicle first). Returns `nil` for a
+    /// brand-new case with no photos at all, letting `CaseRow` fall back
+    /// to its existing icon-only display.
+    ///
+    /// Deliberately reads `thumbnailData` (a small pre-generated JPEG --
+    /// see `CameraService.generateThumbnail`) rather than the full-size
+    /// `imageData`, since every photo already carries one and decoding a
+    /// small thumbnail for every row in a potentially long case list is
+    /// far cheaper than decoding full-resolution capture photos just to
+    /// downscale them for a 44x44 row icon.
+    var thumbnailPhoto: CapturedPhoto? {
+        let victimPhoto = victimVehicle.photos
+            .filter { $0.isUsable && $0.thumbnailData != nil }
+            .sorted { $0.sequenceIndex < $1.sequenceIndex }
+            .first
+        if let victimPhoto { return victimPhoto }
+        return suspectVehicle?.photos
+            .filter { $0.isUsable && $0.thumbnailData != nil }
+            .sorted { $0.sequenceIndex < $1.sequenceIndex }
+            .first
+    }
+
     /// Display-friendly status label
     var statusLabel: String {
         switch status {

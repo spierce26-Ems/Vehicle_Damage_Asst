@@ -243,12 +243,34 @@ struct MatchResultsView: View {
 
     // MARK: Report Section
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request: "after a
+    /// match score shows, a one-line 'here's what to do with this'...
+    /// so the payoff moment doesn't just end on a number." Previously,
+    /// once a PDF was generated, this section just confirmed the
+    /// filename and stopped -- no next step, so the flow's actual
+    /// payoff moment (having a report) had no follow-through. Now shows
+    /// a one-line next-step nudge plus a direct "Share Report" button
+    /// right here (not just the toolbar share icon, which a user
+    /// scrolled down this far might not think to look back up for),
+    /// so acting on the report doesn't require hunting for the action
+    /// that produced it.
     private var reportSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Report").font(.headline)
             if let url = viewModel.reportURL {
                 Label("Generated PDF: \(url.lastPathComponent)", systemImage: "doc.fill")
                     .font(.subheadline)
+                Text("Save or share this report with your insurer, the police, or a body shop — it's your documentation of what happened.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button {
+                    showShareSheet = true
+                } label: {
+                    Label("Share Report", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 4)
             } else {
                 Text("Tap the share button above to generate a documentation report for investigators or insurers.")
                     .font(.subheadline)

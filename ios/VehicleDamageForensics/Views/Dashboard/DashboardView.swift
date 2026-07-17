@@ -4,6 +4,13 @@
 // into either a capture flow (in-progress) or a results view (analyzed).
 
 import SwiftUI
+// NOTE(AI Developer), added 2026-07 alongside the CaseRow thumbnail
+// feature -- `UIImage(data:)` (used in `leadingVisual` below to decode
+// `CapturedPhoto.thumbnailData`) is a UIKit type; SwiftUI does not
+// re-export it, so this file needs the explicit import (other views in
+// this project that touch `UIImage` directly, e.g. `CaptureCameraView.swift`,
+// already do the same).
+import UIKit
 
 struct DashboardView: View {
 
@@ -214,7 +221,7 @@ struct CaseRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            statusIcon
+            leadingVisual
             VStack(alignment: .leading, spacing: 4) {
                 Text(forensicCase.displayTitle)
                     .font(.headline)
@@ -247,6 +254,44 @@ struct CaseRow: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    // NOTE(AI Developer), added 2026-07 per Sean's request ("Case-list
+    // thumbnail polish -- CaseRow currently shows an icon + text only, a
+    // small photo thumbnail per case would make the list easier to scan
+    // visually"). Renders `forensicCase.thumbnailPhoto` (the case's
+    // first usable captured/imported photo, across either vehicle) as a
+    // 44x44 rounded thumbnail with the same status-color ring the old
+    // plain icon used, plus a small status-icon badge in the
+    // bottom-trailing corner so the at-a-glance status signal isn't
+    // lost by swapping the icon out for a photo. Falls back to the
+    // original icon-only `statusIcon` for any case with no usable photo
+    // yet (e.g. a case just created, before any shots are taken).
+    @ViewBuilder
+    private var leadingVisual: some View {
+        if let photo = forensicCase.thumbnailPhoto, let data = photo.thumbnailData,
+           let uiImage = UIImage(data: data) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(iconColor, lineWidth: 2)
+                )
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: iconName)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(3)
+                        .background(iconColor, in: Circle())
+                        .offset(x: 4, y: 4)
+                }
+        } else {
+            statusIcon
+                .frame(width: 44, height: 44)
+        }
     }
 
     private var statusIcon: some View {
