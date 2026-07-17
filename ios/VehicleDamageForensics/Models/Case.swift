@@ -437,6 +437,14 @@ enum AuditAction: String, Codable {
     // tap-to-measure step -- see `Vehicle.lidarMeasuredHeightInches` and
     // `CaptureViewModel.recordLiDARMeasurement(inches:)`.
     case lidarMeasurementRecorded = "lidar_measurement_recorded"
+    // NOTE(AI Developer), added 2026-07 as part of the paint-color
+    // reference-normalization fix (Sean: "yes build it now"). Recorded
+    // once per photo the first time its damage-area + clean-panel taps
+    // are both saved via `PaintReferenceMarkerView` -- see
+    // `CaptureViewModel.recordPaintReferenceTaps`. Distinct from
+    // `.photoCaptured`/`.photoImported` since it's a separate, later
+    // step against an already-captured photo, not the capture itself.
+    case paintReferenceRecorded = "paint_reference_recorded"
 
     var displayName: String {
         switch self {
@@ -452,6 +460,7 @@ enum AuditAction: String, Codable {
         case .photoSkipped: return "Photo Skipped"
         case .impactProfileRecorded: return "Impact Location/Direction Recorded"
         case .lidarMeasurementRecorded: return "LiDAR Height Measurement Recorded"
+        case .paintReferenceRecorded: return "Paint Reference Sample Recorded"
         }
     }
 }

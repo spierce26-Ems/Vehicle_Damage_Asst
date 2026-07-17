@@ -41,6 +41,26 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     /// at capture time.
     var wasImported: Bool
 
+    /// NOTE(AI Developer), added 2026-07 as part of the paint-color
+    /// reference-normalization fix (Sean: "on the color matching, wont
+    /// we run into issues matching OEM if we have poor lighting
+    /// conditions or bad images taken?"). Normalized (0-1, 0-1) tap
+    /// points recorded by `PaintReferenceMarkerView` against THIS
+    /// specific photo -- `paintDamagePoint` marks the damaged/transfer-
+    /// paint area, `paintReferencePoint` marks a clean/undamaged panel,
+    /// both tapped on the same photo so they share the same lighting,
+    /// camera, and white balance. `nil` until the reference-sample step
+    /// has been completed for this photo (only meaningful for
+    /// `.paintTransfer` shots). Kept on the photo itself (rather than
+    /// only on the derived `DamageZone.paintAnalysis`) so re-opening
+    /// this shot's reference-sample sheet later shows the previously
+    /// tapped points instead of appearing untouched. See
+    /// `ColorAnalysis.sampleColor(from:at:)` for the extraction step and
+    /// `CaptureViewModel.recordPaintReferenceTaps` for how these points
+    /// turn into an actual `PaintAnalysis`.
+    var paintDamagePoint: CGPoint?
+    var paintReferencePoint: CGPoint?
+
     // MARK: Init
 
     init(
@@ -56,7 +76,9 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         cameraSettings: CameraSettings = CameraSettings(),
         sequenceIndex: Int = 0,
         annotationNotes: String = "",
-        wasImported: Bool = false
+        wasImported: Bool = false,
+        paintDamagePoint: CGPoint? = nil,
+        paintReferencePoint: CGPoint? = nil
     ) {
         self.id = id
         self.imageData = imageData
@@ -71,6 +93,8 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.sequenceIndex = sequenceIndex
         self.annotationNotes = annotationNotes
         self.wasImported = wasImported
+        self.paintDamagePoint = paintDamagePoint
+        self.paintReferencePoint = paintReferencePoint
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -96,6 +120,12 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         sequenceIndex = try c.decode(Int.self, forKey: .sequenceIndex)
         annotationNotes = try c.decode(String.self, forKey: .annotationNotes)
         wasImported = try c.decodeIfPresent(Bool.self, forKey: .wasImported) ?? false
+        // `paintDamagePoint`/`paintReferencePoint` didn't exist before
+        // this change -- every photo saved before this update decodes
+        // both as `nil` (no reference sample taken yet), same
+        // backward-compat pattern as `wasImported` above.
+        paintDamagePoint = try c.decodeIfPresent(CGPoint.self, forKey: .paintDamagePoint)
+        paintReferencePoint = try c.decodeIfPresent(CGPoint.self, forKey: .paintReferencePoint)
     }
 
     // MARK: Computed

@@ -60,6 +60,13 @@ struct CaptureCameraView: View {
     // NOTE(AI Developer), added 2026-07 per Sean's "skip a shot" request
     // -- see `skipButton`/`skipConfirmationDialog` below.
     @State private var showSkipConfirmation = false
+    // NOTE(AI Developer), added 2026-07 as part of the paint-color
+    // reference-normalization fix ("yes build it now"). Holds the
+    // just-captured photo when it was a `.paintTransfer` shot, which
+    // drives presenting `PaintReferenceMarkerView` as a sheet immediately
+    // after capture -- see `captureNextShot()` below for the trigger
+    // point. `nil` the rest of the time (sheet dismissed).
+    @State private var pendingPaintReferencePhoto: CapturedPhoto?
 
     var body: some View {
         ZStack {
@@ -170,6 +177,18 @@ struct CaptureCameraView: View {
         } message: {
             if let type = viewModel.nextShotType {
                 Text("\(type.displayName) will be marked as skipped and excluded from the analysis. This shot type isn't required — you can still run the full analysis without it.")
+            }
+        }
+        // NOTE(AI Developer), added 2026-07 as part of the paint-color
+        // reference-normalization fix. Presented immediately after a
+        // `.paintTransfer` shot is captured (see `captureNextShot()`),
+        // while the investigator is still standing at the vehicle and the
+        // photo's lighting/framing is fresh -- tapping the damage area
+        // and a clean reference panel right away is far more reliable
+        // than trying to do it later from a gallery with no context.
+        .sheet(item: $pendingPaintReferencePhoto) { photo in
+            NavigationStack {
+                PaintReferenceMarkerView(viewModel: viewModel, photo: photo)
             }
         }
     }
@@ -308,6 +327,18 @@ struct CaptureCameraView: View {
             // decode+re-encode per shot and fixes a real metadata-quality
             // regression at the same time.
             await viewModel.record(photo: photo)
+            // NOTE(AI Developer), added 2026-07 as part of the paint-color
+            // reference-normalization fix: right after a `.paintTransfer`
+            // shot is recorded, immediately prompt for the two reference-
+            // swatch taps (damage area + clean panel) on THIS photo, while
+            // the investigator is still at the vehicle. Triggered after
+            // `record(photo:)` (not before) so the photo already carries
+            // its final `id`/`sequenceIndex` from the stored case, and
+            // `PaintReferenceMarkerView.save()` can look it up reliably by
+            // `photoID` in `CaptureViewModel.recordPaintReferenceTaps`.
+            if photo.photoType == .paintTransfer {
+                pendingPaintReferencePhoto = photo
+            }
         } catch {
             lastError = error.localizedDescription
         }

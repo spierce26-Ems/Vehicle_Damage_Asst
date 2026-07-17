@@ -369,6 +369,166 @@ final class CaptureViewModel: ObservableObject {
         await storage.save(forensicCase)
     }
 
+    /// Record the two reference-swatch tap points (damage/foreign-paint
+    /// area + clean undamaged panel) against an already-captured
+    /// `.paintTransfer` photo, extract localized colors at each point, and
+    /// build/update a real `PaintAnalysis` on this vehicle's primary
+    /// `DamageZone` -- creating that zone if this is the first time any
+    /// paint reference has been recorded for this vehicle.
+    ///
+    /// NOTE(AI Developer), added 2026-07 as the centerpiece of the
+    /// paint-color reference-normalization fix Sean approved ("yes please
+    /// do that" → "yes build it now") after asking "on the color
+    /// matching, wont we run into issues matching OEM if we have poor
+    /// lighting conditions or bad images taken?". Root cause (confirmed
+    /// via exhaustive grep before writing this): `DamageZone`/
+    /// `PaintAnalysis`/`Vehicle.colorRGB` were never populated ANYWHERE in
+    /// the real app -- `PaintTransferAnalyzer.analyze()` always hit its
+    /// `.unavailable` guard, so paint transfer (30% weight, the highest of
+    /// the 7 factors) never actually ran in any real case. This is the
+    /// first real writer for those fields.
+    ///
+    /// Methodology (per the approved spec): both tap points are sampled
+    /// from the SAME photo, so they share identical lighting/white-balance/
+    /// exposure -- comparisons are relative to each vehicle's own
+    /// same-photo reference rather than trusting absolute color values
+    /// across different photos taken in different conditions. `foreignPaintRGB`
+    /// is set from the damage-area tap (the paint transferred FROM the
+    /// other vehicle), while `primaryColorRGB` is set from the clean-panel
+    /// tap (this vehicle's own true color, sampled under the same
+    /// lighting as the damage tap -- see `PaintTransferAnalyzer.analyze()`'s
+    /// rewritten reciprocity check for how the two vehicles' zones are
+    /// compared against each other).
+    ///
+    /// Confidence downgrade: if either localized sample shows high
+    /// rejected-pixel fraction or high residual luminance variance (glare/
+    /// shadow contamination even after outlier clipping -- see
+    /// `ColorAnalysis.LocalSample`), the resulting `PaintAnalysis` isn't
+    /// flagged `foreignPaintDetected` with full confidence; instead we
+    /// mark the underlying `FactorScore` `.partial` downstream in
+    /// `PaintTransferAnalyzer` by threading a `sampleQualityIsGood` bit
+    /// through `PaintAnalysis` rather than silently trusting a bad
+    /// capture as `.full` quality.
+    func recordPaintReferenceTaps(
+        photoID: UUID,
+        damagePoint: CGPoint,
+        referencePoint: CGPoint
+    ) async {
+        // Locate the photo within the active vehicle's photo list and the
+        // UIImage backing it -- both taps were recorded against the same
+        // already-captured photo, so we decode it once here rather than
+        // asking the caller to pass the UIImage separately (avoids a
+        // caller accidentally passing a stale/different image than the
+        // one the points were actually tapped on).
+        func photoAndImage(in photos: [CapturedPhoto]) -> (Int, UIImage)? {
+            guard let index = photos.firstIndex(where: { $0.id == photoID }),
+                  let image = UIImage(data: photos[index].imageData) else { return nil }
+            return (index, image)
+        }
+
+        let vehicleHadPaintAnalysisAlready: Bool
+        switch captureRole {
+        case .victim:
+            vehicleHadPaintAnalysisAlready = forensicCase.victimVehicle.primaryDamageZone?.paintAnalysis != nil
+        case .suspect:
+            vehicleHadPaintAnalysisAlready = forensicCase.suspectVehicle?.primaryDamageZone?.paintAnalysis != nil
+        }
+
+        switch captureRole {
+        case .victim:
+            guard let (index, image) = photoAndImage(in: forensicCase.victimVehicle.photos) else { return }
+            forensicCase.victimVehicle.photos[index].paintDamagePoint = damagePoint
+            forensicCase.victimVehicle.photos[index].paintReferencePoint = referencePoint
+            guard let analysis = Self.buildPaintAnalysis(image: image, damagePoint: damagePoint, referencePoint: referencePoint) else { return }
+            Self.applyPaintAnalysis(analysis, to: &forensicCase.victimVehicle)
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            // `forensicCase.suspectVehicle` is guaranteed non-nil at this
+            // point (just created above if it wasn't already) -- pull it
+            // into a local `var` so `applyPaintAnalysis`'s `inout Vehicle`
+            // parameter has a concrete, non-Optional target to mutate,
+            // then write the whole vehicle back once at the end.
+            guard var suspect = forensicCase.suspectVehicle,
+                  let (index, image) = photoAndImage(in: suspect.photos) else { return }
+            suspect.photos[index].paintDamagePoint = damagePoint
+            suspect.photos[index].paintReferencePoint = referencePoint
+            guard let analysis = Self.buildPaintAnalysis(image: image, damagePoint: damagePoint, referencePoint: referencePoint) else {
+                forensicCase.suspectVehicle = suspect
+                return
+            }
+            Self.applyPaintAnalysis(analysis, to: &suspect)
+            forensicCase.suspectVehicle = suspect
+        }
+
+        if !vehicleHadPaintAnalysisAlready {
+            forensicCase.recordAudit(.paintReferenceRecorded, detail: "\(captureRole.displayName) vehicle")
+        }
+        await storage.save(forensicCase)
+    }
+
+    /// Sample both tap points on `image` and turn them into a
+    /// `PaintAnalysis`. `nil` if either sample fails to extract (e.g.
+    /// degenerate image data).
+    private static func buildPaintAnalysis(
+        image: UIImage,
+        damagePoint: CGPoint,
+        referencePoint: CGPoint
+    ) -> PaintAnalysis? {
+        guard let damageSample = ColorAnalysis.sampleColor(from: image, at: damagePoint),
+              let referenceSample = ColorAnalysis.sampleColor(from: image, at: referencePoint)
+        else { return nil }
+
+        // A sample is considered low-quality if either tap rejected an
+        // unusually large fraction of its own pixels as glare/shadow, or
+        // shows high residual luminance variance among the pixels that
+        // did survive rejection -- both suggest the tap landed somewhere
+        // inconsistent (an edge, a reflection, deep shadow) rather than a
+        // clean, uniform patch of paint. Thresholds are deliberately
+        // generous (not razor-sharp cutoffs) since this only downgrades
+        // confidence rather than discarding the data outright.
+        let sampleQualityIsGood =
+            damageSample.rejectedFraction < 0.5
+            && referenceSample.rejectedFraction < 0.5
+            && damageSample.luminanceStdDev < 40
+            && referenceSample.luminanceStdDev < 40
+
+        // Whether the damage-area tap actually looks like a DIFFERENT
+        // color than this vehicle's own clean-panel reference -- i.e.
+        // there's a plausible foreign-paint signal here at all, as
+        // opposed to the user having tapped two points on the same paint.
+        let dE = ColorAnalysis.deltaE2000(
+            ColorAnalysis.rgbToLab(damageSample.color),
+            ColorAnalysis.rgbToLab(referenceSample.color)
+        )
+        let foreignPaintDetected = dE > 3.0 // ΔE ≤ ~2-3 reads as "same paint" to the eye
+
+        return PaintAnalysis(
+            primaryColorRGB: referenceSample.color,
+            foreignPaintDetected: foreignPaintDetected,
+            foreignPaintRGB: foreignPaintDetected ? damageSample.color : nil,
+            layerCount: 0,
+            hasRubberTransfer: false,
+            hasPlasticFragment: false,
+            surfaceCondition: .fresh,
+            sampleQualityIsGood: sampleQualityIsGood
+        )
+    }
+
+    /// Attach `analysis` to `vehicle`'s primary damage zone, creating that
+    /// zone if this is the first paint reference recorded for the
+    /// vehicle. Deliberately does not touch any of the OTHER fields on an
+    /// existing zone (dimensions, height, impact angle) -- this only owns
+    /// `paintAnalysis`.
+    private static func applyPaintAnalysis(_ analysis: PaintAnalysis, to vehicle: inout Vehicle) {
+        if vehicle.damageZones.isEmpty {
+            vehicle.damageZones.append(DamageZone(paintAnalysis: analysis))
+        } else {
+            vehicle.damageZones[0].paintAnalysis = analysis
+        }
+    }
+
     /// Switch to capturing the suspect vehicle after victim is complete.
     /// NOTE(AI Developer), simplified 2026-07 alongside the `capturedPhotos`
     /// removal above: no explicit reset needed here anymore --

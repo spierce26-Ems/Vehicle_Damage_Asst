@@ -49,11 +49,18 @@ struct MatchScoreCalculator {
         let sZone = suspect.primaryDamageZone
 
         // Run analyses concurrently where appropriate
+        //
+        // NOTE(AI Developer), updated 2026-07 as part of the paint-color
+        // reference-normalization fix: dropped the `victimVehicleColor`/
+        // `suspectVehicleColor` arguments (`Vehicle.colorRGB`, which
+        // nothing in the app ever populated) now that
+        // `PaintTransferAnalyzer.analyze()` compares each vehicle's own
+        // same-photo-sampled `PaintAnalysis` against the other's instead
+        // of a "nominal vehicle color" — see that method's updated doc
+        // comment for the full rationale.
         async let paintScore = paintAnalyzer.analyze(
             victim: vZone,
-            suspect: sZone,
-            victimVehicleColor: victim.colorRGB,
-            suspectVehicleColor: suspect.colorRGB)
+            suspect: sZone)
 
         // NOTE(AI Developer), added 2026-07 per Sean's request ("wire LiDAR
         // data into the Height Alignment factor... we need the use of

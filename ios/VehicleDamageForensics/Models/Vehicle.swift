@@ -377,8 +377,64 @@ struct PaintAnalysis: Codable, Equatable {
     var hasPlasticFragment: Bool
     var surfaceCondition: SurfaceCondition
 
+    /// NOTE(AI Developer), added 2026-07 as part of the paint-color
+    /// reference-normalization fix. True when the two localized samples
+    /// that produced this analysis (damage-area tap + clean-panel tap,
+    /// see `CaptureViewModel.recordPaintReferenceTaps`) both looked
+    /// internally consistent -- low specular-highlight/shadow rejection,
+    /// low residual luminance variance. False means the underlying photo
+    /// likely had poor/uneven lighting at one or both tap points; callers
+    /// (`PaintTransferAnalyzer`) downgrade `FactorScore.dataQuality` to
+    /// `.partial` rather than `.full` in that case, instead of silently
+    /// trusting a bad capture the way the app used to trust (nonexistent)
+    /// data unconditionally. Defaults `true` so any other code path that
+    /// constructs a `PaintAnalysis` without reasoning about sample
+    /// quality doesn't get spuriously downgraded.
+    var sampleQualityIsGood: Bool = true
+
     enum SurfaceCondition: String, Codable {
         case fresh, weathered, rusted, repainted
+    }
+
+    init(
+        primaryColorRGB: ColorRGB,
+        foreignPaintDetected: Bool,
+        foreignPaintRGB: ColorRGB? = nil,
+        layerCount: Int = 0,
+        hasRubberTransfer: Bool = false,
+        hasPlasticFragment: Bool = false,
+        surfaceCondition: SurfaceCondition = .fresh,
+        sampleQualityIsGood: Bool = true
+    ) {
+        self.primaryColorRGB = primaryColorRGB
+        self.foreignPaintDetected = foreignPaintDetected
+        self.foreignPaintRGB = foreignPaintRGB
+        self.layerCount = layerCount
+        self.hasRubberTransfer = hasRubberTransfer
+        self.hasPlasticFragment = hasPlasticFragment
+        self.surfaceCondition = surfaceCondition
+        self.sampleQualityIsGood = sampleQualityIsGood
+    }
+
+    // MARK: Codable (custom, for backward-compatible decoding)
+
+    /// NOTE(AI Developer): Custom `init(from:)` added 2026-07 alongside
+    /// `sampleQualityIsGood` -- same backward-compat pattern used
+    /// elsewhere in this file (`Vehicle.init(from:)`). In practice no
+    /// case has ever persisted a real `PaintAnalysis` (confirmed dead
+    /// before this fix), but this keeps the type honest for any archived
+    /// JSON regardless. Compiler still auto-synthesizes `encode(to:)`/
+    /// `CodingKeys` since we don't implement those.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        primaryColorRGB = try c.decode(ColorRGB.self, forKey: .primaryColorRGB)
+        foreignPaintDetected = try c.decode(Bool.self, forKey: .foreignPaintDetected)
+        foreignPaintRGB = try c.decodeIfPresent(ColorRGB.self, forKey: .foreignPaintRGB)
+        layerCount = try c.decode(Int.self, forKey: .layerCount)
+        hasRubberTransfer = try c.decode(Bool.self, forKey: .hasRubberTransfer)
+        hasPlasticFragment = try c.decode(Bool.self, forKey: .hasPlasticFragment)
+        surfaceCondition = try c.decode(SurfaceCondition.self, forKey: .surfaceCondition)
+        sampleQualityIsGood = try c.decodeIfPresent(Bool.self, forKey: .sampleQualityIsGood) ?? true
     }
 }
 

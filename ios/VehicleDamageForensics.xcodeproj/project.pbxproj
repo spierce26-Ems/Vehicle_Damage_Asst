@@ -43,6 +43,7 @@
 		D77C2BE627340BFD99713036 /* HeadingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF5307E605921A484C06DAB /* HeadingProvider.swift */; };
 		FDB59CC5B475210890C53AE7 /* ImpactMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */; };
 		8195D560484A4A3AB0C48CE4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0A9011D23F48B896AB6295 /* OnboardingView.swift */; };
+		6F98C6A0B62D465A8A8E54D0 /* PaintReferenceMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,6 +85,7 @@
 		9EF5307E605921A484C06DAB /* HeadingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HeadingProvider.swift; path = VehicleDamageForensics/Services/HeadingProvider.swift; sourceTree = SOURCE_ROOT; };
 		C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ImpactMarkerView.swift; path = VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift; sourceTree = SOURCE_ROOT; };
 		0D0A9011D23F48B896AB6295 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = VehicleDamageForensics/Views/Dashboard/OnboardingView.swift; sourceTree = SOURCE_ROOT; };
+		C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaintReferenceMarkerView.swift; path = VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -195,6 +197,7 @@
 				34164AD6B187D17E583CCE15 /* CaptureFlowView.swift */,
 				EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */,
 				C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */,
+				C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */,
 			);
 			name = Capture;
 			sourceTree = "<group>";
@@ -373,6 +376,7 @@
 				678D300627E0BDAF3A5C6990 /* PaywallView.swift in Sources */,
 				D77C2BE627340BFD99713036 /* HeadingProvider.swift in Sources */,
 				FDB59CC5B475210890C53AE7 /* ImpactMarkerView.swift in Sources */,
+				6F98C6A0B62D465A8A8E54D0 /* PaintReferenceMarkerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

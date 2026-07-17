@@ -84,6 +84,51 @@
     longer permanently caps the max achievable score. The composite is now `weightedSum /
     usableWeightTotal` over only the *usable* factors, so a case with a flawless match on the
     factors it does have data for reads close to 100, not capped around 20–40.
+  - **Paint Transfer factor actually wired up for the first time — reference-swatch capture +
+    same-photo relative color comparison** (added 2026-07, per Sean's question — "on the color
+    matching, wont we run into issues matching OEM if we have poor lighting conditions or bad
+    images taken?"). Investigating that question uncovered something bigger than lighting
+    sensitivity: **Paint Transfer (30% weight, the highest of the 7 factors) was permanently
+    `dataQuality: .unavailable` in every real case**, confirmed via exhaustive grep — `DamageZone`,
+    `PaintAnalysis`, and `Vehicle.colorRGB` had zero real writers anywhere in the app (only the
+    free-text `Vehicle.color` field was ever settable, via `EditCaseSheet`), and the old
+    whole-image `ColorAnalysis.averageColor(of:)` helper was unreferenced dead code. Fixed with a
+    from-scratch capture-to-scoring pipeline, deliberately built lighting-aware from day one rather
+    than patching the old (never-running) logic:
+    - **Capture-time reference swatch** — `Views/Capture/PaintReferenceMarkerView.swift` (new
+      file) is presented as a sheet immediately after each of the 2 required `.paintTransfer`
+      shots per vehicle (`CaptureCameraView.captureNextShot()`), while the investigator is still at
+      the vehicle. The user taps two points on the just-captured photo itself: the
+      damaged/foreign-paint area, then a nearby clean/undamaged panel — modeled on
+      `ImpactMarkerView`/`ImpactSilhouetteView`'s tap-to-mark pattern, but tapping the real
+      `Image(uiImage:)` rather than a schematic outline. Both points are stored on the specific
+      photo (`CapturedPhoto.paintDamagePoint`/`paintReferencePoint`, new backward-compatible
+      fields) so re-opening the sheet later shows what was already tapped.
+    - **Localized, highlight/shadow-rejecting extraction** — `ColorAnalysis.sampleColor(from:at:)`
+      (new function) replaces the dead `averageColor(of:)` for this purpose: samples only a small
+      radius (~2% of the image's shorter side, roughly 20–30px on a typical photo) around each
+      exact tap point, discarding the brightest/darkest 15% of pixels within that patch (by
+      luminance percentile, not a fixed brightness threshold) before averaging the rest — so a
+      small specular highlight or shadow crease near the tap doesn't wash out or darken the sampled
+      color.
+    - **Same-photo-relative scoring** — `PaintTransferAnalyzer.analyze()` rewritten to drop the old
+      `victimVehicleColor`/`suspectVehicleColor` parameters entirely and instead compare each
+      vehicle's own `PaintAnalysis` (built from its two same-photo taps) against the other's: does
+      the foreign paint found on vehicle A's damage sit closer to vehicle B's *own* clean-panel
+      reference than to A's own reference? Because both samples in a comparison come from the same
+      photo/lighting, this never has to assume absolute color values are comparable across two
+      different photos taken in two different lighting conditions — the specific failure mode
+      Sean's question identified.
+    - **Confidence downgrade on bad captures** — `PaintAnalysis.sampleQualityIsGood` (new field)
+      is set `false` when either tap's localized sample showed heavy outlier-pixel rejection or
+      high residual luminance variance (signs of glare/shadow/edge contamination even after
+      percentile clipping); `PaintTransferAnalyzer` downgrades the factor's `dataQuality` to
+      `.partial` in that case rather than silently trusting a poorly-lit capture as `.full`
+      confidence.
+    - `MatchScoreCalculator`'s call site updated to the new `PaintTransferAnalyzer.analyze(victim:
+      suspect:)` signature. `AuditAction.paintReferenceRecorded` (new case) logs the first time a
+      vehicle's paint reference is completed, alongside every other chain-of-custody event.
+      Free-tier, entirely on-device — no cloud dependency.
 - **Impact location + direction-of-travel capture** (added 2026-07, per Sean's decision — "Option
   A"): a new **required** step in the capture flow (`Views/Capture/ImpactMarkerView.swift`),
   gating `ForensicCase.isReadyForAnalysis` and the Continue/Run-Analysis buttons in
@@ -317,7 +362,7 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   Genspark GitHub OAuth (`setup_github_environment`) has not succeeded for this project in any
   session — pushes require Sean to provide a fine-grained Personal Access Token each session, as
   the sandbox does not persist credentials across sessions.
-- **Last updated**: 2026-07-17
+- **Last updated**: 2026-07-17 (paint-color reference-normalization fix)
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
   LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, LiDAR
   startup/interruption feedback, the Car/Truck silhouette toggle with fender/bumper landmarks,
@@ -350,6 +395,19 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   malformed). The Privacy Policy/Terms pages are drafted and committed, but are **not live yet** —
   see "Still needed" above; the two `Link`s in `PaywallView.swift` will 404 until Sean turns on
   GitHub Pages for this repo.
+- **2026-07-17 changes, part 2** (paint-color reference-normalization fix — see the Paint Transfer
+  bullet above for full detail): also written with no Xcode/Swift toolchain — every edited/new
+  Swift file was checked for brace/paren/bracket balance via a Python one-liner, but none of this
+  has been compiled or run. Double-check after pulling: (1) `PaintReferenceMarkerView.swift` (new
+  file, manually registered in `project.pbxproj` under the `Capture` group the same way
+  `OnboardingView.swift` was in the prior round — verify it appears there in Xcode), (2) the sheet
+  actually presents after capturing a `.paintTransfer` shot and both taps register as expected
+  markers on the photo, (3) `CaptureViewModel.recordPaintReferenceTaps`'s suspect-vehicle branch in
+  particular (a `guard var suspect = forensicCase.suspectVehicle` local copy pattern, mutated then
+  written back once) — this is new plumbing that has never been exercised on-device, and (4) a
+  full two-vehicle run through to Results to confirm the Paint Transfer factor now actually shows
+  `dataQuality: .full`/`.partial` instead of permanently `.unavailable` once both vehicles' paint
+  references are recorded.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
