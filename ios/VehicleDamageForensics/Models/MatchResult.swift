@@ -335,6 +335,92 @@ struct ScarDirectionCheck: Codable, Equatable {
     }
 }
 
+// MARK: - Scar Line Comparison (display-only, built on demand)
+
+/// NOTE(AI Developer), added 2026-07 for Sean's Answer B2 ("use already-
+/// recorded scar data... to show victim vs. suspect scar line length/
+/// angle/position side-by-side with a computed match/deviation number, in
+/// both `MatchResultsView` and the PDF"). Deliberately NOT persisted on
+/// `MatchResult` / not `Codable` -- every field here is either already
+/// stored elsewhere (`CapturedPhoto.scarLineStart/End`, `ScarDirectionCheck`)
+/// or trivially recomputed from those, so this is built fresh on demand
+/// by `build(victim:suspect:check:)` rather than adding a second,
+/// potentially-stale copy of the same data to the persisted case JSON.
+/// Both `MatchResultsView`'s "Scar Line Comparison" section and
+/// `PDFReportGenerator.drawScarLineComparison` construct one of these and
+/// read it the same way, so the on-screen and PDF presentations can't
+/// silently drift apart.
+struct ScarLineComparison {
+
+    /// One vehicle's side of the comparison.
+    struct VehicleSide {
+        /// In-photo line length, normalized to that photo's own frame
+        /// (see `CapturedPhoto.scarLineLengthNormalized`'s doc comment
+        /// for why this is explicitly NOT a physical/real-world length --
+        /// the two scar photos have no shared scale reference). `nil` if
+        /// this vehicle has no marked scar line.
+        let lengthNormalized: Double?
+        /// In-photo orientation of the line, front-endpoint to
+        /// rear-endpoint, 0-360° (see `CapturedPhoto
+        /// .scarLineAngleInPhotoDegrees`). Also not a real compass
+        /// bearing -- context only.
+        let angleInPhotoDegrees: Double?
+        /// The REAL, physically-grounded compass bearing this vehicle's
+        /// scar evidence implies (`Vehicle.scarTravelBearingDegrees`,
+        /// already used by `MatchScoreCalculator
+        /// .scoreScarDirectionConsistency` for actual scoring) -- this is
+        /// the "position" side of the comparison: where the scar-verified
+        /// impact direction actually points, not just how the line looks
+        /// in its own photo.
+        let scarBearingDegrees: Double?
+        /// Plain-language motion description, e.g. "...moving FORWARD
+        /// (nose-first)...". Mirrors `ScarDirectionCheck
+        /// .victimMotionDescription`/`.suspectMotionDescription`.
+        let motionDescription: String?
+
+        var hasLine: Bool { lengthNormalized != nil }
+    }
+
+    let victim: VehicleSide
+    let suspect: VehicleSide
+
+    /// The single "computed match/deviation number" Sean asked for --
+    /// reuses `ScarDirectionCheck.reciprocityDeltaDegrees` (already the
+    /// real, physically-meaningful deviation from a perfect 180°
+    /// reciprocal match between the two vehicles' scar-corrected
+    /// bearings) rather than inventing a second, less-grounded metric
+    /// from the in-photo length/angle values, which have no shared scale
+    /// to compare against each other in the first place. `nil` when
+    /// `status == .notDeterminable`.
+    let reciprocityDeltaDegrees: Double?
+    let status: ScarDirectionCheck.Status
+    let scenarioNarrative: String?
+
+    /// True if there's anything at all worth rendering a comparison
+    /// section for -- at least one vehicle has a marked scar line, even
+    /// if the full reciprocity check isn't determinable yet (e.g. only
+    /// one vehicle's scar has been captured so far).
+    var hasAnyData: Bool { victim.hasLine || suspect.hasLine }
+
+    static func build(victim: Vehicle, suspect: Vehicle, check: ScarDirectionCheck?) -> ScarLineComparison {
+        func side(_ vehicle: Vehicle, bearing: Double?, motion: String?) -> VehicleSide {
+            VehicleSide(
+                lengthNormalized: vehicle.scarPhoto?.scarLineLengthNormalized,
+                angleInPhotoDegrees: vehicle.scarPhoto?.scarLineAngleInPhotoDegrees,
+                scarBearingDegrees: bearing,
+                motionDescription: motion
+            )
+        }
+        return ScarLineComparison(
+            victim: side(victim, bearing: check?.victimScarBearingDegrees, motion: check?.victimMotionDescription),
+            suspect: side(suspect, bearing: check?.suspectScarBearingDegrees, motion: check?.suspectMotionDescription),
+            reciprocityDeltaDegrees: check?.reciprocityDeltaDegrees,
+            status: check?.status ?? .notDeterminable,
+            scenarioNarrative: check?.scenarioNarrative
+        )
+    }
+}
+
 // MARK: - Contour Overlay
 
 /// NOTE(AI Developer), added 2026-07 alongside `MatchResult

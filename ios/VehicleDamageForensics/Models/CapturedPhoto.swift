@@ -205,6 +205,60 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         scarLineStart != nil && scarLineEnd != nil && scarFrontEndpoint != nil
     }
 
+    /// NOTE(AI Developer), added 2026-07 for the "Scar Line Comparison"
+    /// feature (Sean's Answer B2: "use already-recorded scar data... to
+    /// show victim vs. suspect scar line length/angle/position side-by-
+    /// side"). Euclidean distance between `scarLineStart`/`scarLineEnd`
+    /// in this photo's own normalized (0-1, 0-1) frame -- e.g. `0.4` means
+    /// the marked line spans 40% of the photo's diagonal.
+    ///
+    /// DELIBERATELY NOT a real-world/physical length: two scar photos are
+    /// shot from whatever distance each vehicle's damage happened to
+    /// require, with no shared scale reference (no ruler, no LiDAR tie-in
+    /// for this specific shot) -- so a raw normalized-distance comparison
+    /// between two DIFFERENT photos does not mean "the scars are the same
+    /// physical length." This value is only ever surfaced labeled as
+    /// "relative to each photo's own frame" (see `MatchResultsView`'s
+    /// Scar Line Comparison section / `PDFReportGenerator
+    /// .drawScarLineComparison`) -- it is supporting visual context, not
+    /// a scored match factor. `nil` unless both endpoints are set.
+    var scarLineLengthNormalized: Double? {
+        guard let a = scarLineStart, let b = scarLineEnd else { return nil }
+        let dx = Double(a.x - b.x)
+        let dy = Double(a.y - b.y)
+        return (dx * dx + dy * dy).squareRoot()
+    }
+
+    /// NOTE(AI Developer), added 2026-07 alongside
+    /// `scarLineLengthNormalized` for the same B2 feature. The scar
+    /// line's orientation IN THIS PHOTO's own 2D frame, 0-360°, measured
+    /// clockwise from "pointing right" in the image (standard screen
+    /// convention: 0° = +x/right, 90° = +y/down, matching this struct's
+    /// existing top-left-origin normalized point convention). Always
+    /// reported as the angle from `scarFrontEndpoint`'s end TOWARD the
+    /// other end, so "0°" consistently means "front-to-rear points right
+    /// in the photo" regardless of which raw endpoint happens to be
+    /// `.start` vs. `.end` -- this makes the value meaningfully
+    /// comparable across two vehicles' independently-marked lines despite
+    /// each photo being framed differently by whoever held the phone.
+    ///
+    /// Like `scarLineLengthNormalized`, this is an IN-PHOTO orientation,
+    /// not a real-world compass bearing -- `Vehicle.scarTravelBearingDegrees`
+    /// (which combines this vehicle's own recorded direction-of-travel and
+    /// impact geometry) is the actual physically-grounded bearing used for
+    /// scoring; this angle is supporting visual context only. `nil`
+    /// unless both endpoints and `scarFrontEndpoint` are set.
+    var scarLineAngleInPhotoDegrees: Double? {
+        guard let start = scarLineStart, let end = scarLineEnd, let scarFrontEndpoint else { return nil }
+        let front = scarFrontEndpoint == .start ? start : end
+        let rear = scarFrontEndpoint == .start ? end : start
+        let dx = Double(rear.x - front.x)
+        let dy = Double(rear.y - front.y)
+        var degrees = atan2(dy, dx) * 180.0 / .pi
+        if degrees < 0 { degrees += 360 }
+        return degrees
+    }
+
     static func == (lhs: CapturedPhoto, rhs: CapturedPhoto) -> Bool { lhs.id == rhs.id }
 }
 
