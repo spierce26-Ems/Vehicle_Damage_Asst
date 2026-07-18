@@ -223,26 +223,22 @@ struct ImpactMarkerView: View {
 /// A simplified top-down vehicle outline the user taps to mark where the
 /// vehicle was struck.
 ///
-/// NOTE(AI Developer), revised 2026-07 per Sean's second round of
-/// feedback on the Car/Truck toggle ("I dont like the new truck
-/// silhouette. Still a little confusing on how to mark the spot of
-/// impact. need to see fenders and bumpers to clearing mark impact
-/// spots."). The first revision only changed the truck's overall body
-/// shape (cab + bed) but neither outline had any of the actual
-/// recognizable landmarks people use to describe where a vehicle was
-/// hit -- "front bumper," "driver-side front fender," etc. Both outlines
-/// now draw:
-///   - A distinct **front bumper** bar and **rear bumper** bar (each
-///     labeled), instead of plain "FRONT"/"REAR" text floating with no
-///     visual reference.
-///   - Four **fender** bulges, one over each wheel position, each with a
-///     darker **wheel well** ellipse inside it -- the corners of a real
-///     vehicle where fender-bender damage most commonly lands, and
-///     exactly the landmarks Sean asked to see.
-/// `.truck` additionally keeps a narrower front cab / wider rear bed
-/// distinction (subtler than the previous revision, since Sean's
-/// complaint was specifically about that shape), so the truck silhouette
-/// still reads as a truck and not just a second car.
+/// NOTE(AI Developer), revised 2026-07 (third revision) per Sean's latest
+/// feedback: "it doesn't look anything like a vehicle so some users may
+/// be confused on how to use it." The previous revision (bumper
+/// bars/fender blobs on a plain rounded rectangle) still just looked like
+/// a decorated box, not a car. This revision replaces the rectangle
+/// entirely with a single continuous `Path` traced as an actual top-down
+/// car/truck outline -- tapered nose, flared front fenders, a narrower
+/// greenhouse/cabin waist, flared rear fenders, and a tapered tail --
+/// the same silhouette language used by parking apps and insurance
+/// damage diagrams, so it reads as "car" at a glance instead of needing
+/// bumper labels to explain what the shape is supposed to be. The bumper
+/// bars and wheel-well ellipses from the prior revision are kept as
+/// landmarks layered on top of the new body outline (Sean's earlier
+/// explicit ask: "need to see fenders and bumpers to clearly mark impact
+/// spots"), but now they sit on a shape that actually looks like the
+/// part of the car they're labeling.
 ///
 /// Deliberately still not a make/model-accurate shape -- precision within
 /// a few percent of the vehicle's actual perimeter is more than
@@ -253,11 +249,11 @@ struct ImpactMarkerView: View {
 ///
 /// IMPORTANT: both outlines keep the exact same (0,0)-(1,1) tap-point
 /// contract -- front-center at (0.5, 0), rear-center at (0.5, 1) -- that
-/// `Vehicle.impactRelativeAngleDegrees` assumes. The bumper bars and
-/// fender bulges are purely decorative landmarks layered on top of that
-/// same 0-1 canvas; a tap on a fender or bumper is recorded at exactly
-/// the screen point tapped, same as before. Only the drawing changes, not
-/// the angle math.
+/// `Vehicle.impactRelativeAngleDegrees` assumes. The body outline, bumper
+/// bars, and fender markers are purely decorative layers on top of that
+/// same 0-1 canvas; a tap anywhere in the view is recorded at exactly the
+/// screen point tapped, same as before. Only the drawing changes, not the
+/// angle math.
 struct ImpactSilhouetteView: View {
     @Binding var tapPoint: CGPoint?
     var bodyType: VehicleBodyType = .car
@@ -301,125 +297,167 @@ struct ImpactSilhouetteView: View {
     private func bumperBar(width: CGFloat, height: CGFloat, label: String) -> some View {
         ZStack {
             Capsule()
-                .fill(Color(.systemGray3))
-                .overlay(Capsule().stroke(Color(.systemGray2), lineWidth: 1.5))
+                .fill(Color(.systemGray2))
+                .overlay(Capsule().stroke(Color(.systemGray).opacity(0.6), lineWidth: 1.5))
             Text(label)
                 .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white)
         }
         .frame(width: width, height: height)
     }
 
-    /// A fender bulge (rounded rectangle) with a darker wheel-well
-    /// ellipse inside it, positioned at `centerX`/`centerY`. One of these
-    /// sits over each of the vehicle's four wheel positions on both
-    /// outlines -- these corners are where fender-bender damage most
-    /// commonly lands, so making them visible landmarks (rather than an
-    /// undifferentiated edge of a box) is the whole point of this
-    /// revision.
-    private func fenderMarker(centerX: CGFloat, centerY: CGFloat, width: CGFloat, height: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: height * 0.35)
-                .fill(Color(.systemGray4))
-                .overlay(
-                    RoundedRectangle(cornerRadius: height * 0.35)
-                        .stroke(Color(.systemGray3), lineWidth: 1.5)
-                )
-                .frame(width: width, height: height)
-            Ellipse()
-                .fill(Color(.systemGray2))
-                .frame(width: width * 0.5, height: height * 0.55)
-        }
-        .position(x: centerX, y: centerY)
+    /// A darker wheel-well ellipse marking one of the vehicle's four
+    /// wheel positions, sitting just inside the body outline where a
+    /// real fender bulge would be -- these corners are where
+    /// fender-bender damage most commonly lands, so keeping them as
+    /// visible landmarks (rather than an undifferentiated edge) is the
+    /// point of layering them on top of the new silhouette.
+    private func wheelWell(centerX: CGFloat, centerY: CGFloat, width: CGFloat, height: CGFloat) -> some View {
+        Ellipse()
+            .fill(Color(.systemGray2))
+            .overlay(Ellipse().stroke(Color(.systemGray).opacity(0.5), lineWidth: 1))
+            .frame(width: width, height: height)
+            .position(x: centerX, y: centerY)
     }
 
-    /// A sedan-like body: a rounded-rectangle cabin/body with a front
-    /// bumper, rear bumper, and four fender+wheel-well bulges at the
-    /// corners (front-left/right, rear-left/right).
+    /// A sedan-like top-down body outline: tapered rounded nose, front
+    /// fenders flaring out to the widest point at the front axle, a
+    /// narrower cabin/greenhouse waist across the middle, rear fenders
+    /// flaring back out at the rear axle, and a tapered rounded tail --
+    /// traced as a single mirrored `Path` so the shape actually reads as
+    /// "car," with a front bumper, rear bumper, and four wheel-well
+    /// markers layered on top as tap landmarks.
     private func carOutline(w: CGFloat, h: CGFloat) -> some View {
-        let bodyWidth = w * 0.64
-        let bodyHeight = h * 0.90
-        let cornerRadius = min(w, h) * 0.16
-        let bumperHeight = h * 0.06
-        let bumperWidth = bodyWidth * 0.82
-        let fenderWidth = w * 0.15
-        let fenderHeight = h * 0.13
-        let frontAxleY = h * 0.24
-        let rearAxleY = h * 0.80
-        let leftFenderX = w * 0.15
-        let rightFenderX = w * 0.85
+        let bumperHeight = h * 0.05
+        let bumperWidth = w * 0.5
+        let fenderWidth = w * 0.14
+        let fenderHeight = h * 0.11
+        let frontAxleY = h * 0.235
+        let rearAxleY = h * 0.79
+        let leftFenderX = w * 0.155
+        let rightFenderX = w * 0.845
+
+        // Half-width (from the vertical centerline) at each key
+        // longitudinal fraction of the body, front-to-back. Mirroring
+        // this profile across the centerline and connecting the points
+        // with smooth curves produces the tapered-nose / flared-fender /
+        // narrow-waist / flared-fender / tapered-tail car silhouette.
+        let profile: [(y: CGFloat, halfWidth: CGFloat)] = [
+            (0.03, 0.16),   // front bumper center -- rounded nose tip
+            (0.07, 0.24),   // nose widening
+            (0.16, 0.33),   // front fender leading edge
+            (0.25, 0.34),   // front fender widest point (front axle)
+            (0.34, 0.27),   // cowl / base of windshield -- narrowing in
+            (0.50, 0.235),  // cabin waist (roofline), narrowest point
+            (0.68, 0.27),   // rear window base -- widening back out
+            (0.77, 0.34),   // rear fender widest point (rear axle)
+            (0.86, 0.33),   // rear fender trailing edge
+            (0.95, 0.24),   // tail narrowing
+            (0.98, 0.16)    // rear bumper center -- rounded tail tip
+        ]
 
         return ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius)
+            bodyPath(w: w, h: h, profile: profile)
                 .fill(Color(.systemGray5))
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .stroke(Color(.systemGray3), lineWidth: 2)
-                )
-                .frame(width: bodyWidth, height: bodyHeight)
-                .position(x: w / 2, y: h / 2)
+                .overlay(bodyPath(w: w, h: h, profile: profile).stroke(Color(.systemGray3), lineWidth: 2))
 
-            bumperBar(width: bumperWidth, height: bumperHeight, label: "FRONT BUMPER")
-                .position(x: w / 2, y: bumperHeight / 2 + 3)
-            bumperBar(width: bumperWidth, height: bumperHeight, label: "REAR BUMPER")
-                .position(x: w / 2, y: h - bumperHeight / 2 - 3)
+            bumperBar(width: bumperWidth, height: bumperHeight, label: "FRONT")
+                .position(x: w / 2, y: h * 0.045)
+            bumperBar(width: bumperWidth, height: bumperHeight, label: "REAR")
+                .position(x: w / 2, y: h * 0.965)
 
-            fenderMarker(centerX: leftFenderX, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
-            fenderMarker(centerX: rightFenderX, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
-            fenderMarker(centerX: leftFenderX, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
-            fenderMarker(centerX: rightFenderX, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+            wheelWell(centerX: leftFenderX, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            wheelWell(centerX: rightFenderX, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            wheelWell(centerX: leftFenderX, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+            wheelWell(centerX: rightFenderX, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
         }
     }
 
-    /// A pickup-truck-like body: a narrower front cab, a wider rear bed,
-    /// a front bumper, a rear bumper (tailgate), and four fender+wheel-well
-    /// bulges positioned under the cab (front axle) and under the bed
-    /// (rear axle).
+    /// A pickup-truck-like top-down body outline: a narrower front cab
+    /// (with the same tapered nose/flared-fender shaping as the car
+    /// outline) flowing into a wider, boxier rear cargo bed with a
+    /// squared-off tailgate -- still one continuous mirrored `Path`, kept
+    /// visually distinct from the sedan outline (Sean's explicit
+    /// complaint on the prior revision was specifically about the truck
+    /// shape reading as "just a second car").
     private func truckOutline(w: CGFloat, h: CGFloat) -> some View {
-        let cornerRadius = min(w, h) * 0.13
-        let cabWidth = w * 0.58
-        let cabHeight = h * 0.34
-        let bedWidth = w * 0.82
-        let bedTop = h * 0.38
-        let bedHeight = h * 0.62
-        let bumperHeight = h * 0.05
-        let fenderWidth = w * 0.16
-        let fenderHeight = h * 0.13
-        let frontAxleY = h * 0.22
-        let rearAxleY = h * 0.72
-        let frontFenderX = (w * 0.19, w * 0.81)
-        let rearFenderX = (w * 0.09, w * 0.91)
+        let bumperHeight = h * 0.045
+        let cabBumperWidth = w * 0.42
+        let bedBumperWidth = w * 0.62
+        let fenderWidth = w * 0.155
+        let fenderHeight = h * 0.115
+        let frontAxleY = h * 0.20
+        let rearAxleY = h * 0.735
+        let frontFenderX = (w * 0.185, w * 0.815)
+        let rearFenderX = (w * 0.095, w * 0.905)
+
+        let profile: [(y: CGFloat, halfWidth: CGFloat)] = [
+            (0.03, 0.14),   // front bumper center -- rounded nose tip
+            (0.06, 0.20),   // nose widening
+            (0.14, 0.29),   // cab front fender leading edge
+            (0.20, 0.30),   // cab front fender widest point (front axle)
+            (0.30, 0.24),   // windshield base -- cab narrows slightly
+            (0.38, 0.23),   // cab roofline, narrowest point
+            (0.44, 0.27),   // back of cab widening into the bed
+            (0.50, 0.41),   // bed side rail begins -- sharp step out
+            (0.735, 0.42),  // rear fender widest point (rear axle), boxy bed
+            (0.90, 0.41),   // bed continues near-full-width toward tailgate
+            (0.97, 0.38)    // tailgate -- squared-off, only a slight taper
+        ]
 
         return ZStack {
-            // Cargo bed (rear two-thirds), drawn first.
-            RoundedRectangle(cornerRadius: cornerRadius)
+            bodyPath(w: w, h: h, profile: profile)
                 .fill(Color(.systemGray5))
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .stroke(Color(.systemGray3), lineWidth: 2)
-                )
-                .frame(width: bedWidth, height: bedHeight)
-                .position(x: w / 2, y: bedTop + bedHeight / 2)
+                .overlay(bodyPath(w: w, h: h, profile: profile).stroke(Color(.systemGray3), lineWidth: 2))
 
-            // Cab (front third), narrower than the bed.
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(Color(.systemGray4))
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .stroke(Color(.systemGray3), lineWidth: 2)
-                )
-                .frame(width: cabWidth, height: cabHeight)
-                .position(x: w / 2, y: cabHeight / 2)
+            bumperBar(width: cabBumperWidth, height: bumperHeight, label: "FRONT")
+                .position(x: w / 2, y: h * 0.04)
+            bumperBar(width: bedBumperWidth, height: bumperHeight, label: "TAILGATE")
+                .position(x: w / 2, y: h * 0.965)
 
-            bumperBar(width: cabWidth * 0.85, height: bumperHeight, label: "FRONT BUMPER")
-                .position(x: w / 2, y: bumperHeight / 2 + 3)
-            bumperBar(width: bedWidth * 0.7, height: bumperHeight, label: "TAILGATE")
-                .position(x: w / 2, y: h - bumperHeight / 2 - 3)
+            wheelWell(centerX: frontFenderX.0, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            wheelWell(centerX: frontFenderX.1, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
+            wheelWell(centerX: rearFenderX.0, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+            wheelWell(centerX: rearFenderX.1, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+        }
+    }
 
-            fenderMarker(centerX: frontFenderX.0, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
-            fenderMarker(centerX: frontFenderX.1, centerY: frontAxleY, width: fenderWidth, height: fenderHeight)
-            fenderMarker(centerX: rearFenderX.0, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
-            fenderMarker(centerX: rearFenderX.1, centerY: rearAxleY, width: fenderWidth, height: fenderHeight)
+    /// Builds a smooth, mirrored top-down body outline from a
+    /// front-to-back `profile` of (normalized-y, half-width-from-center)
+    /// control points. Traces down the right-hand side through each
+    /// point with quadratic curves (using the midpoint between
+    /// consecutive points as the curve target, a simple and robust way
+    /// to get a smooth silhouette from a coarse set of hand-tuned
+    /// measurements), caps the tail, mirrors back up the left-hand side,
+    /// and caps the nose -- one continuous closed shape, so a single
+    /// fill/stroke draws the whole vehicle body.
+    private func bodyPath(w: CGFloat, h: CGFloat, profile: [(y: CGFloat, halfWidth: CGFloat)]) -> Path {
+        Path { path in
+            guard profile.count > 1 else { return }
+            let cx = w / 2
+
+            func point(_ p: (y: CGFloat, halfWidth: CGFloat), side: CGFloat) -> CGPoint {
+                CGPoint(x: cx + side * p.halfWidth * w, y: p.y * h)
+            }
+
+            // Down the right side.
+            path.move(to: point(profile[0], side: 1))
+            for i in 1..<profile.count {
+                let prev = point(profile[i - 1], side: 1)
+                let curr = point(profile[i], side: 1)
+                let mid = CGPoint(x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2)
+                path.addQuadCurve(to: curr, control: mid)
+            }
+            // Across the tail cap.
+            path.addLine(to: point(profile[profile.count - 1], side: -1))
+            // Back up the left side (mirror image of the descent).
+            for i in stride(from: profile.count - 1, through: 1, by: -1) {
+                let prev = point(profile[i], side: -1)
+                let curr = point(profile[i - 1], side: -1)
+                let mid = CGPoint(x: (prev.x + curr.x) / 2, y: (prev.y + curr.y) / 2)
+                path.addQuadCurve(to: curr, control: mid)
+            }
+            path.closeSubpath()
         }
     }
 }

@@ -55,6 +55,34 @@ struct ScarCaptureView: View {
     @State private var frontEndpoint: ScarEndpoint = .start
     @State private var isSaving = false
     @State private var uiImage: UIImage?
+    /// True only for the first time this photo reaches the marking stage
+    /// in this session (a fresh capture, not a re-open of an already-
+    /// marked scar) -- drives the one-time line-drawing example overlay.
+    /// NOTE(AI Developer), added 2026-07 per Sean's feedback that
+    /// identifying scar direction "might be too hard... without clear
+    /// easy to follow directions" -- see `lineDrawingExampleOverlay`.
+    @State private var showDrawingExample = true
+    /// True while `ScarLineSuggester` is analyzing the freshly-captured
+    /// photo for a candidate scar line. NOTE(AI Developer), added 2026-07
+    /// per Sean: identifying the exact scar edges "might take a trained
+    /// eye" for an untrained user drawing blind. Vision's contour
+    /// detector proposes a starting line so the user is confirming/
+    /// nudging a suggestion (by dragging either end, same gesture as
+    /// always) rather than drawing one from nothing -- see
+    /// `ScarLineSuggester.suggestLine(in:)`.
+    @State private var isSuggesting = false
+    /// True once a Vision-suggested line has been placed into
+    /// `lineStart`/`lineEnd` -- drives the "Auto-detected" banner text in
+    /// `markingStage`. The user overrides a suggestion the same way they
+    /// draw a line from scratch: dragging either endpoint dot moves it,
+    /// exactly like the existing manual-draw gesture already handled by
+    /// `lineMarkingArea`'s `DragGesture` -- no separate reset button
+    /// needed, since "drag to adjust" already covers "drag to replace."
+    @State private var lineWasAutoSuggested = false
+    /// Guards against re-running the suggester every time `markingStage`
+    /// re-renders (SwiftUI bodies are recomputed often) -- the analysis
+    /// should fire at most once per freshly-captured photo.
+    @State private var didAttemptSuggestion = false
 
     private enum LineEndpoint { case start, end }
 
@@ -81,6 +109,9 @@ struct ScarCaptureView: View {
                 lineStart = existing.scarLineStart
                 lineEnd = existing.scarLineEnd
                 frontEndpoint = existing.scarFrontEndpoint ?? .start
+                // Already-marked scar being reopened -- no need for the
+                // one-time drawing example or an auto-suggested line.
+                if existing.scarLineStart != nil { showDrawingExample = false }
                 stage = .marking
             }
         }
@@ -265,6 +296,12 @@ struct ScarCaptureView: View {
             uiImage = UIImage(data: data)
             lineStart = nil
             lineEnd = nil
+            // Fresh photo -- reset the example/suggestion state so both
+            // run again for this new capture (a retake supersedes, so
+            // whatever guidance played out for the old photo is stale).
+            showDrawingExample = true
+            lineWasAutoSuggested = false
+            didAttemptSuggestion = false
             camera.resetAutoCaptureStreak()
             camera.stopSession()
             withAnimation { stage = .marking }
@@ -292,19 +329,50 @@ struct ScarCaptureView: View {
                         .multilineTextAlignment(.center)
                 }
 
+                // NOTE(AI Developer), added 2026-07: a one-time worked
+                // example showing exactly what "drag along the scar"
+                // means on an actual scrape mark, shown once per fresh
+                // photo before the user starts dragging -- per Sean's
+                // "might be too hard... without clear easy to follow
+                // directions" feedback. Dismissed by the user or
+                // automatically once they place their own line.
+                if showDrawingExample {
+                    lineDrawingExampleOverlay
+                }
+
+                if isSuggesting {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        Text("Looking for the scar in your photo…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                } else if lineWasAutoSuggested {
+                    Label("Auto-detected — drag either end to adjust it", systemImage: "wand.and.stars")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.blue)
+                }
+
                 lineMarkingArea
                     .frame(height: 320)
+                    .task(id: capturedPhoto?.id) {
+                        await attemptAutoSuggestion()
+                    }
 
                 if lineStart != nil && lineEnd != nil {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Which end is toward this vehicle's front?")
+                        Text("The FRONT label below should be on the end closer to this vehicle's front.")
                             .font(.headline)
                         whyThisMattersNote("Paint transfer piles up in the direction contact was sliding — knowing which end is front vs. rear lets the app read the true direction of motion straight off the scar, instead of relying on a guessed compass heading.")
-                        Picker("Front end", selection: $frontEndpoint) {
-                            Text("Red end (start)").tag(ScarEndpoint.start)
-                            Text("Blue end (end)").tag(ScarEndpoint.end)
+                        Button {
+                            frontEndpoint = (frontEndpoint == .start) ? .end : .start
+                        } label: {
+                            Label("Swap Front / Rear", systemImage: "arrow.left.arrow.right")
+                                .font(.subheadline.weight(.semibold))
+                                .frame(maxWidth: .infinity)
                         }
-                        .pickerStyle(.segmented)
+                        .buttonStyle(.bordered)
                     }
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -344,6 +412,81 @@ struct ScarCaptureView: View {
         }
     }
 
+    /// A small, self-contained worked example of what "drag along the
+    /// scar" means: a miniature stylized scrape mark with a dashed line
+    /// already drawn tip-to-tip, labeled so the user can match the
+    /// pattern on their own real photo below. NOTE(AI Developer), added
+    /// 2026-07 -- deliberately a drawn illustration rather than a real
+    /// photo crop, so it reads clearly as "here's the technique" and
+    /// isn't mistaken for part of the user's own evidence.
+    private var lineDrawingExampleOverlay: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Label("How to mark it", systemImage: "questionmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button("Got it") {
+                    withAnimation { showDrawingExample = false }
+                }
+                .font(.caption.weight(.semibold))
+            }
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemGray5))
+                // Stylized scrape mark: a tapered gray smear so the shape
+                // itself hints at "this is a scar/scrape," not just an
+                // abstract line.
+                Capsule()
+                    .fill(Color(.systemGray2))
+                    .frame(width: 150, height: 14)
+                    .rotationEffect(.degrees(-6))
+                Path { path in
+                    path.move(to: CGPoint(x: 40, y: 34))
+                    path.addLine(to: CGPoint(x: 190, y: 22))
+                }
+                .stroke(Color.yellow, style: StrokeStyle(lineWidth: 3, dash: [6, 4]))
+                Circle().fill(.red).frame(width: 16, height: 16)
+                    .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                    .position(x: 40, y: 34)
+                Circle().fill(.blue).frame(width: 16, height: 16)
+                    .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                    .position(x: 190, y: 22)
+            }
+            .frame(height: 60)
+
+            Text("Drag from one visible tip of the scrape to the other — following its length, not just its width.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// Runs the Vision-based contour suggester on the freshly-captured
+    /// photo once (guarded by `didAttemptSuggestion`), placing the result
+    /// straight into `lineStart`/`lineEnd` as a starting point the user
+    /// can drag to adjust -- never overwrites a line the user already
+    /// has in progress (e.g. a re-opened, already-marked scar, or a line
+    /// the user started dragging before this finished). Runs off the
+    /// main actor since Vision's contour detection is real CPU work, then
+    /// hops back to publish the result -- same off-main/back-to-main
+    /// pattern already used for photo analysis elsewhere in the app.
+    private func attemptAutoSuggestion() async {
+        guard !didAttemptSuggestion, lineStart == nil, lineEnd == nil, let uiImage else { return }
+        didAttemptSuggestion = true
+        isSuggesting = true
+        let result = await Task.detached(priority: .userInitiated) {
+            ScarLineSuggester.suggestLine(in: uiImage)
+        }.value
+        isSuggesting = false
+        guard lineStart == nil, lineEnd == nil, let result else { return }
+        lineStart = result.start
+        lineEnd = result.end
+        lineWasAutoSuggested = true
+    }
+
     @ViewBuilder
     private func whyThisMattersNote(_ text: String) -> some View {
         Label {
@@ -378,12 +521,23 @@ struct ScarCaptureView: View {
                     }
                     .stroke(Color.yellow, style: StrokeStyle(lineWidth: 3, dash: [6, 4]))
                 }
+                // NOTE(AI Developer), changed 2026-07: the two endpoint
+                // dots now show "FRONT"/"REAR" (matching whichever end
+                // `frontEndpoint` currently points at) instead of the
+                // old generic "S"/"E" -- per Sean's front/rear labeling
+                // feedback, the picker used to make the user map an
+                // arbitrary "Red end (start)/Blue end (end)" choice back
+                // onto the photo themselves. Now the photo itself always
+                // shows which end is currently front vs. rear, and the
+                // "Swap Front / Rear" button (see `markingStage`) just
+                // flips these two labels in place -- no separate mental
+                // mapping required.
                 if let lineStart {
-                    endpointDot(color: .red, label: "S")
+                    endpointDot(color: .red, label: frontEndpoint == .start ? "FRONT" : "REAR")
                         .position(x: lineStart.x * w, y: lineStart.y * h)
                 }
                 if let lineEnd {
-                    endpointDot(color: .blue, label: "E")
+                    endpointDot(color: .blue, label: frontEndpoint == .end ? "FRONT" : "REAR")
                         .position(x: lineEnd.x * w, y: lineEnd.y * h)
                 }
             }
@@ -396,6 +550,14 @@ struct ScarCaptureView: View {
                             x: min(max(value.location.x / w, 0), 1),
                             y: min(max(value.location.y / h, 0), 1)
                         )
+                        // Any manual drag means the user is now
+                        // authoring/adjusting the line themselves -- the
+                        // one-time worked example has served its purpose,
+                        // and once they've moved an endpoint the line is
+                        // no longer purely "auto-detected" (even if it
+                        // started that way), so drop that banner too.
+                        if showDrawingExample { showDrawingExample = false }
+                        lineWasAutoSuggested = false
                         if draggingEndpoint == nil {
                             // Decide which endpoint this drag is setting: if
                             // neither is set yet, or we're closer to the
@@ -426,9 +588,10 @@ struct ScarCaptureView: View {
 
     private func endpointDot(color: Color, label: String) -> some View {
         ZStack {
-            Circle().fill(color).frame(width: 26, height: 26)
-                .overlay(Circle().stroke(.white, lineWidth: 2))
-            Text(label).font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+            Capsule().fill(color)
+                .overlay(Capsule().stroke(.white, lineWidth: 2))
+                .frame(width: 54, height: 22)
+            Text(label).font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
         }
     }
 
