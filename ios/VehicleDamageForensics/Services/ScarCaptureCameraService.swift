@@ -53,6 +53,19 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     /// `startAutoCaptureLoop` is about to (or just did) fire a capture.
     var allGatesGood: Bool { isSteady && isFocused && isWellLit }
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's on-device report on
+    /// the main 30-shot camera ("auto capture worked way too fast...
+    /// need a ready button... to trigger the autocapture when the user
+    /// is ready") -- this camera shares the identical
+    /// `updateGoodStreak`/`resetAutoCaptureStreak` pattern that caused
+    /// that bug (right after a shot, the phone is usually still
+    /// steady/focused/lit, so a fresh hold-timer alone can complete
+    /// almost instantly), so the same fix applies here: the countdown
+    /// only runs once the user has explicitly armed it via
+    /// `armAutoCapture()`, called from `ScarCaptureView`'s new "Ready"
+    /// button. See `CameraService.isArmed` for the full rationale.
+    @Published private(set) var isArmed: Bool = false
+
     // MARK: Configuration
 
     /// Normalized (0-1, 0-1) guide rectangle within the camera frame that
@@ -259,9 +272,13 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     /// `autoCaptureHoldSeconds`. No repeating `Timer` needed -- each
     /// underlying sensor callback already arrives frequently enough
     /// (30Hz motion, ~6Hz frame analysis) to drive this smoothly.
+    /// NOTE(AI Developer), added 2026-07 alongside `isArmed`: requires
+    /// `isArmed` in addition to `allGatesGood` before the countdown
+    /// progresses -- see `CameraService.updateGoodStreak`'s matching
+    /// NOTE for the full rationale.
     private func updateGoodStreak() {
         let now = Date()
-        if allGatesGood {
+        if isArmed && allGatesGood {
             let streak = now.timeIntervalSince(lastNotGoodTime)
             autoCaptureProgress = min(1.0, streak / autoCaptureHoldSeconds)
             if streak >= autoCaptureHoldSeconds && !hasFiredAutoCaptureForCurrentGoodStreak && !isCapturing {
@@ -279,8 +296,22 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     /// manual) completes, so a NEW continuous streak is required before
     /// auto-capture can fire again -- prevents an immediate repeat
     /// capture if the phone happens to still be steady/well-lit right
-    /// after the shutter.
+    /// after the shutter. Also disarms (`isArmed = false`) so the user
+    /// must tap "Ready" again before the next auto-capture countdown
+    /// can start.
     func resetAutoCaptureStreak() {
+        lastNotGoodTime = Date()
+        hasFiredAutoCaptureForCurrentGoodStreak = false
+        autoCaptureProgress = 0
+        isArmed = false
+    }
+
+    /// Called when the user taps the "Ready" button in `ScarCaptureView`
+    /// once they've finished aligning the scar in the guide box. Starts
+    /// the continuous-good-streak clock now, so the full
+    /// `autoCaptureHoldSeconds` hold is always required after arming.
+    func armAutoCapture() {
+        isArmed = true
         lastNotGoodTime = Date()
         hasFiredAutoCaptureForCurrentGoodStreak = false
         autoCaptureProgress = 0

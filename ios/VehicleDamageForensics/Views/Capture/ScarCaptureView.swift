@@ -146,6 +146,18 @@ struct ScarCaptureView: View {
                 topInstruction
                 Spacer()
                 statusChips
+                // NOTE(AI Developer), added 2026-07 per Sean's on-device
+                // report on the main 30-shot camera ("need a ready
+                // button... to trigger the autocapture when the user is
+                // ready") -- this camera has the identical auto-capture
+                // pattern, so the same fix applies: only shown once the
+                // gates already look good and the user hasn't armed
+                // yet, so it doesn't compete for attention while still
+                // aligning the scar in the guide box.
+                if camera.allGatesGood && !camera.isArmed {
+                    readyButton
+                        .padding(.bottom, 10)
+                }
                 autoCaptureRingAndShutter
                     .padding(.bottom, 32)
             }
@@ -237,6 +249,25 @@ struct ScarCaptureView: View {
             .background(isGood ? Color.green.opacity(0.75) : Color.black.opacity(0.55), in: Capsule())
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
+    }
+
+    /// NOTE(AI Developer), added 2026-07 alongside `ScarCaptureCameraService
+    /// .isArmed` -- explicit user confirmation that they're done
+    /// aligning the scar in the guide box and are ready for the
+    /// auto-capture countdown to start. See `CaptureCameraView
+    /// .readyButton` for the matching control on the main protocol
+    /// camera and the shared rationale.
+    private var readyButton: some View {
+        Button {
+            camera.armAutoCapture()
+        } label: {
+            Label("Ready", systemImage: "checkmark.circle.fill")
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(Color.blue, in: Capsule())
+                .foregroundStyle(.white)
+        }
     }
 
     /// Filling ring (progress toward auto-capture) with a manual shutter

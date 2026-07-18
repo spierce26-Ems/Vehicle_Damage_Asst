@@ -145,6 +145,24 @@ struct CaptureCameraView: View {
                 autoCaptureStatusChips
                     .padding(.bottom, 10)
 
+                // NOTE(AI Developer), added 2026-07 per Sean's on-device
+                // report ("auto capture worked way too fast... need a
+                // ready button... to trigger the autocapture when the
+                // user is ready"). Shown only once the sensor gates
+                // already look good AND the user hasn't armed yet, so
+                // it never competes for attention while the phone is
+                // still being repositioned/focused. Tapping it calls
+                // `camera.armAutoCapture()`, which starts the
+                // `autoCaptureHoldSeconds` countdown from that instant --
+                // see `CameraService.isArmed` for why this actually
+                // fixes the reported bug (a fresh hold-timer alone
+                // wasn't enough, since the phone is often still
+                // steady/focused/lit right after the previous shot).
+                if camera.allGatesGood && !camera.isArmed {
+                    readyButton
+                        .padding(.bottom, 10)
+                }
+
                 SensorLevelBar(sensorData: viewModel.currentSensorData)
                     .padding(.bottom, 12)
 
@@ -283,6 +301,25 @@ struct CaptureCameraView: View {
                     .overlay(Circle().stroke(.gray, lineWidth: 3).padding(4))
             }
             .disabled(viewModel.isComplete)
+        }
+    }
+
+    /// NOTE(AI Developer), added 2026-07 alongside `CameraService
+    /// .isArmed` -- explicit user confirmation that they're done
+    /// repositioning and ready for the auto-capture countdown to start
+    /// for this shot. Distinct styling (blue, pill-shaped, labeled) from
+    /// the shutter/library/skip circles below so it reads as a
+    /// deliberate "start the timer" action, not another capture button.
+    private var readyButton: some View {
+        Button {
+            camera.armAutoCapture()
+        } label: {
+            Label("Ready", systemImage: "checkmark.circle.fill")
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(Color.blue, in: Capsule())
+                .foregroundStyle(.white)
         }
     }
 

@@ -62,6 +62,29 @@ final class CameraService: NSObject, ObservableObject {
     /// Scar-Direction screen.
     @Published private(set) var autoCaptureProgress: Double = 0
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's on-device report
+    /// ("auto capture worked way too fast. it autocaptured really quick
+    /// and did not allow time to move the camera to a new position...
+    /// we need to add a ready button or something to trigger the
+    /// autocapture when the user is ready"). Root cause: right after a
+    /// shot fires, the phone is usually STILL steady/focused/well-lit
+    /// (it hasn't moved yet), so the old code's `resetAutoCaptureStreak`
+    /// only cleared the *timer* -- with `allGatesGood` already true
+    /// again on the very next sensor callback, a fresh
+    /// `autoCaptureHoldSeconds` (0.65s) streak completed almost
+    /// immediately, firing a second shot before the user could
+    /// reposition. `isArmed` decouples "sensors currently look good"
+    /// (`allGatesGood`, unchanged -- still drives the status chips) from
+    /// "the user has confirmed they're ready for auto-capture to start
+    /// counting down for THIS shot." `updateGoodStreak()` below now
+    /// requires both. Starts `false` for every new shot; set `true` only
+    /// via `armAutoCapture()`, called when the user taps the new "Ready"
+    /// button in `CaptureCameraView`. Cleared back to `false` after every
+    /// capture (auto or manual) and on every shot-type change, so the
+    /// user must explicitly re-arm for each new shot -- there is no way
+    /// for this to silently stay armed across a reposition.
+    @Published private(set) var isArmed: Bool = false
+
     /// Set by `CaptureCameraView` whenever `viewModel.nextShotType`
     /// changes, from `PhotoType.usesEvenLightingGate` -- determines
     /// whether `allGatesGood` requires `isWellLit` for the shot
@@ -465,9 +488,16 @@ final class CameraService: NSObject, ObservableObject {
     // and fire `onAutoCapture` once a continuous "all required gates
     // good" streak reaches `autoCaptureHoldSeconds`.
 
+    /// NOTE(AI Developer), added 2026-07 alongside `isArmed`: the
+    /// countdown now requires `isArmed` in addition to `allGatesGood` --
+    /// gate state can be true or false at any moment regardless of
+    /// arming (the status chips above the shutter still reflect the raw
+    /// sensor state either way), but the actual `autoCaptureProgress`
+    /// countdown, and the `onAutoCapture` fire, only happen once the
+    /// user has tapped "Ready" for this shot.
     private func updateGoodStreak() {
         let now = Date()
-        if allGatesGood {
+        if isArmed && allGatesGood {
             let streak = now.timeIntervalSince(lastNotGoodTime)
             autoCaptureProgress = min(1.0, streak / autoCaptureHoldSeconds)
             if streak >= autoCaptureHoldSeconds && !hasFiredAutoCaptureForCurrentGoodStreak,
@@ -486,8 +516,27 @@ final class CameraService: NSObject, ObservableObject {
     /// manual) completes, or whenever `viewModel.nextShotType` changes
     /// (a new shot's framing/lighting requirements make any in-progress
     /// streak toward the PREVIOUS shot meaningless) -- a new continuous
-    /// streak is required before auto-capture can fire again.
+    /// streak is required before auto-capture can fire again. Also
+    /// disarms (`isArmed = false`) so the user must explicitly tap
+    /// "Ready" again for the next shot -- this is what actually fixes
+    /// Sean's "fired again before I could move" report; without this,
+    /// arming would otherwise persist across shots.
     func resetAutoCaptureStreak() {
+        lastNotGoodTime = Date()
+        hasFiredAutoCaptureForCurrentGoodStreak = false
+        autoCaptureProgress = 0
+        isArmed = false
+    }
+
+    /// Called by `CaptureCameraView` when the user taps the new "Ready"
+    /// button, once they've finished repositioning for the current
+    /// shot. Starts (or restarts) the continuous-good-streak clock right
+    /// now rather than trusting whatever streak may have accumulated
+    /// while unarmed -- so the full `autoCaptureHoldSeconds` hold is
+    /// always required AFTER arming, never satisfied instantly by a
+    /// streak that happened to already be running.
+    func armAutoCapture() {
+        isArmed = true
         lastNotGoodTime = Date()
         hasFiredAutoCaptureForCurrentGoodStreak = false
         autoCaptureProgress = 0
