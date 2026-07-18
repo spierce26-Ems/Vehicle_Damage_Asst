@@ -24,6 +24,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import PhotosUI
 
 // MARK: - Scar Capture View
 
@@ -40,6 +41,16 @@ struct ScarCaptureView: View {
     @StateObject private var camera = ScarCaptureCameraService()
     @State private var lastError: String?
     @State private var capturedPhoto: CapturedPhoto?
+    // NOTE(AI Developer), added 2026-07 per Sean's explicit request
+    // ("we need to be able to upload an image for scar from the roll as
+    // well"). Mirrors `CaptureCameraView`'s `selectedPhotoItem`/
+    // `isImportingPhoto` pattern exactly (see that file's
+    // `photoLibraryButton`/`importSelectedPhoto(_:)`) -- picked photo
+    // goes straight into the same `capturedPhoto`/`uiImage` state the
+    // live-capture path fills, then on to `.marking` exactly like a
+    // fresh auto-capture would.
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var isImportingPhoto = false
     /// Briefly true right at the moment auto-capture fires, driving both
     /// the green full-screen flash (`autoCaptureFlash`) and a success
     /// haptic in `performCapture(auto:)` -- the "snap" feedback pairing
@@ -52,6 +63,12 @@ struct ScarCaptureView: View {
     @State private var lineStart: CGPoint?
     @State private var lineEnd: CGPoint?
     @State private var draggingEndpoint: LineEndpoint?
+    /// Normalized (0-1, 0-1) location of the current in-progress drag,
+    /// driving `magnifierLoupe(at:containerSize:)` -- `nil` whenever no
+    /// drag is active, which hides the loupe entirely. NOTE(AI Developer),
+    /// added 2026-07 per Sean's Answer A -- see `lineMarkingArea`'s
+    /// `DragGesture` for where this is set/cleared.
+    @State private var magnifierLocation: CGPoint?
     @State private var frontEndpoint: ScarEndpoint = .start
     @State private var isSaving = false
     @State private var uiImage: UIImage?
@@ -158,6 +175,15 @@ struct ScarCaptureView: View {
                     readyButton
                         .padding(.bottom, 10)
                 }
+                // NOTE(AI Developer), added 2026-07 -- see
+                // `selectedPhotoItem`/`photoLibraryButton` above. Placed
+                // as its own row above the shutter (rather than beside
+                // it, `CaptureCameraView`-style) since this guide-box
+                // camera's shutter is already the sole element in its
+                // row; adding a second control there would crowd the
+                // guide box's own bottom edge.
+                photoLibraryButton
+                    .padding(.bottom, 10)
                 autoCaptureRingAndShutter
                     .padding(.bottom, 32)
             }
@@ -323,19 +349,9 @@ struct ScarCaptureView: View {
                 qualityScore: 1.0,
                 annotationNotes: auto ? "Scar photo (auto-captured)" : "Scar photo (manual capture)"
             )
-            capturedPhoto = photo
-            uiImage = UIImage(data: data)
-            lineStart = nil
-            lineEnd = nil
-            // Fresh photo -- reset the example/suggestion state so both
-            // run again for this new capture (a retake supersedes, so
-            // whatever guidance played out for the old photo is stale).
-            showDrawingExample = true
-            lineWasAutoSuggested = false
-            didAttemptSuggestion = false
             camera.resetAutoCaptureStreak()
             camera.stopSession()
-            withAnimation { stage = .marking }
+            installFreshlyCapturedPhoto(photo)
             // Let the green flash animate out, then clear the flag so a
             // future retake/auto-capture can trigger it again.
             try? await Task.sleep(nanoseconds: 250_000_000)
@@ -346,15 +362,106 @@ struct ScarCaptureView: View {
         }
     }
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request to also allow
+    /// picking a scar photo from the camera roll -- extracted out of
+    /// `performCapture(auto:)` so the "install a new photo, reset
+    /// marking state, advance to `.marking`" logic (previously inline
+    /// there) is shared by both the live-capture path and this new
+    /// import path, rather than drifting into two near-duplicate copies.
+    private func installFreshlyCapturedPhoto(_ photo: CapturedPhoto) {
+        capturedPhoto = photo
+        uiImage = UIImage(data: photo.imageData)
+        lineStart = nil
+        lineEnd = nil
+        // Fresh photo -- reset the example/suggestion state so both run
+        // again for this new capture (a retake/import supersedes, so
+        // whatever guidance played out for the old photo is stale).
+        showDrawingExample = true
+        lineWasAutoSuggested = false
+        didAttemptSuggestion = false
+        withAnimation { stage = .marking }
+    }
+
+    /// NOTE(AI Developer), added 2026-07 per Sean's explicit request ("we
+    /// need to be able to upload an image for scar from the roll as
+    /// well"). Mirrors `CaptureCameraView.photoLibraryButton` visually
+    /// (same 56x56 circle affordance) so the two capture screens feel
+    /// consistent, but labeled here rather than icon-only since this
+    /// screen doesn't already have a labeled shutter row to sit beside.
+    private var photoLibraryButton: some View {
+        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+            Label("Choose from Library", systemImage: "photo.on.rectangle")
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.black.opacity(0.45), in: Capsule())
+                .foregroundStyle(.white)
+        }
+        .disabled(isImportingPhoto)
+        .onChange(of: selectedPhotoItem) { _, newItem in
+            guard let newItem else { return }
+            Task { await importSelectedPhoto(newItem) }
+        }
+    }
+
+    /// Loads the picked library image, marks it `wasImported: true` (same
+    /// honesty-about-provenance convention as every other import path in
+    /// the app -- see `CapturedPhoto.wasImported`'s doc comment) since
+    /// there's no live sensor/gate reading for a photo that wasn't just
+    /// taken by this device's guided camera, then hands off to the same
+    /// `installFreshlyCapturedPhoto` used by a live auto/manual capture.
+    private func importSelectedPhoto(_ item: PhotosPickerItem) async {
+        isImportingPhoto = true
+        defer {
+            isImportingPhoto = false
+            selectedPhotoItem = nil
+        }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let uiImage = UIImage(data: data) else {
+                lastError = "Could not load the selected photo."
+                return
+            }
+            let jpegData = uiImage.jpegData(compressionQuality: 0.85) ?? data
+            let thumb = uiImage.preparingThumbnail(of: CGSize(width: 240, height: 240))?
+                .jpegData(compressionQuality: 0.6)
+            let photo = CapturedPhoto(
+                imageData: jpegData,
+                thumbnailData: thumb,
+                photoType: .paintTransfer,
+                qualityScore: 0.0,
+                annotationNotes: "Scar photo (imported from photo library)",
+                wasImported: true
+            )
+            camera.stopSession()
+            installFreshlyCapturedPhoto(photo)
+        } catch {
+            lastError = error.localizedDescription
+        }
+    }
+
     // MARK: Marking stage
 
     private var markingStage: some View {
         ScrollView {
             VStack(spacing: 24) {
+                // NOTE(AI Developer), reworked 2026-07 per Sean's Answer
+                // A ("i'd rather it just auto-detect the line for you and
+                // only let you nudge"): the header now reads differently
+                // depending on whether Vision found a line to suggest --
+                // "nudge to fine-tune" is the PRIMARY framing (the normal
+                // case, since `attemptAutoSuggestion` always runs first),
+                // with "draw it yourself" only surfaced as a fallback
+                // instruction for the rarer case where nothing was
+                // detected.
                 VStack(spacing: 4) {
-                    Text("Mark the scar as a line")
+                    Text(lineWasAutoSuggested || (lineStart != nil && lineEnd != nil)
+                         ? "Fine-tune the detected line"
+                         : "Mark the scar as a line")
                         .font(.title3.bold())
-                    Text("Drag from one end of the visible scar/scrape to the other.")
+                    Text(lineWasAutoSuggested || (lineStart != nil && lineEnd != nil)
+                         ? "We found the scar automatically. Touch near either end to nudge it into place — use the magnifier for precision."
+                         : "Touch one end of the visible scar/scrape, then the other, to place the line.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -367,7 +474,16 @@ struct ScarCaptureView: View {
                 // "might be too hard... without clear easy to follow
                 // directions" feedback. Dismissed by the user or
                 // automatically once they place their own line.
-                if showDrawingExample {
+                //
+                // NOTE(AI Developer), scoped 2026-07 per Sean's Answer A:
+                // this "draw from scratch" example only makes sense for
+                // the fallback manual-draw path -- once a line exists
+                // (whether from auto-detection or the user having placed
+                // one), showing "how to draw" alongside "here's your
+                // already-placed line to nudge" would be confusing, so
+                // it's now suppressed as soon as both endpoints exist,
+                // not just once the user has dragged.
+                if showDrawingExample && (lineStart == nil || lineEnd == nil) {
                     lineDrawingExampleOverlay
                 }
 
@@ -380,7 +496,7 @@ struct ScarCaptureView: View {
                     }
                     .padding(.vertical, 4)
                 } else if lineWasAutoSuggested {
-                    Label("Auto-detected — drag either end to adjust it", systemImage: "wand.and.stars")
+                    Label("Auto-detected — touch near either end to nudge it", systemImage: "wand.and.stars")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.blue)
                 }
@@ -563,6 +679,14 @@ struct ScarCaptureView: View {
                 // "Swap Front / Rear" button (see `markingStage`) just
                 // flips these two labels in place -- no separate mental
                 // mapping required.
+                //
+                // NOTE(AI Developer), enlarged 2026-07 per Sean's "the
+                // drag front and back are too hard to use" feedback --
+                // bigger visual dot (was 54x22) so the endpoint the user
+                // is nudging is easier to track under/near their finger.
+                // The actual hit-testing fix (nearest-endpoint-always
+                // disambiguation, no minimum-distance requirement) lives
+                // in the `DragGesture` below, not in this view's size.
                 if let lineStart {
                     endpointDot(color: .red, label: frontEndpoint == .start ? "FRONT" : "REAR")
                         .position(x: lineStart.x * w, y: lineStart.y * h)
@@ -570,6 +694,18 @@ struct ScarCaptureView: View {
                 if let lineEnd {
                     endpointDot(color: .blue, label: frontEndpoint == .end ? "FRONT" : "REAR")
                         .position(x: lineEnd.x * w, y: lineEnd.y * h)
+                }
+
+                // NOTE(AI Developer), added 2026-07 per Sean's Answer A
+                // ("i'd rather it just auto-detect the line for you and
+                // only let you nudge"): floating magnifier loupe shown
+                // only while actively dragging, a zoomed circular crop of
+                // the photo centered on the exact touch point (offset
+                // above the finger, iOS-text-cursor-style, so the
+                // fingertip never covers the very spot being placed).
+                // See `magnifierLoupe(at:containerSize:)`.
+                if let magnifierLocation {
+                    magnifierLoupe(at: magnifierLocation, containerSize: CGSize(width: w, height: h))
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -589,17 +725,35 @@ struct ScarCaptureView: View {
                         // started that way), so drop that banner too.
                         if showDrawingExample { showDrawingExample = false }
                         lineWasAutoSuggested = false
+                        magnifierLocation = normalized
+
                         if draggingEndpoint == nil {
-                            // Decide which endpoint this drag is setting: if
-                            // neither is set yet, or we're closer to the
-                            // existing start than the existing end, treat
-                            // this as setting/moving the start; otherwise
-                            // the end. This lets the user redraw either end
-                            // without needing a separate mode toggle.
-                            if lineStart == nil || (lineEnd == nil && distance(normalized, lineStart!) > 0.03) {
-                                draggingEndpoint = lineStart == nil ? .start : .end
-                            } else {
+                            // NOTE(AI Developer), reworked 2026-07 per
+                            // Sean's Answer A and his "too hard to use"
+                            // feedback: once BOTH endpoints already exist
+                            // -- the normal case, since
+                            // `attemptAutoSuggestion` always runs first
+                            // and places both -- a fresh touch-down
+                            // simply nudges whichever existing endpoint
+                            // is NEARER, with no minimum-distance
+                            // threshold at all. The user no longer needs
+                            // to land precisely on the small dot; any
+                            // touch closer to one end than the other
+                            // unambiguously nudges that end, which is
+                            // effectively a much larger, whole-region hit
+                            // target for each endpoint rather than a tiny
+                            // 22pt capsule. Drawing a brand-new line from
+                            // scratch (the old "draw along the scar"
+                            // behavior) only still applies in the
+                            // fallback case where Vision found nothing to
+                            // suggest and at least one endpoint is still
+                            // genuinely unset.
+                            if let lineStart, let lineEnd {
+                                draggingEndpoint = distance(normalized, lineStart) <= distance(normalized, lineEnd) ? .start : .end
+                            } else if lineStart == nil {
                                 draggingEndpoint = .start
+                            } else {
+                                draggingEndpoint = .end
                             }
                         }
                         switch draggingEndpoint! {
@@ -607,7 +761,10 @@ struct ScarCaptureView: View {
                         case .end: lineEnd = normalized
                         }
                     }
-                    .onEnded { _ in draggingEndpoint = nil }
+                    .onEnded { _ in
+                        draggingEndpoint = nil
+                        magnifierLocation = nil
+                    }
             )
         }
     }
@@ -621,9 +778,54 @@ struct ScarCaptureView: View {
         ZStack {
             Capsule().fill(color)
                 .overlay(Capsule().stroke(.white, lineWidth: 2))
-                .frame(width: 54, height: 22)
-            Text(label).font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 66, height: 28)
+            Text(label).font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
         }
+    }
+
+    /// A circular, ~2.5x zoomed crop of the scar photo centered on
+    /// `normalized`, floated just above the touch point so the user's own
+    /// finger never obscures the exact pixel being placed -- the same
+    /// "loupe" pattern iOS's native text-selection handles use.
+    /// NOTE(AI Developer), added 2026-07 per Sean's Answer A ("only let
+    /// you nudge") combined with his "hard to use" feedback: precisely
+    /// nudging a small endpoint is difficult when a fingertip covers the
+    /// exact spot being adjusted -- this gives the user a magnified,
+    /// unobstructed view of that spot with a crosshair marking exactly
+    /// where the endpoint will land if released now.
+    private func magnifierLoupe(at normalized: CGPoint, containerSize: CGSize) -> some View {
+        let loupeDiameter: CGFloat = 110
+        let magnification: CGFloat = 2.5
+        let w = containerSize.width
+        let h = containerSize.height
+        let touchPoint = CGPoint(x: normalized.x * w, y: normalized.y * h)
+        // Hover the loupe above the touch point (clamped so it doesn't
+        // render above the top edge of the marking area on a touch near
+        // the top).
+        let loupeCenterY = max(loupeDiameter / 2 + 4, touchPoint.y - loupeDiameter * 0.9)
+
+        return ZStack {
+            if let uiImage {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: w * magnification, height: h * magnification)
+                    .offset(
+                        x: -(touchPoint.x * magnification - loupeDiameter / 2),
+                        y: -(touchPoint.y * magnification - loupeDiameter / 2)
+                    )
+            }
+            // Crosshair marking the exact point that will be recorded.
+            Rectangle().fill(Color.yellow.opacity(0.9)).frame(width: 1, height: loupeDiameter)
+            Rectangle().fill(Color.yellow.opacity(0.9)).frame(width: loupeDiameter, height: 1)
+            Circle().stroke(Color.yellow, lineWidth: 1.5).frame(width: 16, height: 16)
+        }
+        .frame(width: loupeDiameter, height: loupeDiameter)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(.white, lineWidth: 3))
+        .shadow(radius: 4)
+        .position(x: touchPoint.x, y: loupeCenterY)
+        .allowsHitTesting(false)
     }
 
     private func save() async {
