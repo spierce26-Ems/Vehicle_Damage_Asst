@@ -235,9 +235,14 @@ private struct PhotoReviewCell: View {
 
     @ViewBuilder
     private var thumbnail: some View {
+        // NOTE(AI Developer): `photo.imageData` is non-optional `Data`, so
+        // `thumbnailData ?? imageData` itself is already non-optional --
+        // only the FINAL `UIImage(data:)` step can fail/be nil here, so
+        // that's the only one of these three that belongs in the `if let`
+        // chain (Xcode build error: "Initializer for conditional binding
+        // must have Optional type, not 'Data'" on the old 3-clause form).
         if let photo = slot.photo,
-           let data = photo.thumbnailData ?? photo.imageData,
-           let uiImage = UIImage(data: data) {
+           let uiImage = UIImage(data: photo.thumbnailData ?? photo.imageData) {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()
