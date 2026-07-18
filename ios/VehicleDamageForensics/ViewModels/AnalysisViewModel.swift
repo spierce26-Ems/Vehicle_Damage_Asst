@@ -242,6 +242,15 @@ final class AnalysisViewModel: ObservableObject {
         forensicCase.matchResult?.scarDirectionCheck
     }
 
+    /// NOTE(AI Developer), added 2026-07 for the fingerprint-style Scar
+    /// Matching feature -- exposes `MatchResult.scarFingerprintMatch`
+    /// to `MatchResultsView`/`PDFReportGenerator`, mirroring
+    /// `scarDirectionCheck` above. `nil` before analysis has run, or for
+    /// a `MatchResult` produced before this feature existed.
+    var scarFingerprintMatch: ScarFingerprintMatch? {
+        forensicCase.matchResult?.scarFingerprintMatch
+    }
+
     /// NOTE(AI Developer), added 2026-07 implementing Sean's explicit
     /// hard exclusion rule. Non-nil means BOTH a Height Alignment
     /// mismatch AND a Scar-Direction Consistency conflict were detected

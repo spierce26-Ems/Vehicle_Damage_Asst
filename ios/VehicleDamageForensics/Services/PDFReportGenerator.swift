@@ -47,6 +47,7 @@ struct PDFReportGenerator {
                 drawAnalysisEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawScarDirectionSection(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawScarLineComparison(ctx: ctx, rect: pageRect, case: forensicCase)
+                drawScarFingerprintMatch(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawPhotoEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawChainOfCustody(ctx: ctx, rect: pageRect, case: forensicCase)
             }
@@ -403,6 +404,67 @@ struct PDFReportGenerator {
         if let narrative = comparison.scenarioNarrative {
             narrative.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100, color: .darkGray)
         }
+    }
+
+    // NOTE(AI Developer), added 2026-07 for the fingerprint-style Scar
+    // Matching feature -- PDF counterpart to `MatchResultsView
+    // .scarFingerprintSection`. Reads `MatchResult.scarFingerprintMatch`
+    // directly (computed once at analysis time by `MatchScoreCalculator
+    // .evaluate()`, never recomputed here) so the on-screen and PDF
+    // presentations can't drift apart. Skipped entirely (no blank page)
+    // when no fingerprint-match result exists at all (a `MatchResult`
+    // from before this feature existed) -- but still renders a page for
+    // the determinable-but-empty case, same "explain why not" principle
+    // as `drawScarDirectionSection`.
+    private func drawScarFingerprintMatch(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
+        guard let match = c.matchResult?.scarFingerprintMatch else { return }
+
+        ctx.beginPage()
+        var y: CGFloat = 50
+        "Scar Fingerprint Matching".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
+        y += 26
+        "Identifies isolated markings (paint-density or width peaks) along each vehicle's scar line -- like comparing individual fingerprint ridge points -- and matches them by position and type."
+            .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
+        y += 30
+
+        if let score = match.matchScorePercent {
+            String(format: "%.0f%% Marking Match", score)
+                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 16))
+            y += 24
+        }
+        match.summary.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
+        y += 34
+
+        let columnWidth = (rect.width - 100 - 30) / 2
+        let leftX: CGFloat = 50
+        let rightX: CGFloat = 50 + columnWidth + 30
+        let startY = y
+
+        func drawMinutiaeColumn(title: String, minutiae: [ScarMinutia], matchedIDs: Set<UUID>, x: CGFloat) -> CGFloat {
+            var cy = startY
+            "\(title) (\(minutiae.count))".draw(at: CGPoint(x: x, y: cy), font: .boldSystemFont(ofSize: 12))
+            cy += 16
+            if minutiae.isEmpty {
+                "No isolated markings found".draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10), color: .darkGray)
+                cy += 14
+            } else {
+                for m in minutiae {
+                    let typeLabel = m.type == .densityPeak ? "Density mark" : "Width mark"
+                    let marker = matchedIDs.contains(m.id) ? "[matched]" : "[unmatched]"
+                    String(format: "%@ @ %.0f%% %@", typeLabel, m.positionAlongLine * 100, marker)
+                        .draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10),
+                              maxWidth: columnWidth, color: matchedIDs.contains(m.id) ? .systemGreen : .darkGray)
+                    cy += 14
+                }
+            }
+            return cy
+        }
+
+        let victimMatchedIDs = Set(match.matchedPairs.map { $0.victimMinutia.id })
+        let suspectMatchedIDs = Set(match.matchedPairs.map { $0.suspectMinutia.id })
+        let leftEndY = drawMinutiaeColumn(title: "Victim", minutiae: match.victimMinutiae, matchedIDs: victimMatchedIDs, x: leftX)
+        let rightEndY = drawMinutiaeColumn(title: "Suspect", minutiae: match.suspectMinutiae, matchedIDs: suspectMatchedIDs, x: rightX)
+        _ = max(leftEndY, rightEndY)
     }
 
     private func drawPhotoEvidence(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {

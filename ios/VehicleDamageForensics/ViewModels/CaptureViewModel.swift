@@ -811,6 +811,21 @@ final class CaptureViewModel: ObservableObject {
             return taper.thickerEnd == frontEndpoint ? .towardFront : .towardRear
         }
 
+        // NOTE(AI Developer), added 2026-07 for the fingerprint-style
+        // Scar Matching feature -- extracts `ScarMinutia` alongside the
+        // existing taper-direction resolution above, from the exact
+        // same image/line/reference-color inputs already on hand here.
+        // No new capture step or user input needed: this only adds a
+        // second, independent READ of data the user already provided
+        // (the marked line) plus data already captured for Paint
+        // Transfer (the clean-panel reference color).
+        func extractedMinutiae(image: UIImage, referenceColor: ColorRGB?) -> [ScarMinutia] {
+            ScarFingerprintExtractor.extractMinutiae(
+                in: image, lineStart: lineStart, lineEnd: lineEnd,
+                frontEndpoint: frontEndpoint, referenceColor: referenceColor
+            )
+        }
+
         let wasAlreadyRecorded: Bool
         switch captureRole {
         case .victim:
@@ -822,6 +837,7 @@ final class CaptureViewModel: ObservableObject {
             forensicCase.victimVehicle.scarPhoto?.scarFrontEndpoint = frontEndpoint
             let referenceColor = forensicCase.victimVehicle.primaryDamageZone?.paintAnalysis?.primaryColorRGB
             forensicCase.victimVehicle.scarSlideDirection = resolvedDirection(image: image, referenceColor: referenceColor)
+            forensicCase.victimVehicle.scarPhoto?.scarMinutiae = extractedMinutiae(image: image, referenceColor: referenceColor)
         case .suspect:
             if forensicCase.suspectVehicle == nil {
                 forensicCase.suspectVehicle = Vehicle(role: .suspect)
@@ -839,6 +855,7 @@ final class CaptureViewModel: ObservableObject {
             suspect.scarPhoto?.scarFrontEndpoint = frontEndpoint
             let referenceColor = suspect.primaryDamageZone?.paintAnalysis?.primaryColorRGB
             suspect.scarSlideDirection = resolvedDirection(image: image, referenceColor: referenceColor)
+            suspect.scarPhoto?.scarMinutiae = extractedMinutiae(image: image, referenceColor: referenceColor)
             forensicCase.suspectVehicle = suspect
         }
 

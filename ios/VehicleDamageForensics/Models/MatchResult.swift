@@ -76,6 +76,28 @@ struct MatchResult: Codable, Equatable {
     var victimContourOverlay: ContourOverlay?
     var suspectContourOverlay: ContourOverlay?
 
+    /// NOTE(AI Developer), added 2026-07 for the fingerprint-style Scar
+    /// Matching feature (Sean: "do we currently analyse the scar similar
+    /// to a fingerprint? if not we should. we should identify and
+    /// isolate clear markings and use those to match"). A THIRD,
+    /// INDEPENDENT scar-based signal alongside `scarDirectionCheck`
+    /// (overall taper-derived direction of travel) -- this one compares
+    /// the discrete, isolated markings (`ScarMinutia`) found along each
+    /// vehicle's scar line, the direct analog of matching individual
+    /// ridge-ending/bifurcation points between two fingerprints rather
+    /// than just comparing the print's overall pattern. Same rule as
+    /// every other scar-based check in this file: NEVER blended into
+    /// `compositeScore`/`factors` -- see `ScarDirectionCheck`'s doc
+    /// comment for the full rationale, which applies identically here.
+    /// `nil` only for a `MatchResult` produced before this feature
+    /// existed (backward compat) or the no-suspect-vehicle early-return
+    /// case in `MatchScoreCalculator.evaluate()` -- a determinable-but-
+    /// empty result (e.g. no minutiae on either side) is represented by
+    /// `ScarFingerprintMatch.notDeterminable()`, not `nil`, so the UI/PDF
+    /// can still render "not enough distinct detail to compare" rather
+    /// than silently omitting the section.
+    var scarFingerprintMatch: ScarFingerprintMatch?
+
     // MARK: Init
 
     init(
@@ -90,7 +112,8 @@ struct MatchResult: Codable, Equatable {
         scarDirectionCheck: ScarDirectionCheck? = nil,
         suspectExclusionReason: String? = nil,
         victimContourOverlay: ContourOverlay? = nil,
-        suspectContourOverlay: ContourOverlay? = nil
+        suspectContourOverlay: ContourOverlay? = nil,
+        scarFingerprintMatch: ScarFingerprintMatch? = nil
     ) {
         self.analysisID = analysisID
         self.compositeScore = compositeScore
@@ -104,6 +127,7 @@ struct MatchResult: Codable, Equatable {
         self.suspectExclusionReason = suspectExclusionReason
         self.victimContourOverlay = victimContourOverlay
         self.suspectContourOverlay = suspectContourOverlay
+        self.scarFingerprintMatch = scarFingerprintMatch
     }
 
     // MARK: Codable (backward-compatible with the old `probabilityRange` key)
@@ -139,13 +163,19 @@ struct MatchResult: Codable, Equatable {
         // `scarDirectionCheck` above).
         victimContourOverlay = try c.decodeIfPresent(ContourOverlay.self, forKey: .victimContourOverlay)
         suspectContourOverlay = try c.decodeIfPresent(ContourOverlay.self, forKey: .suspectContourOverlay)
+        // NOTE(AI Developer): decodeIfPresent so any MatchResult JSON
+        // persisted before the fingerprint-style Scar Matching feature
+        // existed still loads correctly (comes back nil, same
+        // non-punitive backward-compat treatment as
+        // `scarDirectionCheck`/the contour overlays above).
+        scarFingerprintMatch = try c.decodeIfPresent(ScarFingerprintMatch.self, forKey: .scarFingerprintMatch)
     }
 
     private enum CodingKeys: String, CodingKey {
         case analysisID, compositeScore, scoreRangeLabel, confidence, factors,
              recommendations, analysisDate, processingTimeSeconds,
              scarDirectionCheck, suspectExclusionReason,
-             victimContourOverlay, suspectContourOverlay
+             victimContourOverlay, suspectContourOverlay, scarFingerprintMatch
         case legacyProbabilityRange = "probabilityRange"
     }
 
@@ -173,6 +203,7 @@ struct MatchResult: Codable, Equatable {
         try c.encodeIfPresent(suspectExclusionReason, forKey: .suspectExclusionReason)
         try c.encodeIfPresent(victimContourOverlay, forKey: .victimContourOverlay)
         try c.encodeIfPresent(suspectContourOverlay, forKey: .suspectContourOverlay)
+        try c.encodeIfPresent(scarFingerprintMatch, forKey: .scarFingerprintMatch)
     }
 
     // MARK: Computed

@@ -78,6 +78,23 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     var scarLineStart: CGPoint?
     var scarLineEnd: CGPoint?
 
+    /// NOTE(AI Developer), added 2026-07 for the fingerprint-style Scar
+    /// Matching feature (Sean: "do we currently analyse the scar similar
+    /// to a fingerprint? if not we should. we should identify and
+    /// isolate clear markings and use those to match"). The discrete,
+    /// isolated features (density/width peaks) `ScarFingerprintExtractor
+    /// .extractMinutiae` found along this photo's marked scar line --
+    /// the fingerprint-style "minutiae" this feature is named after.
+    /// Computed once, alongside `scarSlideDirection`, whenever the scar
+    /// line is (re-)marked -- see `CaptureViewModel.recordScarDirection`
+    /// -- and persisted here so re-analysis never has to re-run Vision/
+    /// pixel sampling. Empty (not nil) is a valid, common result: a scar
+    /// with no standout isolated markings beyond its overall taper still
+    /// has `scarLineStart`/`scarLineEnd`, it simply contributes nothing
+    /// to `ScarFingerprintMatch` — never treated as a negative result,
+    /// same non-punitive principle as `scarSlideDirection == nil`.
+    var scarMinutiae: [ScarMinutia] = []
+
     /// Which of the two line endpoints above is nearer this vehicle's own
     /// front. NOTE(AI Developer): a close-up photo of a scrape has no
     /// inherent "which way is toward the front" reference on its own
@@ -115,6 +132,7 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         paintReferencePoint: CGPoint? = nil,
         scarLineStart: CGPoint? = nil,
         scarLineEnd: CGPoint? = nil,
+        scarMinutiae: [ScarMinutia] = [],
         scarFrontEndpoint: ScarEndpoint? = nil
     ) {
         self.id = id
@@ -134,6 +152,7 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.paintReferencePoint = paintReferencePoint
         self.scarLineStart = scarLineStart
         self.scarLineEnd = scarLineEnd
+        self.scarMinutiae = scarMinutiae
         self.scarFrontEndpoint = scarFrontEndpoint
     }
 
@@ -173,6 +192,12 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         // `paintDamagePoint`/`paintReferencePoint` above.
         scarLineStart = try c.decodeIfPresent(CGPoint.self, forKey: .scarLineStart)
         scarLineEnd = try c.decodeIfPresent(CGPoint.self, forKey: .scarLineEnd)
+        // `scarMinutiae` didn't exist before the fingerprint-style Scar
+        // Matching feature -- every photo saved before this update
+        // decodes an empty array (no isolated markings extracted yet),
+        // same non-punitive backward-compat pattern as every other
+        // scar-related field above.
+        scarMinutiae = try c.decodeIfPresent([ScarMinutia].self, forKey: .scarMinutiae) ?? []
         scarFrontEndpoint = try c.decodeIfPresent(ScarEndpoint.self, forKey: .scarFrontEndpoint)
     }
 

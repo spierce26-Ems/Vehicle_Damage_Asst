@@ -507,6 +507,38 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   button appears next to the shutter and successfully imports a photo, (4) the Ready button is
   reachable once all gates are green, and (5) the new Scar Line Comparison section appears on the
   Results screen and in the generated PDF whenever at least one vehicle has a marked scar line.
+- **2026-07-18 changes, part 4 (fingerprint-style Scar Matching, per Sean's explicit "let's start
+  building this as well")**: added a genuine minutiae-style feature layer on top of the marked
+  scar line, complementing (never replacing) the single-dominant-line (`ScarLineSuggester`) and
+  binary-taper-direction (`ColorAnalysis.detectScarTaper`) analyses already in place. New
+  `Utilities/ScarFingerprintAnalysis.swift`: samples two independent 1D profiles along the marked
+  line — paint-transfer DENSITY (ΔE2000 vs. the clean-panel reference, reusing
+  `ColorAnalysis.sampleColor`/`deltaE2000`/`rgbToLab`) and mark WIDTH (perpendicular-probe proxy) —
+  then extracts local peaks in each as discrete `ScarMinutia` (a neighborhood-relative prominence
+  filter rejects ordinary sample noise), and matches two vehicles' minutiae sets with a greedy
+  nearest-neighbor algorithm (same type, within 15% of line length). Minutiae are extracted at
+  capture time (`CaptureViewModel.recordScarDirection`, both victim/suspect branches) and persisted
+  on `CapturedPhoto.scarMinutiae`; the match itself (`MatchResult.scarFingerprintMatch`) is computed
+  in `MatchScoreCalculator.evaluate()` as a THIRD independent scar signal — like
+  `ScarDirectionCheck` and the new Scar Line Comparison, it is deliberately never blended into
+  `compositeScore`/`factors` (which must keep summing to 1.0). Zero/few minutiae is a valid,
+  non-punitive outcome (`matchScorePercent` is `nil`, not 0, when either vehicle has no extractable
+  markings) — same pattern as `DataQuality.unavailable`/`ScarDirectionCheck.notDeterminable`
+  elsewhere in this app. Surfaced as a new "Scar Fingerprint Matching" section on the Results screen
+  (`MatchResultsView.scarFingerprintSection`) and as its own PDF page
+  (`PDFReportGenerator.drawScarFingerprintMatch`), both showing each vehicle's markings with
+  matched/unmatched status. `project.pbxproj` updated to register the new source file (all 4
+  required entries: PBXBuildFile, PBXFileReference, Utilities group, Sources build phase).
+  **Not yet compiled/run** — same no-Xcode-toolchain caveat; only brace/paren/bracket balance was
+  checked on all 8 touched files (7 Swift files all balanced + `project.pbxproj` brace/paren
+  balanced with all 4 new-file registration IDs verified present in exactly the expected
+  locations). Please rebuild/reinstall from main and re-test on-device: (1) marking a scar line
+  with a paint reference already recorded runs without hanging or crashing, (2) the new "Scar
+  Fingerprint Matching" section renders on the Results screen once a suspect vehicle also has a
+  marked scar line, showing each vehicle's extracted markings, (3) the equivalent section appears
+  as its own page in the generated PDF, and (4) a case where one or both vehicles have no scar
+  line marked (or no clean-panel reference recorded) shows the "not enough distinct detail to
+  compare" wording rather than a fabricated score.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

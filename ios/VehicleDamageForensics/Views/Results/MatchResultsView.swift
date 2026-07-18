@@ -43,6 +43,9 @@ struct MatchResultsView: View {
                     if let comparison = scarLineComparison, comparison.hasAnyData {
                         scarLineComparisonSection(comparison)
                     }
+                    if let fpMatch = viewModel.scarFingerprintMatch {
+                        scarFingerprintSection(fpMatch)
+                    }
                     recommendations
                     reportSection
                 } else {
@@ -411,6 +414,84 @@ struct MatchResultsView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Scar Fingerprint Matching
+
+    /// NOTE(AI Developer), added 2026-07 for the fingerprint-style Scar
+    /// Matching feature (Sean: "do we currently analyse the scar similar
+    /// to a fingerprint? if not we should. we should identify and
+    /// isolate clear markings and use those to match" -> "let's start
+    /// building this as well"). A THIRD, INDEPENDENT scar-based section
+    /// alongside Scar-Direction Consistency (overall direction of
+    /// travel) and Scar Line Comparison (raw line geometry) above --
+    /// this one is about the discrete, isolated markings within each
+    /// scar (`ScarMinutia`) and how many of them line up between the
+    /// two vehicles, the direct analog of comparing individual
+    /// fingerprint ridge-ending/bifurcation points rather than the
+    /// print's overall pattern. Always shown once analysis has run
+    /// (`viewModel.scarFingerprintMatch != nil`) -- even the "not enough
+    /// distinct detail to compare" case is shown, same "explain why not"
+    /// principle as `scarDirectionSection`'s `.notDeterminable` case.
+    private func scarFingerprintSection(_ match: ScarFingerprintMatch) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Scar Fingerprint Matching").font(.headline)
+            Text("Identifies isolated markings (paint-density or width peaks) along each vehicle's scar line -- like comparing individual fingerprint ridge points -- and matches them by position and type.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
+            if let score = match.matchScorePercent {
+                Label(String(format: "%.0f%% Marking Match", score), systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.title3.bold())
+                    .foregroundStyle(scarFingerprintScoreColor(score))
+            }
+            Text(match.summary)
+                .font(.subheadline)
+
+            HStack(alignment: .top, spacing: 16) {
+                scarFingerprintColumn(title: "Victim", minutiae: match.victimMinutiae, matchedIDs: Set(match.matchedPairs.map { $0.victimMinutia.id }))
+                Divider()
+                scarFingerprintColumn(title: "Suspect", minutiae: match.suspectMinutiae, matchedIDs: Set(match.matchedPairs.map { $0.suspectMinutia.id }))
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func scarFingerprintColumn(title: String, minutiae: [ScarMinutia], matchedIDs: Set<UUID>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(title) (\(minutiae.count))").font(.subheadline.bold())
+            if minutiae.isEmpty {
+                Text("No isolated markings found")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(minutiae) { m in
+                    Label(
+                        String(format: "%@ @ %.0f%%", scarMinutiaTypeLabel(m.type), m.positionAlongLine * 100),
+                        systemImage: matchedIDs.contains(m.id) ? "checkmark.circle.fill" : "circle.dashed"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(matchedIDs.contains(m.id) ? .green : .secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func scarMinutiaTypeLabel(_ type: ScarMinutia.FeatureType) -> String {
+        switch type {
+        case .densityPeak: return "Density mark"
+        case .widthPeak: return "Width mark"
+        }
+    }
+
+    private func scarFingerprintScoreColor(_ score: Double) -> Color {
+        switch score {
+        case 70...: return .green
+        case 40..<70: return .orange
+        default: return .red
+        }
     }
 
     // MARK: Recommendations

@@ -105,6 +105,18 @@ struct MatchScoreCalculator {
         // NEVER added to the `factors` array below -- it must not
         // participate in the weighted composite score.
         let scarCheck = scoreScarDirectionConsistency(victim: victim, suspect: suspect)
+        // NOTE(AI Developer), added 2026-07 for the fingerprint-style
+        // Scar Matching feature -- a THIRD, INDEPENDENT scar-based
+        // signal (see `MatchResult.scarFingerprintMatch`'s doc comment).
+        // Purely a read of already-extracted `ScarMinutia` (computed at
+        // capture time by `CaptureViewModel.recordScarDirection` --
+        // never re-runs Vision/pixel sampling here), so this is cheap
+        // enough to compute synchronously alongside the other heuristic
+        // factors above.
+        let scarFingerprintMatch = ScarFingerprintMatcher.match(
+            victim: victim.scarPhoto?.scarMinutiae ?? [],
+            suspect: suspect.scarPhoto?.scarMinutiae ?? []
+        )
         log("synchronous heuristic factors done, awaiting concurrent factors")
 
         let resolvedDeform = await deformResult
@@ -233,7 +245,8 @@ struct MatchScoreCalculator {
             scarDirectionCheck: scarCheck,
             suspectExclusionReason: suspectExclusionReason,
             victimContourOverlay: victimOverlay,
-            suspectContourOverlay: suspectOverlay
+            suspectContourOverlay: suspectOverlay,
+            scarFingerprintMatch: scarFingerprintMatch
         )
     }
 
