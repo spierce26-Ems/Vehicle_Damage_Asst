@@ -10,7 +10,39 @@ import Combine
 import CoreMotion
 import CoreLocation
 
-// MARK: - Capture View Model
+// MARK: - Review Slot
+
+/// One position in `CaptureViewModel.protocolShots` for a given vehicle,
+/// paired with whatever currently occupies it (a real photo, an explicit
+/// skip, or nothing yet).
+///
+/// NOTE(AI Developer), added 2026-07 alongside `CaptureViewModel.
+/// reviewSlots(for:)` per Sean's "review of all the thumbnails... before
+/// its submitted" request. Deliberately a plain top-level struct (not
+/// nested in `CaptureViewModel`) so `PhotoReviewView` and any preview/
+/// test code can reference `ReviewSlot` directly. `Identifiable` via
+/// `index` (unique per role's slot list, stable for the lifetime of a
+/// single `PhotoReviewView` presentation) so it can back a SwiftUI
+/// `ForEach`/`LazyVGrid` with no extra wrapping.
+struct ReviewSlot: Identifiable {
+    var id: Int { index }
+    /// 0-based position within `protocolShots`.
+    let index: Int
+    let photoType: PhotoType
+    /// The photo currently filling this slot, if any. `nil` if the slot
+    /// is empty (not yet reached) OR was explicitly skipped -- check
+    /// `wasSkipped` to distinguish "not reached yet" from "skipped".
+    let photo: CapturedPhoto?
+    /// True if this slot was explicitly skipped via `skipCurrentShot`
+    /// rather than simply not-yet-reached.
+    let wasSkipped: Bool
+
+    /// True if this slot is beyond the vehicle's current progress --
+    /// neither filled nor skipped. Kept separate from `wasSkipped` so
+    /// `PhotoReviewView` can render a third, distinct "not reached yet"
+    /// state (vs. a photo thumbnail or a "Skipped" placeholder).
+    var isPending: Bool { photo == nil && !wasSkipped }
+}
 
 @MainActor
 final class CaptureViewModel: ObservableObject {
@@ -68,8 +100,17 @@ final class CaptureViewModel: ObservableObject {
     // `skippedShotIndices` are only ever appended to in protocol order,
     // so their combined count is still a correct pointer into
     // `protocolShots`.
-    var currentShotIndex: Int {
-        switch captureRole {
+    var currentShotIndex: Int { shotIndex(for: captureRole) }
+
+    /// NOTE(AI Developer), added 2026-07 alongside `PhotoReviewView`: same
+    /// derivation as `currentShotIndex` above, generalized to take an
+    /// explicit `VehicleRole` instead of always reading the active
+    /// `captureRole` -- needed so the review screen can compute "is this
+    /// the one pending slot the user is actually allowed to act on right
+    /// now" for a specific vehicle without depending on which vehicle
+    /// happens to be currently selected.
+    func shotIndex(for role: VehicleRole) -> Int {
+        switch role {
         case .victim:
             return forensicCase.victimVehicle.photos.count
                 + forensicCase.victimVehicle.skippedShotIndices.count
@@ -128,6 +169,159 @@ final class CaptureViewModel: ObservableObject {
         case .victim: return forensicCase.victimVehicle.hasScarDirection
         case .suspect: return forensicCase.suspectVehicle?.hasScarDirection ?? false
         }
+    }
+
+    // MARK: Review slots
+
+    /// The full, ordered list of `protocolShots` slots for `role`, each
+    /// paired with whatever actually occupies it right now (a captured/
+    /// imported photo, an explicit skip, or nothing yet if it's beyond
+    /// that vehicle's `currentShotIndex`).
+    ///
+    /// NOTE(AI Developer), added 2026-07 per Sean's explicit request
+    /// ("lets see a review of all the thumbnails of the images before
+    /// its submitted to be analysed... we need the ability to go back
+    /// and change the images"). Before this, there was no single place
+    /// that reconstructed "what's in slot N" -- `Vehicle.photos` and
+    /// `Vehicle.skippedShotIndices` are two separate append-only lists
+    /// with no shared ordering key other than the fact that, together,
+    /// their *counts* sum to `currentShotIndex` (see that property's own
+    /// NOTE). This walks `protocolShots` in order and, for each position,
+    /// looks up whichever photo's `sequenceIndex` matches that slot
+    /// (1-based, matching `record(photo:)`/`importPhoto(_:)`'s
+    /// `sequenceIndex = currentShotIndex + 1`) or whether that index was
+    /// recorded as skipped -- giving `PhotoReviewView` one ordered array
+    /// it can render as a grid and act on directly.
+    func reviewSlots(for role: VehicleRole) -> [ReviewSlot] {
+        let vehicle: Vehicle? = {
+            switch role {
+            case .victim: return forensicCase.victimVehicle
+            case .suspect: return forensicCase.suspectVehicle
+            }
+        }()
+        guard let vehicle else {
+            return protocolShots.enumerated().map { index, type in
+                ReviewSlot(index: index, photoType: type, photo: nil, wasSkipped: false)
+            }
+        }
+        let skippedSet = Set(vehicle.skippedShotIndices)
+        return protocolShots.enumerated().map { index, type in
+            // `sequenceIndex` is 1-based (see `record(photo:)`), slot
+            // `index` here is 0-based -- +1 to compare correctly.
+            let photo = vehicle.photos.first { $0.sequenceIndex == index + 1 }
+            return ReviewSlot(index: index, photoType: type, photo: photo, wasSkipped: skippedSet.contains(index))
+        }
+    }
+
+    /// Replace whatever currently occupies protocol slot `index` for
+    /// `role` with a freshly-imported library photo -- the fix for
+    /// Sean's "I chose the wrong image from my roll and could not go
+    /// back and fix" report. Works whether the slot was previously
+    /// filled by a real photo, previously skipped, or (defensively)
+    /// still empty; in every case the end state is "slot `index` now
+    /// holds this photo, and is no longer marked skipped."
+    ///
+    /// NOTE(AI Developer), added 2026-07. Deliberately a separate entry
+    /// point from `importPhoto(_:)` (which only ever appends to
+    /// `nextShotType`, the NEXT unfilled slot) -- this one targets an
+    /// arbitrary, already-processed slot by its protocol index, which is
+    /// the actual architectural gap Sean hit. Mirrors `importPhoto(_:)`'s
+    /// own resize/thumbnail/`wasImported: true` handling exactly, so a
+    /// slot fixed this way carries the identical honesty-about-provenance
+    /// guarantee (see `CapturedPhoto.wasImported`'s doc comment) as a
+    /// same-flow import.
+    func replacePhoto(atSlot index: Int, for role: VehicleRole, with image: UIImage) async {
+        guard index >= 0, index < protocolShots.count else { return }
+        let type = protocolShots[index]
+        let stored = resizedForStorage(image)
+        let data = stored.jpegData(compressionQuality: 0.85) ?? Data()
+        let thumb = stored.preparingThumbnail(of: CGSize(width: 240, height: 240))?
+            .jpegData(compressionQuality: 0.6)
+        let photo = CapturedPhoto(
+            imageData: data,
+            thumbnailData: thumb,
+            captureDate: Date(),
+            photoType: type,
+            qualityScore: 0.0,
+            qualityFlags: QualityFlags(),
+            sensorData: SensorData(),
+            gpsCoordinate: nil,
+            cameraSettings: CameraSettings(),
+            sequenceIndex: index + 1,
+            annotationNotes: "Imported from photo library (replaces earlier slot content)",
+            wasImported: true
+        )
+
+        func apply(to vehicle: inout Vehicle) {
+            vehicle.skippedShotIndices.removeAll { $0 == index }
+            if let existingPos = vehicle.photos.firstIndex(where: { $0.sequenceIndex == index + 1 }) {
+                vehicle.photos[existingPos] = photo
+            } else {
+                vehicle.photos.append(photo)
+            }
+        }
+
+        switch role {
+        case .victim:
+            apply(to: &forensicCase.victimVehicle)
+        case .suspect:
+            if forensicCase.suspectVehicle == nil {
+                forensicCase.suspectVehicle = Vehicle(role: .suspect)
+            }
+            guard var suspect = forensicCase.suspectVehicle else { return }
+            apply(to: &suspect)
+            forensicCase.suspectVehicle = suspect
+        }
+        forensicCase.recordAudit(.photoReplaced, detail: "\(role.displayName): \(type.displayName) (#\(index + 1))")
+        await storage.save(forensicCase)
+        updateGuidance()
+    }
+
+    /// Clear protocol slot `index` for `role` back to empty (removing
+    /// either its captured/imported photo or its skip flag) WITHOUT
+    /// immediately supplying a replacement -- used by `PhotoReviewView`'s
+    /// "Retake" action, which dismisses back to the live camera pointed
+    /// at that same slot rather than going straight to the photo picker.
+    /// NOTE(AI Developer), added 2026-07 alongside `replacePhoto(atSlot:)`
+    /// for the same "go back and fix a specific shot" request.
+    ///
+    /// IMPORTANT SAFETY GUARD: unlike `replacePhoto(atSlot:for:with:)`
+    /// (which overwrites IN PLACE and never changes `photos.count`, so
+    /// it's safe for any slot regardless of position), this function
+    /// only allows clearing `index` when it is the LAST occupied slot for
+    /// `role` (`index == shotIndex(for: role) - 1`). Reason: `nextShotType`/
+    /// `currentShotIndex` are derived purely from `photos.count +
+    /// skippedShotIndices.count` -- a simple counter, not a real pointer
+    /// into `protocolShots`. If a slot in the MIDDLE of an already-filled
+    /// sequence were cleared, that counter would silently decrease by one
+    /// while every later slot's `CapturedPhoto.sequenceIndex` stays
+    /// exactly where it was -- `nextShotType` would then point at
+    /// whichever later slot happens to match the new (wrong) count,
+    /// while the actually-empty middle slot is never revisited by the
+    /// live capture flow at all (only `reviewSlots(for:)`'s direct
+    /// sequenceIndex lookup would still show it correctly as empty).
+    /// Clearing only ever the last slot keeps that counter and the real
+    /// "what's actually filled" state in agreement, so the live camera
+    /// correctly re-asks for exactly the slot that was just cleared. For
+    /// any slot that ISN'T the last one, `PhotoReviewView` only offers
+    /// "Replace from Photo Library" (`replacePhoto`), never "Retake".
+    func clearSlot(atSlot index: Int, for role: VehicleRole) async {
+        guard index >= 0, index < protocolShots.count else { return }
+        guard index == shotIndex(for: role) - 1 else { return }
+        func apply(to vehicle: inout Vehicle) {
+            vehicle.skippedShotIndices.removeAll { $0 == index }
+            vehicle.photos.removeAll { $0.sequenceIndex == index + 1 }
+        }
+        switch role {
+        case .victim:
+            apply(to: &forensicCase.victimVehicle)
+        case .suspect:
+            guard var suspect = forensicCase.suspectVehicle else { return }
+            apply(to: &suspect)
+            forensicCase.suspectVehicle = suspect
+        }
+        await storage.save(forensicCase)
+        updateGuidance()
     }
 
     // MARK: Dependencies

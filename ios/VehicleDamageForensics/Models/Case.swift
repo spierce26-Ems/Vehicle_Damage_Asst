@@ -464,6 +464,18 @@ enum AuditAction: String, Codable {
     // and successfully resolving a direction from its marked line are
     // two separate steps that can each fail/retry independently.
     case scarPhotoCaptured = "scar_photo_captured"
+    // NOTE(AI Developer), added 2026-07 per Sean's explicit request ("we
+    // need the ability to go back and change the images once it is
+    // submitted. I chose the wrong image from my roll and i could not go
+    // back and fix"). Recorded whenever `PhotoReviewView`/
+    // `CaptureViewModel.replacePhoto(...)` overwrites an ALREADY-filled
+    // protocol slot (captured, imported, or previously-skipped) with a
+    // new photo -- distinct from `.photoCaptured`/`.photoImported`
+    // (which only ever fire when advancing into a fresh, previously-empty
+    // slot) so the chain-of-custody log is explicit about a slot's
+    // evidence having been superseded after the fact, not just filled
+    // once.
+    case photoReplaced = "photo_replaced"
 
     var displayName: String {
         switch self {
@@ -482,6 +494,7 @@ enum AuditAction: String, Codable {
         case .paintReferenceRecorded: return "Paint Reference Sample Recorded"
         case .scarDirectionRecorded: return "Scar Direction Recorded"
         case .scarPhotoCaptured: return "Scar Photo Captured"
+        case .photoReplaced: return "Photo Replaced"
         }
     }
 }

@@ -28,6 +28,11 @@ struct CaptureFlowView: View {
     // analysis -- so there is no `hasScarDirection` gate on the
     // "Continue"/"Run Analysis" buttons below.
     @State private var showScarCapture = false
+    // NOTE(AI Developer), added 2026-07 per Sean's "review of all the
+    // thumbnails... before its submitted" request -- see
+    // `PhotoReviewView`. Presented as a sheet, same pattern as
+    // `showImpactMarker`/`showScarCapture` above.
+    @State private var showPhotoReview = false
 
     init(forensicCase: ForensicCase) {
         _viewModel = StateObject(wrappedValue: CaptureViewModel(forensicCase: forensicCase))
@@ -80,6 +85,18 @@ struct CaptureFlowView: View {
         .sheet(isPresented: $showScarCapture) {
             ScarCaptureView(viewModel: viewModel)
         }
+        // NOTE(AI Developer), added 2026-07 -- see `showPhotoReview`
+        // above. `onRetake` switches `captureRole` to match whichever
+        // vehicle's slot was retaken (the review screen lets the user
+        // browse either vehicle's thumbnails via its own segmented
+        // control, independent of which vehicle is currently active
+        // here) so the live camera that reappears underneath is asking
+        // for the correct vehicle's freshly-cleared slot.
+        .sheet(isPresented: $showPhotoReview) {
+            PhotoReviewView(viewModel: viewModel) { role in
+                viewModel.captureRole = role
+            }
+        }
     }
 
     // MARK: Header
@@ -95,6 +112,23 @@ struct CaptureFlowView: View {
             Text("\(viewModel.currentShotIndex)/\(viewModel.protocolShots.count)")
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(.secondary)
+            // NOTE(AI Developer), added 2026-07 -- quick access to
+            // `PhotoReviewView` from anywhere in the capture flow, not
+            // just once the protocol is complete. Icon-only (vs. the
+            // footer's own labeled entry point) since this lives in an
+            // already-crowded header row.
+            Button {
+                showPhotoReview = true
+            } label: {
+                Image(systemName: "square.grid.2x2")
+            }
+            // NOTE(AI Developer): checks BOTH vehicles' progress (not
+            // just the active role's `currentShotIndex`) since
+            // `PhotoReviewView` lets the user switch between victim/
+            // suspect internally -- a victim who's fully done shouldn't
+            // see this disabled just because the suspect role (now
+            // active) hasn't started yet.
+            .disabled(viewModel.shotIndex(for: .victim) == 0 && viewModel.shotIndex(for: .suspect) == 0)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -105,6 +139,23 @@ struct CaptureFlowView: View {
 
     private var footerControls: some View {
         VStack(spacing: 8) {
+            // NOTE(AI Developer), added 2026-07 per Sean's "review of all
+            // the thumbnails... before its submitted to be analysed"
+            // request -- a second, labeled entry point to
+            // `PhotoReviewView` alongside the icon-only one in
+            // `roleHeader` above, placed first in the footer since
+            // reviewing/fixing photos is naturally something a user
+            // checks before dealing with the impact/scar/LiDAR steps
+            // below it.
+            Button {
+                showPhotoReview = true
+            } label: {
+                Label("Review Photos", systemImage: "square.grid.2x2")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .disabled(viewModel.shotIndex(for: .victim) == 0 && viewModel.shotIndex(for: .suspect) == 0)
+
             // NOTE(AI Developer), added 2026-07 per Sean's decision that
             // impact location + direction of travel is a REQUIRED step
             // (unlike the skippable photo protocol) -- surfaced as its
