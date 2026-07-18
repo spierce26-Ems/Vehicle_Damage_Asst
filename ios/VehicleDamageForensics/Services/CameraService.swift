@@ -5,6 +5,7 @@
 import AVFoundation
 import CoreMotion
 import CoreLocation
+import CoreImage
 import UIKit
 import ImageIO
 import Combine
@@ -23,6 +24,80 @@ final class CameraService: NSObject, ObservableObject {
     @Published var currentProtocolStep: CaptureProtocolStep?
     @Published var errorMessage: String?
     @Published var flashMode: AVCaptureDevice.FlashMode = .auto
+
+    // MARK: - Guided Auto-Capture State
+    //
+    // NOTE(AI Developer), added 2026-07 per Sean's request ("i want to
+    // have guided autocapture for every image along with current option
+    // to use the camera roll as well") -- extends the Steady/Focused/
+    // Even-Lighting auto-capture gates first built for the standalone
+    // Scar-Direction shot (`ScarCaptureCameraService`) to the main
+    // 30-shot protocol camera, WITHOUT removing the manual shutter,
+    // `PhotosPicker` camera-roll import, or skip button already on
+    // `CaptureCameraView` -- auto-capture only adds a fourth way to
+    // advance the protocol; the other three remain exactly as they were.
+    //
+    // Unlike the scar shot, which is a single fixed-box macro framing,
+    // this protocol spans very different shot types (macro closeups vs.
+    // wide establishing shots taken outdoors from several feet away).
+    // "Even Lighting" only has real justification on the macro/closeup
+    // types -- see `PhotoType.usesEvenLightingGate` -- so it's gated
+    // per-shot via `currentShotRequiresEvenLighting`, set by
+    // `CaptureCameraView` whenever `viewModel.nextShotType` changes.
+    // Steady + Focused apply unconditionally to every shot type.
+    //
+    // Per Sean's own follow-up ("we can distance gate later if
+    // needed"), there is deliberately no distance/framing gate here --
+    // `CaptureProtocolStep.idealDistanceMeters` is coaching metadata
+    // only (surfaced via the existing pitch/roll `SensorLevelBar`), not
+    // an auto-capture trigger, since there's no reliable no-LiDAR way to
+    // measure real-world distance from a single 2D frame.
+    @Published private(set) var isSteady: Bool = false
+    @Published private(set) var isFocused: Bool = true
+    @Published private(set) var isWellLit: Bool = false
+    @Published private(set) var lightingMessage: String = "Checking lighting…"
+    /// 0-1 progress toward auto-capture while all required gates hold
+    /// true continuously -- drives the filling-ring animation around
+    /// `CaptureCameraView`'s shutter button, same affordance as the
+    /// Scar-Direction screen.
+    @Published private(set) var autoCaptureProgress: Double = 0
+
+    /// Set by `CaptureCameraView` whenever `viewModel.nextShotType`
+    /// changes, from `PhotoType.usesEvenLightingGate` -- determines
+    /// whether `allGatesGood` requires `isWellLit` for the shot
+    /// currently being aimed at. Not `@Published`: it's read only from
+    /// inside `allGatesGood`/`updateGoodStreak`, both already driven by
+    /// the `@Published` gate signals above, so a redundant publish here
+    /// would just trigger extra, unnecessary view updates.
+    var currentShotRequiresEvenLighting: Bool = false
+
+    /// True once all currently-required gates (Steady + Focused, plus
+    /// Even Lighting only if `currentShotRequiresEvenLighting`) have
+    /// held continuously long enough that auto-capture is about to (or
+    /// just did) fire.
+    var allGatesGood: Bool {
+        isSteady && isFocused && (!currentShotRequiresEvenLighting || isWellLit)
+    }
+
+    /// Set by `CaptureCameraView` right after `setupSession()`
+    /// succeeds; called at most once per continuous "good" streak, same
+    /// contract as `ScarCaptureCameraService.onAutoCapture`.
+    var onAutoCapture: (() -> Void)?
+
+    /// Normalized center region analyzed for lighting evenness when the
+    /// current shot type requires it. Unlike
+    /// `ScarCaptureCameraService.guideRect`, this camera has no single
+    /// "fill this box" framing across all 30 shot types (macro vs. wide
+    /// vs. profile) -- this generous center crop is a reasonable proxy
+    /// for "the subject" on a centered macro/closeup shot without
+    /// needing 30 separate per-shot boxes.
+    static let lightingSampleRect = CGRect(x: 0.2, y: 0.25, width: 0.6, height: 0.5)
+
+    private let autoCaptureHoldSeconds: TimeInterval = 0.65
+    private let rotationRateThreshold: Double = 0.12 // rad/s
+    private let unevenLightingThreshold: Double = 0.12 // 0-1 luma scale
+    private let darkThreshold: Double = 0.12
+    private let brightThreshold: Double = 0.93
 
     // MARK: - Private Properties
 
@@ -48,6 +123,36 @@ final class CameraService: NSObject, ObservableObject {
     private var currentLocation: CLLocation?
     private var captureCompletions: [String: (CapturedPhoto?) -> Void] = [:]
     private let sessionQueue = DispatchQueue(label: "com.forensics.camera.session", qos: .userInitiated)
+
+    // NOTE(AI Developer), added 2026-07 for guided auto-capture (see the
+    // MARK above): same `nonisolated(unsafe)` rationale as `session`/
+    // `photoOutput` -- `videoDataOutput` is only mutated during
+    // `configureSession()` on `sessionQueue`, and `deviceObservations`/
+    // `activeDevice` are only touched from the main actor (KVO callbacks
+    // are dispatched to `.main` explicitly below), matching the pattern
+    // already established in `ScarCaptureCameraService`.
+    private nonisolated(unsafe) var videoDataOutput = AVCaptureVideoDataOutput()
+    private nonisolated(unsafe) weak var activeDevice: AVCaptureDevice?
+    private let analysisQueue = DispatchQueue(label: "com.forensics.camera.analysis", qos: .utility)
+    private let ciContext = CIContext()
+    private var deviceObservations: [NSKeyValueObservation] = []
+
+    /// Frame-analysis is throttled the same way as
+    /// `ScarCaptureCameraService` -- cheap per call, but no need to run
+    /// at full 30fps for a guidance signal that only needs to feel
+    /// responsive. `nonisolated(unsafe)` for the same reason as that
+    /// file's identical property: only ever touched from
+    /// `captureOutput(_:didOutput:from:)`, which always runs on the
+    /// single serial `analysisQueue`.
+    private nonisolated(unsafe) var frameCounter = 0
+    private let analyzeEveryNthFrame = 5
+
+    /// Wall-clock time of the most recent instant at which the required
+    /// gates were NOT simultaneously true; drives `autoCaptureProgress`
+    /// and the auto-capture trigger without a separate repeating Timer,
+    /// identical approach to `ScarCaptureCameraService`.
+    private var lastNotGoodTime: Date = Date()
+    private var hasFiredAutoCaptureForCurrentGoodStreak = false
 
     // NOTE(AI Developer): `objc_setAssociatedObject`'s real signature is
     // `func objc_setAssociatedObject(_ object: Any, _ key: UnsafeRawPointer, _ value: Any?, _ policy: objc_AssociationPolicy)`
@@ -136,6 +241,28 @@ final class CameraService: NSObject, ObservableObject {
         guard let device = bestCaptureDevice() else {
             throw CameraError.deviceUnavailable
         }
+
+        // NOTE(AI Developer), added 2026-07 for guided auto-capture:
+        // continuous autofocus/autoexposure so `isAdjustingFocus`/
+        // `isAdjustingExposure` (observed in `observeDevice` below) are
+        // meaningful live signals of whether the lens has actually
+        // settled, not a one-shot lock from whenever the session first
+        // opened -- same reasoning and API calls as
+        // `ScarCaptureCameraService.configureSession`. Propagates like
+        // that file does; `AVCaptureDevice.lockForConfiguration()`
+        // failing here would mean the device is in a broken state that
+        // manual capture couldn't recover from either, so there's
+        // nothing gained by swallowing the error.
+        try device.lockForConfiguration()
+        if device.isFocusModeSupported(.continuousAutoFocus) {
+            device.focusMode = .continuousAutoFocus
+        }
+        if device.isExposureModeSupported(.continuousAutoExposure) {
+            device.exposureMode = .continuousAutoExposure
+        }
+        device.unlockForConfiguration()
+        activeDevice = device
+
         let input = try AVCaptureDeviceInput(device: device)
         guard session.canAddInput(input) else { throw CameraError.inputNotSupported }
         session.addInput(input)
@@ -182,6 +309,29 @@ final class CameraService: NSObject, ObservableObject {
         if photoOutput.isDepthDataDeliverySupported {
             photoOutput.isDepthDataDeliveryEnabled = true
         }
+
+        // NOTE(AI Developer), added 2026-07 for guided auto-capture: a
+        // second output on this SAME session (not a separate
+        // AVCaptureSession) for live frame analysis, feeding the Even
+        // Lighting gate. Sean's initial question was whether this would
+        // risk destabilizing the already-hardened photo pipeline -- it
+        // doesn't: `AVCapturePhotoOutput` and `AVCaptureVideoDataOutput`
+        // are independent, additive outputs on one session (Apple's own
+        // AVCam sample runs both simultaneously), and
+        // `ScarCaptureCameraService` already proved this exact
+        // combination works reliably on-device. Frame analysis below is
+        // throttled and uses only a cheap `CIAreaAverage` sample (no
+        // full-resolution decode), matching that file's approach, to
+        // avoid reopening the memory issues fixed elsewhere in this file
+        // (see `generateThumbnail`/`estimateBrightness`'s NOTEs).
+        guard session.canAddOutput(videoDataOutput) else { throw CameraError.outputNotSupported }
+        videoDataOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        videoDataOutput.alwaysDiscardsLateVideoFrames = true
+        videoDataOutput.setSampleBufferDelegate(self, queue: analysisQueue)
+        session.addOutput(videoDataOutput)
+        if let connection = videoDataOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90 // portrait
+        }
         // `commitConfiguration()` now runs via the `defer` above -- no
         // explicit call needed here, and this way it's guaranteed to run
         // even if a future edit adds another early `throw` below.
@@ -190,7 +340,29 @@ final class CameraService: NSObject, ObservableObject {
         layer.videoGravity = .resizeAspectFill
         DispatchQueue.main.async { [weak self] in
             self?.previewLayer = layer
+            self?.observeDevice(device)
         }
+    }
+
+    // NOTE(AI Developer), added 2026-07 for guided auto-capture, same
+    // pattern as `ScarCaptureCameraService.observeDevice`: KVO on the
+    // active device's focus/exposure-adjustment flags drives the
+    // Focused gate. Runs on the main actor (the closures below hop back
+    // via `Task { @MainActor in ... }`) since `isFocused` is `@Published`.
+    private func observeDevice(_ device: AVCaptureDevice) {
+        deviceObservations.forEach { $0.invalidate() }
+        deviceObservations = [
+            device.observe(\.isAdjustingFocus, options: [.new]) { [weak self] dev, _ in
+                Task { @MainActor [weak self] in
+                    self?.isFocused = !dev.isAdjustingFocus && !dev.isAdjustingExposure
+                }
+            },
+            device.observe(\.isAdjustingExposure, options: [.new]) { [weak self] dev, _ in
+                Task { @MainActor [weak self] in
+                    self?.isFocused = !dev.isAdjustingFocus && !dev.isAdjustingExposure
+                }
+            }
+        ]
     }
 
     private nonisolated func bestCaptureDevice() -> AVCaptureDevice? {
@@ -219,6 +391,16 @@ final class CameraService: NSObject, ObservableObject {
                 self.session.stopRunning()
             }
         }
+        // NOTE(AI Developer), added 2026-07: mirrors
+        // `ScarCaptureCameraService.stopSession` -- invalidate the
+        // focus/exposure KVO observers on teardown so they don't fire
+        // against a device this view no longer owns after
+        // `.onDisappear`. Motion updates themselves stay running (they
+        // already did before this change, driving `sensorReading` for
+        // the pitch/roll level bar across the whole capture flow), so
+        // only the device-specific observations are torn down here.
+        deviceObservations.forEach { $0.invalidate() }
+        deviceObservations = []
     }
 
     // MARK: - Motion Sensing
@@ -234,7 +416,13 @@ final class CameraService: NSObject, ObservableObject {
     // computed against the wrong physical baseline. Fixed the same way:
     // derive pitch/roll from the gravity vector via `CameraLevelMath`.
     private func setupMotionManager() {
-        guard motionManager.isDeviceMotionAvailable else { return }
+        guard motionManager.isDeviceMotionAvailable else {
+            // NOTE(AI Developer), added 2026-07: no gyro available --
+            // don't block auto-capture on a signal we can't read, same
+            // fallback as `ScarCaptureCameraService.startMotionUpdates`.
+            isSteady = true
+            return
+        }
         motionManager.deviceMotionUpdateInterval = 1.0 / 30.0
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
             guard let self, let motion else { return }
@@ -247,6 +435,17 @@ final class CameraService: NSObject, ObservableObject {
                 yaw: motion.attitude.yaw,
                 heading: self.currentLocation?.course
             )
+            // NOTE(AI Developer), added 2026-07 for guided auto-capture:
+            // uses `rotationRate` (gyro, rad/s) rather than the
+            // gravity-derived pitch/roll above -- this gate is about "is
+            // the phone currently MOVING/shaking," not "is it aimed at a
+            // particular angle" (that's what `SensorLevelBar`'s existing
+            // pitch/roll guidance is for). Same distinction and approach
+            // as `ScarCaptureCameraService.startMotionUpdates`.
+            let r = motion.rotationRate
+            let magnitude = (r.x * r.x + r.y * r.y + r.z * r.z).squareRoot()
+            self.isSteady = magnitude < self.rotationRateThreshold
+            self.updateGoodStreak()
         }
     }
 
@@ -255,6 +454,43 @@ final class CameraService: NSObject, ObservableObject {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.requestWhenInUseAuthorization()
         locationManager.startUpdatingLocation()
+    }
+
+    // MARK: - Auto-Capture Streak Tracking
+    //
+    // NOTE(AI Developer), added 2026-07: identical approach to
+    // `ScarCaptureCameraService.updateGoodStreak`/`resetAutoCaptureStreak`
+    // -- called on every published gate-state change (motion callback
+    // and frame analysis both call this) to update `autoCaptureProgress`
+    // and fire `onAutoCapture` once a continuous "all required gates
+    // good" streak reaches `autoCaptureHoldSeconds`.
+
+    private func updateGoodStreak() {
+        let now = Date()
+        if allGatesGood {
+            let streak = now.timeIntervalSince(lastNotGoodTime)
+            autoCaptureProgress = min(1.0, streak / autoCaptureHoldSeconds)
+            if streak >= autoCaptureHoldSeconds && !hasFiredAutoCaptureForCurrentGoodStreak,
+               case .idle = captureState {
+                hasFiredAutoCaptureForCurrentGoodStreak = true
+                onAutoCapture?()
+            }
+        } else {
+            lastNotGoodTime = now
+            hasFiredAutoCaptureForCurrentGoodStreak = false
+            autoCaptureProgress = 0
+        }
+    }
+
+    /// Called by `CaptureCameraView` right after a capture (auto or
+    /// manual) completes, or whenever `viewModel.nextShotType` changes
+    /// (a new shot's framing/lighting requirements make any in-progress
+    /// streak toward the PREVIOUS shot meaningless) -- a new continuous
+    /// streak is required before auto-capture can fire again.
+    func resetAutoCaptureStreak() {
+        lastNotGoodTime = Date()
+        hasFiredAutoCaptureForCurrentGoodStreak = false
+        autoCaptureProgress = 0
     }
 
     // MARK: - Photo Capture
@@ -455,6 +691,103 @@ extension CameraService: CLLocationManagerDelegate {
         Task { @MainActor in
             self.currentLocation = locations.last
         }
+    }
+}
+
+// MARK: - Video Data Output Delegate (lighting-evenness gate)
+//
+// NOTE(AI Developer), added 2026-07 for guided auto-capture -- same
+// `CIAreaAverage`-based 2x2-quadrant luma-spread technique as
+// `ScarCaptureCameraService`'s identical extension, sampling
+// `CameraService.lightingSampleRect` instead of a scar-specific
+// `guideRect` since this camera has no single fixed subject box across
+// all 30 shot types. Only feeds `isWellLit`/`lightingMessage`;
+// `allGatesGood` only actually requires `isWellLit` when
+// `currentShotRequiresEvenLighting` is true for the shot in progress
+// (see `PhotoType.usesEvenLightingGate`), so this analysis quietly runs
+// for every shot but is only load-bearing for macro/closeup types.
+extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
+    nonisolated func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        frameCounterIncrement { shouldAnalyze in
+            guard shouldAnalyze else { return }
+            let width = CVPixelBufferGetWidth(pixelBuffer)
+            let height = CVPixelBufferGetHeight(pixelBuffer)
+            let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+            let sample = CameraService.lightingSampleRect
+            let sampleRectPixels = CGRect(
+                x: sample.minX * CGFloat(width),
+                y: sample.minY * CGFloat(height),
+                width: sample.width * CGFloat(width),
+                height: sample.height * CGFloat(height)
+            )
+            let halfW = sampleRectPixels.width / 2
+            let halfH = sampleRectPixels.height / 2
+            let quadrants = [
+                CGRect(x: sampleRectPixels.minX, y: sampleRectPixels.minY, width: halfW, height: halfH),
+                CGRect(x: sampleRectPixels.minX + halfW, y: sampleRectPixels.minY, width: halfW, height: halfH),
+                CGRect(x: sampleRectPixels.minX, y: sampleRectPixels.minY + halfH, width: halfW, height: halfH),
+                CGRect(x: sampleRectPixels.minX + halfW, y: sampleRectPixels.minY + halfH, width: halfW, height: halfH)
+            ]
+            let brightnesses = quadrants.compactMap { self.averageLuma(of: ciImage, in: $0) }
+            guard brightnesses.count == 4 else { return }
+            let overall = brightnesses.reduce(0, +) / Double(brightnesses.count)
+            let spread = (brightnesses.max() ?? 0) - (brightnesses.min() ?? 0)
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if overall < self.darkThreshold {
+                    self.isWellLit = false
+                    self.lightingMessage = "Too dark — add more light"
+                } else if overall > self.brightThreshold {
+                    self.isWellLit = false
+                    self.lightingMessage = "Too bright — reduce glare/reflection"
+                } else if spread > self.unevenLightingThreshold {
+                    self.isWellLit = false
+                    self.lightingMessage = "Uneven light — even out shadows/glare"
+                } else {
+                    self.isWellLit = true
+                    self.lightingMessage = "Lighting looks even"
+                }
+                self.updateGoodStreak()
+            }
+        }
+    }
+
+    /// Average luma (0-1) of `image` within `pixelRect`, same technique
+    /// as `estimateBrightness(from:)` below and
+    /// `ScarCaptureCameraService.averageLuma`.
+    nonisolated private func averageLuma(of image: CIImage, in pixelRect: CGRect) -> Double? {
+        guard pixelRect.width > 1, pixelRect.height > 1 else { return nil }
+        let clamped = pixelRect.intersection(image.extent)
+        guard !clamped.isEmpty else { return nil }
+        guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
+            kCIInputImageKey: image,
+            kCIInputExtentKey: CIVector(cgRect: clamped)
+        ]), let output = filter.outputImage,
+              let cgImage = ciContext.createCGImage(output, from: CGRect(x: 0, y: 0, width: 1, height: 1)) else {
+            return nil
+        }
+        guard let data = cgImage.dataProvider?.data, CFDataGetLength(data) >= 4 else { return nil }
+        let bytes = CFDataGetBytePtr(data)!
+        // BGRA order.
+        let b = Double(bytes[0]) / 255.0
+        let g = Double(bytes[1]) / 255.0
+        let r = Double(bytes[2]) / 255.0
+        return 0.299 * r + 0.587 * g + 0.114 * b
+    }
+
+    /// Small helper isolating the mutable `frameCounter` touch to this
+    /// nonisolated delegate queue context, same pattern as
+    /// `ScarCaptureCameraService.frameCounterIncrement`.
+    nonisolated private func frameCounterIncrement(_ body: (Bool) -> Void) {
+        frameCounter += 1
+        body(frameCounter % analyzeEveryNthFrame == 0)
     }
 }
 

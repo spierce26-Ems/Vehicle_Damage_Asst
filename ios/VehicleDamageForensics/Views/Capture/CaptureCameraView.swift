@@ -68,11 +68,32 @@ struct CaptureCameraView: View {
     // point. `nil` the rest of the time (sheet dismissed).
     @State private var pendingPaintReferencePhoto: CapturedPhoto?
 
+    // NOTE(AI Developer), added 2026-07 per Sean's request ("i want to
+    // have guided autocapture for every image along with current option
+    // to use the camera roll as well") -- see `CameraService`'s
+    // "Guided Auto-Capture State" MARK for the gate logic itself. This
+    // view only needs to: (1) track which `PhotoType` the auto-capture
+    // gates are currently tuned for so it can reset the streak and
+    // re-derive `currentShotRequiresEvenLighting` when the protocol
+    // advances to a new shot, and (2) briefly flash green + haptic on
+    // an auto-fired capture, mirroring `ScarCaptureView.justAutoCapture`.
+    @State private var lastGatedShotType: PhotoType?
+    @State private var justAutoCapture = false
+
     var body: some View {
         ZStack {
             CameraPreviewView(cameraService: camera)
                 .ignoresSafeArea()
                 .task {
+                    // NOTE(AI Developer), added 2026-07 for guided
+                    // auto-capture: set the callback and the initial
+                    // lighting-gate requirement BEFORE `setupSession()`
+                    // starts the session, so the very first frame
+                    // analyzed already has the right gate configuration
+                    // -- mirrors `ScarCaptureView`'s identical ordering.
+                    camera.onAutoCapture = { Task { await performAutoCapture() } }
+                    camera.currentShotRequiresEvenLighting = viewModel.nextShotType?.usesEvenLightingGate ?? false
+                    lastGatedShotType = viewModel.nextShotType
                     do {
                         try await camera.setupSession()
                         camera.startSession()
@@ -81,6 +102,21 @@ struct CaptureCameraView: View {
                     }
                 }
                 .onDisappear { camera.stopSession() }
+                // NOTE(AI Developer), added 2026-07: the protocol
+                // advances to a new `PhotoType` after every capture/
+                // import/skip -- re-derive whether the new shot requires
+                // the Even Lighting gate (see `PhotoType
+                // .usesEvenLightingGate`) and reset the auto-capture
+                // streak so a "good" streak measured against the OLD
+                // shot's requirements can't immediately fire a capture
+                // for the NEW shot before the camera's had a chance to
+                // actually re-evaluate the new gate.
+                .onChange(of: viewModel.nextShotType) { _, newType in
+                    guard newType != lastGatedShotType else { return }
+                    lastGatedShotType = newType
+                    camera.currentShotRequiresEvenLighting = newType?.usesEvenLightingGate ?? false
+                    camera.resetAutoCaptureStreak()
+                }
 
             // NOTE(AI Developer), fixed 2026-07: SensorGuidanceOverlay now
             // only renders the top progress bar (self-anchored to the top,
@@ -98,6 +134,17 @@ struct CaptureCameraView: View {
 
             VStack {
                 Spacer()
+                // NOTE(AI Developer), added 2026-07 for guided auto-
+                // capture -- same Steady/Focused/(Lighting) status chips
+                // as `ScarCaptureView.statusChips`, so the same "why
+                // hasn't it fired yet" feedback is available here too.
+                // The Lighting chip only appears when the current shot
+                // type actually gates on it (`usesEvenLightingGate`);
+                // showing it unconditionally would suggest wide/outdoor
+                // shots need even lighting when they don't.
+                autoCaptureStatusChips
+                    .padding(.bottom, 10)
+
                 SensorLevelBar(sensorData: viewModel.currentSensorData)
                     .padding(.bottom, 12)
 
@@ -146,7 +193,21 @@ struct CaptureCameraView: View {
                     .padding()
                     .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
             }
+
+            // NOTE(AI Developer), added 2026-07: brief green "snap" flash
+            // the instant auto-capture fires, identical to
+            // `ScarCaptureView`'s `justAutoCapture` flash -- paired with
+            // the success haptic in `performAutoCapture()`.
+            // `.allowsHitTesting(false)` so it never blocks the shutter/
+            // library/skip buttons beneath it.
+            if justAutoCapture {
+                Color.green.opacity(0.35)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeOut(duration: 0.25), value: justAutoCapture)
         .alert("Camera Error",
                isPresented: .constant(lastError != nil),
                actions: { Button("OK") { lastError = nil } },
@@ -193,16 +254,63 @@ struct CaptureCameraView: View {
         }
     }
 
+    /// NOTE(AI Developer), added 2026-07 for guided auto-capture:
+    /// wraps the pre-existing manual `shutterButton` with a filling
+    /// progress ring (green, tracks `camera.autoCaptureProgress`) --
+    /// same "hold still and watch it fill" affordance as
+    /// `ScarCaptureView.autoCaptureRingAndShutter`. The manual button
+    /// itself is completely unchanged (same label, same
+    /// `captureNextShot()` action, same `.disabled` condition) so
+    /// tapping it still works exactly as before regardless of gate
+    /// state -- the ring is purely an additive visual layered around it.
     private var shutterButton: some View {
-        Button {
-            Task { await captureNextShot() }
-        } label: {
+        ZStack {
             Circle()
-                .fill(.white)
-                .frame(width: 72, height: 72)
-                .overlay(Circle().stroke(.gray, lineWidth: 3).padding(4))
+                .stroke(.white.opacity(0.3), lineWidth: 4)
+                .frame(width: 84, height: 84)
+            Circle()
+                .trim(from: 0, to: camera.autoCaptureProgress)
+                .stroke(Color.green, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .frame(width: 84, height: 84)
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 0.1), value: camera.autoCaptureProgress)
+            Button {
+                Task { await captureNextShot() }
+            } label: {
+                Circle()
+                    .fill(.white)
+                    .frame(width: 72, height: 72)
+                    .overlay(Circle().stroke(.gray, lineWidth: 3).padding(4))
+            }
+            .disabled(viewModel.isComplete)
         }
-        .disabled(viewModel.isComplete)
+    }
+
+    /// NOTE(AI Developer), added 2026-07 for guided auto-capture, same
+    /// chip layout/logic as `ScarCaptureView.statusChips` -- Lighting
+    /// only shown when the current shot type gates on it (see
+    /// `PhotoType.usesEvenLightingGate`; wide/context/profile shots
+    /// don't show a Lighting chip at all since it's never a requirement
+    /// for them).
+    private var autoCaptureStatusChips: some View {
+        HStack(spacing: 10) {
+            autoCaptureStatusChip(label: "Steady", isGood: camera.isSteady, systemImage: "hand.raised.fill")
+            autoCaptureStatusChip(label: "Focused", isGood: camera.isFocused, systemImage: "camera.metering.spot")
+            if viewModel.nextShotType?.usesEvenLightingGate == true {
+                autoCaptureStatusChip(label: camera.lightingMessage, isGood: camera.isWellLit, systemImage: "sun.max.fill")
+            }
+        }
+    }
+
+    private func autoCaptureStatusChip(label: String, isGood: Bool, systemImage: String) -> some View {
+        Label(label, systemImage: isGood ? "checkmark.circle.fill" : systemImage)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isGood ? Color.green.opacity(0.75) : Color.black.opacity(0.55), in: Capsule())
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
     }
 
     /// NOTE(AI Developer), added 2026-07 per Sean's request ("we also
@@ -268,6 +376,25 @@ struct CaptureCameraView: View {
         } catch {
             lastError = error.localizedDescription
         }
+    }
+
+    /// NOTE(AI Developer), added 2026-07 for guided auto-capture:
+    /// `camera.onAutoCapture` (wired in `.task` above) calls this
+    /// exactly the way `ScarCaptureView.performCapture(auto: true)`
+    /// works -- the success haptic + green flash are reserved for the
+    /// auto path since a manual tap already gets its own implicit
+    /// tactile confirmation from the button press. Guards on
+    /// `camera.isCapturing`-equivalent via `viewModel.isComplete`/
+    /// `captureNextShot`'s own `nextShotType` guard, so this can't fire
+    /// a duplicate capture if the streak callback lands while a capture
+    /// from a manual tap is already in flight.
+    private func performAutoCapture() async {
+        guard !viewModel.isComplete else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        justAutoCapture = true
+        await captureNextShot()
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        justAutoCapture = false
     }
 
     /// Bridge between the camera service's protocol-step API and our
@@ -339,6 +466,18 @@ struct CaptureCameraView: View {
             if photo.photoType == .paintTransfer {
                 pendingPaintReferencePhoto = photo
             }
+            // NOTE(AI Developer), added 2026-07 for guided auto-capture:
+            // a fresh streak is required before auto-capture can fire
+            // again for the shot the protocol advances to next --
+            // otherwise a phone that's still steady/focused/well-lit
+            // right after this shutter press could immediately
+            // auto-fire a second capture before the user has had a
+            // chance to reposition for the new shot. `.onChange(of:
+            // viewModel.nextShotType)` above also resets this once the
+            // published `nextShotType` actually changes, but resetting
+            // it here too closes the brief window between this
+            // capture completing and that change propagating.
+            camera.resetAutoCaptureStreak()
         } catch {
             lastError = error.localizedDescription
         }

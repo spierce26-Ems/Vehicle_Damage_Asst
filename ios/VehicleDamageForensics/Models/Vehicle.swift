@@ -723,6 +723,28 @@ enum PhotoType: String, Codable, CaseIterable {
         default: return false
         }
     }
+
+    /// NOTE(AI Developer), added 2026-07 per Sean's request to extend
+    /// guided auto-capture (steady/focused/lighting gates, previously
+    /// only on the standalone Scar-Direction shot) to the main 30-shot
+    /// protocol camera. Unlike that single fixed-box scar shot, the
+    /// protocol covers wide establishing shots (`.wideAngle`,
+    /// `.contextShot`) and outdoor scene shots taken from several feet
+    /// away, where uneven sun/shadow across the frame is normal and NOT
+    /// a sign of a bad photo -- gating capture on "even lighting" there
+    /// would just never fire and frustrate the user. The macro/closeup
+    /// shot types below are the ones where lighting evenness has the
+    /// same real justification it did for the scar shot (glare/shadow
+    /// across a small damage/paint-transfer area can visibly distort
+    /// what's actually being documented), so only these opt in to the
+    /// lighting gate. Steady + Focused apply to every shot type
+    /// unconditionally -- see `CameraService.allGatesGood` and `updateGoodStreak()`.
+    var usesEvenLightingGate: Bool {
+        switch self {
+        case .closeupDamage, .paintTransfer, .heightMeasurement, .licenseDetail: return true
+        case .wideAngle, .contextShot, .lidarReference: return false
+        }
+    }
 }
 
 // MARK: - Canonical Capture Protocol
