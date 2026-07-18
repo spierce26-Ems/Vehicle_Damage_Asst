@@ -44,6 +44,8 @@
 		FDB59CC5B475210890C53AE7 /* ImpactMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */; };
 		8195D560484A4A3AB0C48CE4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0A9011D23F48B896AB6295 /* OnboardingView.swift */; };
 		6F98C6A0B62D465A8A8E54D0 /* PaintReferenceMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */; };
+		55037E7E1A3F7E7D820A5201 /* ScarCaptureCameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8D07798C2391AA5B445C38 /* ScarCaptureCameraService.swift */; };
+		575F1B2DF99CA174BF5E011C /* ScarCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 716C42564626FB4676F287FA /* ScarCaptureView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -86,6 +88,8 @@
 		C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ImpactMarkerView.swift; path = VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift; sourceTree = SOURCE_ROOT; };
 		0D0A9011D23F48B896AB6295 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = VehicleDamageForensics/Views/Dashboard/OnboardingView.swift; sourceTree = SOURCE_ROOT; };
 		C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaintReferenceMarkerView.swift; path = VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift; sourceTree = SOURCE_ROOT; };
+		8C8D07798C2391AA5B445C38 /* ScarCaptureCameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ScarCaptureCameraService.swift; path = VehicleDamageForensics/Services/ScarCaptureCameraService.swift; sourceTree = SOURCE_ROOT; };
+		716C42564626FB4676F287FA /* ScarCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ScarCaptureView.swift; path = VehicleDamageForensics/Views/Capture/ScarCaptureView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -198,6 +202,7 @@
 				EEFC4A77A75E09AA82DBE27D /* SensorGuidanceOverlay.swift */,
 				C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */,
 				C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */,
+				716C42564626FB4676F287FA /* ScarCaptureView.swift */,
 			);
 			name = Capture;
 			sourceTree = "<group>";
@@ -241,6 +246,7 @@
 				6AF14E37A4E21B50B50183AB /* StorageService.swift */,
 				4BACEB969DE9CAE02A6FFE08 /* PurchaseManager.swift */,
 				9EF5307E605921A484C06DAB /* HeadingProvider.swift */,
+				8C8D07798C2391AA5B445C38 /* ScarCaptureCameraService.swift */,
 			);
 			name = Services;
 			sourceTree = "<group>";
@@ -377,6 +383,8 @@
 				D77C2BE627340BFD99713036 /* HeadingProvider.swift in Sources */,
 				FDB59CC5B475210890C53AE7 /* ImpactMarkerView.swift in Sources */,
 				6F98C6A0B62D465A8A8E54D0 /* PaintReferenceMarkerView.swift in Sources */,
+				55037E7E1A3F7E7D820A5201 /* ScarCaptureCameraService.swift in Sources */,
+				575F1B2DF99CA174BF5E011C /* ScarCaptureView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
