@@ -48,6 +48,7 @@
 		6F98C6A0B62D465A8A8E54D0 /* PaintReferenceMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */; };
 		55037E7E1A3F7E7D820A5201 /* ScarCaptureCameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C8D07798C2391AA5B445C38 /* ScarCaptureCameraService.swift */; };
 		575F1B2DF99CA174BF5E011C /* ScarCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 716C42564626FB4676F287FA /* ScarCaptureView.swift */; };
+		00A552FAA4EB043D9AA2554C /* PhotoReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CFD06886591ED44C3C38013 /* PhotoReviewView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -94,6 +95,7 @@
 		C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PaintReferenceMarkerView.swift; path = VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift; sourceTree = SOURCE_ROOT; };
 		8C8D07798C2391AA5B445C38 /* ScarCaptureCameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ScarCaptureCameraService.swift; path = VehicleDamageForensics/Services/ScarCaptureCameraService.swift; sourceTree = SOURCE_ROOT; };
 		716C42564626FB4676F287FA /* ScarCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ScarCaptureView.swift; path = VehicleDamageForensics/Views/Capture/ScarCaptureView.swift; sourceTree = SOURCE_ROOT; };
+		1CFD06886591ED44C3C38013 /* PhotoReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PhotoReviewView.swift; path = VehicleDamageForensics/Views/Capture/PhotoReviewView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -209,6 +211,7 @@
 				C8392D609F5704F08AE1BED5 /* ImpactMarkerView.swift */,
 				C863442B73E0437490B96BF3 /* PaintReferenceMarkerView.swift */,
 				716C42564626FB4676F287FA /* ScarCaptureView.swift */,
+				1CFD06886591ED44C3C38013 /* PhotoReviewView.swift */,
 			);
 			name = Capture;
 			sourceTree = "<group>";
@@ -393,6 +396,7 @@
 				6F98C6A0B62D465A8A8E54D0 /* PaintReferenceMarkerView.swift in Sources */,
 				55037E7E1A3F7E7D820A5201 /* ScarCaptureCameraService.swift in Sources */,
 				575F1B2DF99CA174BF5E011C /* ScarCaptureView.swift in Sources */,
+				00A552FAA4EB043D9AA2554C /* PhotoReviewView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
