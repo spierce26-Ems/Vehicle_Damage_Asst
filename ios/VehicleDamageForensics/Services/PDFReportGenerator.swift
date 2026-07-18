@@ -46,6 +46,7 @@ struct PDFReportGenerator {
                 drawFactorBreakdown(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawAnalysisEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawScarDirectionSection(ctx: ctx, rect: pageRect, case: forensicCase)
+                drawScarLineComparison(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawPhotoEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawChainOfCustody(ctx: ctx, rect: pageRect, case: forensicCase)
             }
@@ -328,6 +329,79 @@ struct PDFReportGenerator {
         }
         if !check.notes.isEmpty {
             check.notes.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
+        }
+    }
+
+    // NOTE(AI Developer), added 2026-07 for Sean's Answer B2 ("use
+    // already-recorded scar data... to show victim vs. suspect scar line
+    // length/angle/position side-by-side with a computed match/deviation
+    // number, in both MatchResultsView and the PDF"). PDF counterpart to
+    // `MatchResultsView.scarLineComparisonSection` -- builds the exact
+    // same `ScarLineComparison` value the same way (via
+    // `ScarLineComparison.build(victim:suspect:check:)`) so the on-screen
+    // and PDF presentations of this data can't silently drift apart.
+    // Skipped entirely (no blank page) when there's no suspect vehicle or
+    // neither vehicle has a marked scar line.
+    private func drawScarLineComparison(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
+        guard let suspect = c.suspectVehicle else { return }
+        let comparison = ScarLineComparison.build(victim: c.victimVehicle, suspect: suspect, check: c.matchResult?.scarDirectionCheck)
+        guard comparison.hasAnyData else { return }
+
+        ctx.beginPage()
+        var y: CGFloat = 50
+        "Scar Line Comparison".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
+        y += 26
+        "In-photo length/angle have no shared scale between the two photos and are shown for reference only. Position is the scar-verified compass bearing used for actual scoring."
+            .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
+        y += 32
+
+        let columnWidth = (rect.width - 100 - 30) / 2
+        let leftX: CGFloat = 50
+        let rightX: CGFloat = 50 + columnWidth + 30
+        let startY = y
+
+        func drawColumn(title: String, side: ScarLineComparison.VehicleSide, x: CGFloat) -> CGFloat {
+            var cy = startY
+            title.draw(at: CGPoint(x: x, y: cy), font: .boldSystemFont(ofSize: 13))
+            cy += 18
+            if side.hasLine {
+                if let length = side.lengthNormalized {
+                    String(format: "Length: %.2f (normalized)", length)
+                        .draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 11), maxWidth: columnWidth)
+                    cy += 16
+                }
+                if let angle = side.angleInPhotoDegrees {
+                    String(format: "In-photo angle: %.0f°", angle)
+                        .draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 11), maxWidth: columnWidth)
+                    cy += 16
+                }
+                if let bearing = side.scarBearingDegrees {
+                    String(format: "Position (bearing): %.0f°", bearing)
+                        .draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 11), maxWidth: columnWidth)
+                    cy += 16
+                }
+                if let motion = side.motionDescription {
+                    motion.draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10), maxWidth: columnWidth, color: .darkGray)
+                    cy += 28
+                }
+            } else {
+                "No scar line marked".draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 11), color: .darkGray)
+                cy += 16
+            }
+            return cy
+        }
+
+        let leftEndY = drawColumn(title: "Victim", side: comparison.victim, x: leftX)
+        let rightEndY = drawColumn(title: "Suspect", side: comparison.suspect, x: rightX)
+        y = max(leftEndY, rightEndY) + 12
+
+        if let delta = comparison.reciprocityDeltaDegrees {
+            String(format: "Deviation from a perfect reciprocal match: %.1f°", delta)
+                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 12))
+            y += 20
+        }
+        if let narrative = comparison.scenarioNarrative {
+            narrative.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100, color: .darkGray)
         }
     }
 

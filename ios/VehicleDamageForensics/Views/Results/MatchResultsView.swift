@@ -40,6 +40,9 @@ struct MatchResultsView: View {
                     if viewModel.scarDirectionCheck != nil {
                         scarDirectionSection
                     }
+                    if let comparison = scarLineComparison, comparison.hasAnyData {
+                        scarLineComparisonSection(comparison)
+                    }
                     recommendations
                     reportSection
                 } else {
@@ -321,6 +324,93 @@ struct MatchResultsView: View {
         case .inconsistent: return .red
         case .notDeterminable: return .secondary
         }
+    }
+
+    // MARK: Scar Line Comparison (Answer B2)
+
+    /// NOTE(AI Developer), added 2026-07 for Sean's Answer B2 ("use
+    /// already-recorded scar data... to show victim vs. suspect scar line
+    /// length/angle/position side-by-side with a computed match/deviation
+    /// number"). Built fresh from `viewModel.forensicCase` each time this
+    /// view renders -- see `ScarLineComparison`'s doc comment for why this
+    /// is deliberately NOT stored on `MatchResult`. `nil` when there's no
+    /// suspect vehicle at all (can't compare against nothing).
+    private var scarLineComparison: ScarLineComparison? {
+        guard let suspect = viewModel.forensicCase.suspectVehicle else { return nil }
+        return ScarLineComparison.build(
+            victim: viewModel.forensicCase.victimVehicle,
+            suspect: suspect,
+            check: viewModel.scarDirectionCheck
+        )
+    }
+
+    /// Side-by-side victim/suspect scar line length/angle/position, plus
+    /// the single computed deviation number Sean asked for
+    /// (`reciprocityDeltaDegrees`, reused from the Scar-Direction
+    /// Consistency check rather than a second, less-grounded metric --
+    /// see `ScarLineComparison.reciprocityDeltaDegrees`'s doc comment).
+    /// Shown as its own section, separate from `scarDirectionSection`
+    /// above, because that section is about the reciprocity VERDICT while
+    /// this one is about the raw per-vehicle line data behind it.
+    private func scarLineComparisonSection(_ comparison: ScarLineComparison) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Scar Line Comparison").font(.headline)
+            Text("In-photo line length/angle have no shared scale between the two photos and are shown for reference only. Position is the scar-verified compass bearing used for actual scoring.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
+            HStack(alignment: .top, spacing: 16) {
+                scarLineComparisonColumn(title: "Victim", side: comparison.victim)
+                Divider()
+                scarLineComparisonColumn(title: "Suspect", side: comparison.suspect)
+            }
+
+            if let delta = comparison.reciprocityDeltaDegrees {
+                Divider()
+                Label(String(format: "Deviation from a perfect reciprocal match: %.1f°", delta),
+                      systemImage: "arrow.left.arrow.right")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(scarStatusColor(comparison.status))
+            }
+
+            if let narrative = comparison.scenarioNarrative {
+                Text(narrative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func scarLineComparisonColumn(title: String, side: ScarLineComparison.VehicleSide) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.subheadline.bold())
+            if side.hasLine {
+                if let length = side.lengthNormalized {
+                    Text(String(format: "Length: %.2f (normalized)", length))
+                        .font(.caption)
+                }
+                if let angle = side.angleInPhotoDegrees {
+                    Text(String(format: "In-photo angle: %.0f°", angle))
+                        .font(.caption)
+                }
+                if let bearing = side.scarBearingDegrees {
+                    Text(String(format: "Position (bearing): %.0f°", bearing))
+                        .font(.caption)
+                }
+                if let motion = side.motionDescription {
+                    Text(motion)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("No scar line marked")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Recommendations
