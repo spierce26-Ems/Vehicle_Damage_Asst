@@ -3,6 +3,7 @@
 // Match result model — composite score + per-factor breakdown
 
 import Foundation
+import CoreGraphics
 
 // MARK: - Match Result
 
@@ -54,6 +55,27 @@ struct MatchResult: Codable, Equatable {
     /// negative signal layered on top, not a data-hiding mechanism.
     var suspectExclusionReason: String?
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's request ("can we show
+    /// analysed results in the PDF? We need to show that we did
+    /// something with the images in the report, not just show the
+    /// pictures uploaded"). Persists the actual Vision-detected damage
+    /// contour boundary for each vehicle's best closeup-damage photo,
+    /// computed once by `DeformationMatcher.analyze()` at analysis time
+    /// (see `DeformationMatcher.DeformationResult`) and never
+    /// re-computed later — `PDFReportGenerator`/`AnalysisEvidenceRenderer`
+    /// draw this outline directly over the same photo in the new
+    /// "Analysis Evidence" report section, so the report visibly shows
+    /// the shape the deformation-matching algorithm actually extracted
+    /// and scored, not just the uploaded photo. `nil` whenever that
+    /// vehicle's contour wasn't extractable (mirrors
+    /// `FactorScore.dataQuality == .unavailable`/`.partial` for the
+    /// `.deformationPattern` factor — a missing overlay is never
+    /// presented as evidence of a bad match, it's simply omitted from
+    /// the visual section) or for a `MatchResult` produced before this
+    /// feature existed (backward compat).
+    var victimContourOverlay: ContourOverlay?
+    var suspectContourOverlay: ContourOverlay?
+
     // MARK: Init
 
     init(
@@ -66,7 +88,9 @@ struct MatchResult: Codable, Equatable {
         analysisDate: Date = Date(),
         processingTimeSeconds: Double = 0,
         scarDirectionCheck: ScarDirectionCheck? = nil,
-        suspectExclusionReason: String? = nil
+        suspectExclusionReason: String? = nil,
+        victimContourOverlay: ContourOverlay? = nil,
+        suspectContourOverlay: ContourOverlay? = nil
     ) {
         self.analysisID = analysisID
         self.compositeScore = compositeScore
@@ -78,6 +102,8 @@ struct MatchResult: Codable, Equatable {
         self.processingTimeSeconds = processingTimeSeconds
         self.scarDirectionCheck = scarDirectionCheck
         self.suspectExclusionReason = suspectExclusionReason
+        self.victimContourOverlay = victimContourOverlay
+        self.suspectContourOverlay = suspectContourOverlay
     }
 
     // MARK: Codable (backward-compatible with the old `probabilityRange` key)
@@ -106,12 +132,20 @@ struct MatchResult: Codable, Equatable {
         // behavior we want -- never treated as a negative result).
         scarDirectionCheck = try c.decodeIfPresent(ScarDirectionCheck.self, forKey: .scarDirectionCheck)
         suspectExclusionReason = try c.decodeIfPresent(String.self, forKey: .suspectExclusionReason)
+        // NOTE(AI Developer): decodeIfPresent so any MatchResult JSON
+        // persisted before the "Analysis Evidence" contour-overlay
+        // feature existed still loads correctly (both come back nil,
+        // same non-punitive backward-compat treatment as
+        // `scarDirectionCheck` above).
+        victimContourOverlay = try c.decodeIfPresent(ContourOverlay.self, forKey: .victimContourOverlay)
+        suspectContourOverlay = try c.decodeIfPresent(ContourOverlay.self, forKey: .suspectContourOverlay)
     }
 
     private enum CodingKeys: String, CodingKey {
         case analysisID, compositeScore, scoreRangeLabel, confidence, factors,
              recommendations, analysisDate, processingTimeSeconds,
-             scarDirectionCheck, suspectExclusionReason
+             scarDirectionCheck, suspectExclusionReason,
+             victimContourOverlay, suspectContourOverlay
         case legacyProbabilityRange = "probabilityRange"
     }
 
@@ -137,6 +171,8 @@ struct MatchResult: Codable, Equatable {
         try c.encode(processingTimeSeconds, forKey: .processingTimeSeconds)
         try c.encodeIfPresent(scarDirectionCheck, forKey: .scarDirectionCheck)
         try c.encodeIfPresent(suspectExclusionReason, forKey: .suspectExclusionReason)
+        try c.encodeIfPresent(victimContourOverlay, forKey: .victimContourOverlay)
+        try c.encodeIfPresent(suspectContourOverlay, forKey: .suspectContourOverlay)
     }
 
     // MARK: Computed
@@ -297,6 +333,30 @@ struct ScarDirectionCheck: Codable, Equatable {
     static func notDeterminable(notes: String) -> ScarDirectionCheck {
         ScarDirectionCheck(status: .notDeterminable, notes: notes)
     }
+}
+
+// MARK: - Contour Overlay
+
+/// NOTE(AI Developer), added 2026-07 alongside `MatchResult
+/// .victimContourOverlay`/`suspectContourOverlay` — the Vision-detected
+/// damage-boundary outline for one vehicle's best closeup-damage photo,
+/// captured once at analysis time so the "Analysis Evidence" PDF section
+/// can draw it later without re-running `VNDetectContoursRequest`. See
+/// `DeformationMatcher.ContourExtraction` for how this is produced.
+struct ContourOverlay: Codable, Equatable {
+    /// Boundary points in Vision's own normalized (0-1, 0-1,
+    /// bottom-left-origin) coordinate space, thinned to at most
+    /// `DeformationMatcher.maxOverlayPoints` for drawing. NOT the same
+    /// coordinate convention as `CapturedPhoto.paintDamagePoint`/
+    /// `scarLineStart` (top-left-origin, UIKit convention) — callers
+    /// that draw this must flip the Y axis. See
+    /// `PDFReportGenerator.drawContourOverlay` for the exact conversion.
+    var normalizedPoints: [CGPoint]
+    /// Which photo (by `CapturedPhoto.id`) this contour was extracted
+    /// from — lets the PDF section look up and re-draw the exact same
+    /// image the contour was traced on, rather than guessing which
+    /// closeup/paint-transfer photo was "best" a second time.
+    var sourcePhotoID: UUID
 }
 
 // MARK: - Confidence Level

@@ -37,6 +37,9 @@ struct MatchResultsView: View {
                     if !viewModel.skippedShotsSummary.isEmpty {
                         skippedShotsSection
                     }
+                    if viewModel.scarDirectionCheck != nil {
+                        scarDirectionSection
+                    }
                     recommendations
                     reportSection
                 } else {
@@ -225,6 +228,99 @@ struct MatchResultsView: View {
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: Scar-Direction Consistency
+
+    /// NOTE(AI Developer), added 2026-07 for Sean's Scar-Direction
+    /// Consistency feature -- surfaces `MatchResult.scarDirectionCheck`
+    /// (a SECOND, INDEPENDENT check, never blended into the composite
+    /// score/factor breakdown above -- see `ScarDirectionCheck`'s doc
+    /// comment) and, when it fires, `MatchResult.suspectExclusionReason`
+    /// as a prominent, hard-to-miss warning. Both are already exposed by
+    /// `AnalysisViewModel` (`scarDirectionCheck`/`suspectExclusionReason`)
+    /// so no ViewModel changes were needed -- this is purely new UI.
+    /// Only shown when `scarDirectionCheck` is non-nil (i.e. the analysis
+    /// actually ran); within that, `.notDeterminable` still renders --
+    /// showing "why not" is more useful to an investigator than silently
+    /// omitting the section.
+    private var scarDirectionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Scar-Direction Consistency").font(.headline)
+
+            if let reason = viewModel.suspectExclusionReason {
+                Label {
+                    Text(reason)
+                        .font(.subheadline.bold())
+                } icon: {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                }
+                .foregroundStyle(.red)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+            }
+
+            if let check = viewModel.scarDirectionCheck {
+                Label(scarStatusLabel(check.status), systemImage: scarStatusIcon(check.status))
+                    .font(.subheadline.bold())
+                    .foregroundStyle(scarStatusColor(check.status))
+
+                if let narrative = check.scenarioNarrative {
+                    Text(narrative)
+                        .font(.subheadline)
+                }
+
+                if let vDesc = check.victimMotionDescription {
+                    Text("Victim: \(vDesc)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if let sDesc = check.suspectMotionDescription {
+                    Text("Suspect: \(sDesc)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                if let delta = check.reciprocityDeltaDegrees {
+                    Text(String(format: "Reciprocity deviation: %.1f°", delta))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+
+                if !check.notes.isEmpty {
+                    Text(check.notes)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func scarStatusLabel(_ status: ScarDirectionCheck.Status) -> String {
+        switch status {
+        case .consistent: return "Consistent"
+        case .inconsistent: return "Conflict Detected"
+        case .notDeterminable: return "Not Determinable"
+        }
+    }
+
+    private func scarStatusIcon(_ status: ScarDirectionCheck.Status) -> String {
+        switch status {
+        case .consistent: return "checkmark.seal.fill"
+        case .inconsistent: return "xmark.seal.fill"
+        case .notDeterminable: return "questionmark.circle.fill"
+        }
+    }
+
+    private func scarStatusColor(_ status: ScarDirectionCheck.Status) -> Color {
+        switch status {
+        case .consistent: return .green
+        case .inconsistent: return .red
+        case .notDeterminable: return .secondary
+        }
     }
 
     // MARK: Recommendations

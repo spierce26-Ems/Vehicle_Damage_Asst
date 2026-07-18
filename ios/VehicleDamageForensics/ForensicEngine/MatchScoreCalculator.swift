@@ -25,7 +25,7 @@ struct MatchScoreCalculator {
     /// instrumentation around the concurrent `async let` factors while
     /// investigating a recurred "Running correlation analysis" hang (see
     /// the matching note on `AnalysisViewModel.runAnalysis()` for the full
-    /// hypothesis — the real suspect here is `deformScore`, since
+    /// hypothesis — the real suspect here is `deformResult`, since
     /// `DeformationMatcher.analyze(...)` is a synchronous function doing
     /// real Vision-framework work). Cheap, temporary, safe to remove once
     /// Sean's console output confirms/refutes which factor is actually
@@ -79,10 +79,17 @@ struct MatchScoreCalculator {
             victimBumperHeight: victim.effectiveBumperHeightInches,
             suspectBumperHeight: suspect.effectiveBumperHeightInches)
 
-        log("bestDamageImage lookups + async let dispatch done, awaiting deformScore next")
-        async let deformScore = deformationMatcher.analyze(
-            victimDamageImage: bestDamageImage(in: victim),
-            suspectDamageImage: bestDamageImage(in: suspect))
+        // NOTE(AI Developer), updated 2026-07 for the contour-overlay
+        // feature: now looks up `(photoID, image)` pairs via
+        // `bestDamagePhotoAndImage` instead of the plain-`CGImage`
+        // `bestDamageImage`, so the resulting overlay (below) can record
+        // which exact photo it was traced on.
+        let victimDamage = bestDamagePhotoAndImage(in: victim)
+        let suspectDamage = bestDamagePhotoAndImage(in: suspect)
+        log("bestDamageImage lookups + async let dispatch done, awaiting deformResult next")
+        async let deformResult = deformationMatcher.analyze(
+            victimDamageImage: victimDamage?.image,
+            suspectDamageImage: suspectDamage?.image)
 
         // Heuristic factors — placeholders that downstream services can replace
         let geometryScore = scoreImpactGeometry(victim: victim, suspect: suspect)
@@ -100,8 +107,8 @@ struct MatchScoreCalculator {
         let scarCheck = scoreScarDirectionConsistency(victim: victim, suspect: suspect)
         log("synchronous heuristic factors done, awaiting concurrent factors")
 
-        let resolvedDeformScore = await deformScore
-        log("deformScore (Vision contour matching) resolved")
+        let resolvedDeform = await deformResult
+        log("deformResult (Vision contour matching) resolved")
         let resolvedPaintScore = await paintScore
         log("paintScore resolved")
         let resolvedHeightScore = await heightScore
@@ -111,12 +118,38 @@ struct MatchScoreCalculator {
             resolvedPaintScore,
             resolvedHeightScore,
             geometryScore,
-            resolvedDeformScore,
+            resolvedDeform.factorScore,
             dimensionScore,
             materialScore,
             temporalScore
         ]
         log("all factors resolved")
+
+        // NOTE(AI Developer), added 2026-07 for the "show analysed
+        // results in the PDF" feature (Sean: "we need to show that we
+        // did something with the images in the report, not just show
+        // the pictures uploaded"). The Vision-detected damage contour
+        // boundary was already computed above as a side effect of the
+        // Deformation Pattern factor's `VNDetectContoursRequest` call --
+        // this just persists it (paired with the exact source photo ID
+        // it was traced on) so `PDFReportGenerator` can draw it later
+        // WITHOUT ever re-running Vision at PDF-render time (see
+        // `AnalysisViewModel.generateReport()`, which calls the PDF
+        // generator synchronously -- re-running Vision there would risk
+        // exactly the kind of main-thread hang/OOM this file's other
+        // NOTEs already describe). `flatMap` ensures we only build an
+        // overlay when BOTH a source photo AND extracted contour points
+        // exist for that vehicle.
+        let victimOverlay: ContourOverlay? = victimDamage.flatMap { damage in
+            resolvedDeform.victimContourNormalizedPoints.map {
+                ContourOverlay(normalizedPoints: $0, sourcePhotoID: damage.photoID)
+            }
+        }
+        let suspectOverlay: ContourOverlay? = suspectDamage.flatMap { damage in
+            resolvedDeform.suspectContourNormalizedPoints.map {
+                ContourOverlay(normalizedPoints: $0, sourcePhotoID: damage.photoID)
+            }
+        }
 
         // NOTE(AI Developer), 2026-07, per Sean's explicit direction
         // ("please do both option A and B") after the "is the analysis
@@ -198,7 +231,9 @@ struct MatchScoreCalculator {
             recommendations: buildRecommendations(factors: factors, composite: composite, exclusionReason: suspectExclusionReason),
             processingTimeSeconds: elapsed,
             scarDirectionCheck: scarCheck,
-            suspectExclusionReason: suspectExclusionReason
+            suspectExclusionReason: suspectExclusionReason,
+            victimContourOverlay: victimOverlay,
+            suspectContourOverlay: suspectOverlay
         )
     }
 
@@ -506,12 +541,33 @@ struct MatchScoreCalculator {
     /// `DeformationMatcher`'s own `maximumImageDimension` exactly — no
     /// detail is lost since Vision was already going to downsample to
     /// that size regardless.
-    private func bestDamageImage(in vehicle: Vehicle) -> CGImage? {
+    /// NOTE(AI Developer), access widened from `private` to internal
+    /// (default) 2026-07 so `PDFReportGenerator`/`AnalysisEvidenceRenderer`
+    /// can reuse this EXACT same ImageIO-thumbnail-decode helper for the
+    /// new "Analysis Evidence" PDF section (contour overlay on the same
+    /// best-damage image `DeformationMatcher` actually scored) instead of
+    /// duplicating the decode logic -- keeps there being exactly one
+    /// "how do we pick + decode the best damage image without a wasteful
+    /// full-size bitmap" implementation in the codebase. No behavior
+    /// change.
+    func bestDamageImage(in vehicle: Vehicle) -> CGImage? {
+        bestDamagePhotoAndImage(in: vehicle)?.image
+    }
+
+    /// NOTE(AI Developer), added 2026-07 alongside the contour-overlay
+    /// feature: same selection/decode logic as `bestDamageImage(in:)`
+    /// above (kept as a thin wrapper over this for existing call sites),
+    /// but also hands back the source `CapturedPhoto.id` so
+    /// `ContourOverlay.sourcePhotoID` can record exactly which photo the
+    /// persisted contour was traced on — needed because
+    /// `DeformationMatcher.analyze` only ever sees a bare `CGImage`, not
+    /// the `CapturedPhoto` it came from.
+    func bestDamagePhotoAndImage(in vehicle: Vehicle) -> (photoID: UUID, image: CGImage)? {
         let candidates = vehicle.photos
             .filter { $0.photoType == .closeupDamage || $0.photoType == .paintTransfer }
             .sorted { $0.qualityScore > $1.qualityScore }
-        guard let data = candidates.first?.imageData,
-              let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+        guard let best = candidates.first,
+              let source = CGImageSourceCreateWithData(best.imageData as CFData, nil) else {
             return nil
         }
         let options: [CFString: Any] = [
@@ -519,7 +575,10 @@ struct MatchScoreCalculator {
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: 1024
         ]
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return (best.id, image)
     }
 
     /// NOTE(AI Developer): Renamed from `probabilityRangeString` per Sean's

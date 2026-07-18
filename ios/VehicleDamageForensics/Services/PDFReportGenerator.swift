@@ -44,6 +44,8 @@ struct PDFReportGenerator {
                 drawCoverPage(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawSummaryPage(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawFactorBreakdown(ctx: ctx, rect: pageRect, case: forensicCase)
+                drawAnalysisEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
+                drawScarDirectionSection(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawPhotoEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawChainOfCustody(ctx: ctx, rect: pageRect, case: forensicCase)
             }
@@ -175,6 +177,157 @@ struct PDFReportGenerator {
             y += 18
             f.notes.draw(at: CGPoint(x: 60, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 120)
             y += 36
+        }
+    }
+
+    // NOTE(AI Developer), added 2026-07 per Sean's explicit request ("can
+    // we show analysed results in the PDF? We need to show that we did
+    // something with the images in the report, not just show the
+    // pictures uploaded"). Draws the actual Vision-detected damage
+    // contour outline (persisted at analysis time as `MatchResult
+    // .victimContourOverlay`/`suspectContourOverlay` -- see
+    // `MatchScoreCalculator.evaluate()` and `DeformationMatcher
+    // .DeformationResult`) directly over the real damage photo it was
+    // traced from. This NEVER re-runs Vision here -- it only reads
+    // already-persisted points -- because `AnalysisViewModel
+    // .generateReport()` calls this generator synchronously, and
+    // re-running `VNDetectContoursRequest` on the main thread at
+    // PDF-render time would risk exactly the kind of hang/OOM incident
+    // Sean has already hit twice on this pipeline (see that file's
+    // other NOTEs). Silently skips a vehicle whose overlay/source photo
+    // isn't available, and skips the whole page if neither vehicle has
+    // one, rather than showing a blank/misleading page.
+    private func drawAnalysisEvidence(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
+        guard let result = c.matchResult else { return }
+        let victimPair = overlayImagePair(overlay: result.victimContourOverlay, vehicle: c.victimVehicle)
+        let suspectPair = c.suspectVehicle.flatMap { overlayImagePair(overlay: result.suspectContourOverlay, vehicle: $0) }
+        guard victimPair != nil || suspectPair != nil else { return }
+
+        ctx.beginPage()
+        var y: CGFloat = 50
+        "Analysis Evidence".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
+        y += 22
+        "Vision-detected damage boundary overlaid on the source photo it was traced from."
+            .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100, color: .darkGray)
+        y += 30
+
+        let deformFactor = result.factors.first { $0.factor == .deformationPattern }
+        let cellWidth: CGFloat = 240
+        let cellHeight: CGFloat = 240
+        var x: CGFloat = 50
+
+        for (label, pair) in [("Victim Vehicle", victimPair), ("Suspect Vehicle", suspectPair)] {
+            guard let (image, overlay) = pair else { continue }
+            let imgRect = CGRect(x: x, y: y, width: cellWidth, height: cellHeight)
+            image.draw(in: imgRect)
+            drawContourOverlay(overlay, in: imgRect)
+            label.draw(at: CGPoint(x: x, y: y + cellHeight + 6), font: .boldSystemFont(ofSize: 12))
+            x += cellWidth + 24
+        }
+        y += cellHeight + 30
+
+        if let f = deformFactor {
+            "Deformation Pattern factor: raw \(String(format: "%.1f", f.rawScore)) / 100"
+                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 12))
+            y += 18
+            f.notes.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+        }
+    }
+
+    /// Looks up the source `CapturedPhoto` an overlay was traced from and
+    /// decodes it as a `UIImage` for drawing. Returns `nil` (never a
+    /// fabricated placeholder) if the overlay is missing or its source
+    /// photo can no longer be found/decoded.
+    private func overlayImagePair(overlay: ContourOverlay?, vehicle: Vehicle) -> (UIImage, ContourOverlay)? {
+        guard let overlay,
+              let photo = vehicle.photos.first(where: { $0.id == overlay.sourcePhotoID }),
+              let image = UIImage(data: photo.imageData) else { return nil }
+        return (image, overlay)
+    }
+
+    /// Draws Vision's detected contour boundary as a highlighted outline
+    /// on top of `imageRect`. NOTE(AI Developer): Vision's
+    /// `normalizedPoints` are in a bottom-left-origin 0-1 coordinate
+    /// space, but `UIGraphicsPDFRenderer`/`CGContext` here use a
+    /// top-left-origin space (matching where `image.draw(in:)` places
+    /// the pixel at y=0) — the Y axis MUST be flipped
+    /// (`1 - normalizedPoint.y`) or the outline is drawn upside-down
+    /// relative to the photo. See `ContourOverlay.normalizedPoints`'s
+    /// doc comment for the same warning.
+    private func drawContourOverlay(_ overlay: ContourOverlay, in imageRect: CGRect) {
+        guard let ctx = UIGraphicsGetCurrentContext(), overlay.normalizedPoints.count > 2 else { return }
+        ctx.saveGState()
+        let path = UIBezierPath()
+        for (i, p) in overlay.normalizedPoints.enumerated() {
+            let flippedY = 1 - p.y
+            let pt = CGPoint(
+                x: imageRect.minX + p.x * imageRect.width,
+                y: imageRect.minY + flippedY * imageRect.height
+            )
+            if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+        }
+        path.close()
+        UIColor.systemRed.withAlphaComponent(0.9).setStroke()
+        path.lineWidth = 2.5
+        path.stroke()
+        ctx.restoreGState()
+    }
+
+    // NOTE(AI Developer), added 2026-07 for the Scar-Direction
+    // Consistency feature -- PDF counterpart to `MatchResultsView
+    // .scarDirectionSection`. Deliberately kept off the composite score
+    // (mirrors `MatchScoreCalculator`'s "never blended into `factors`"
+    // rule) — purely presents `MatchResult.scarDirectionCheck` plus a
+    // prominent callout when `suspectExclusionReason` fires. Skipped
+    // entirely (no blank page) when no scar-direction check exists.
+    private func drawScarDirectionSection(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
+        guard let check = c.matchResult?.scarDirectionCheck else { return }
+
+        ctx.beginPage()
+        var y: CGFloat = 50
+        "Scar-Direction Consistency".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
+        y += 34
+
+        if let reason = c.matchResult?.suspectExclusionReason {
+            let boxRect = CGRect(x: 50, y: y, width: rect.width - 100, height: 60)
+            let path = UIBezierPath(roundedRect: boxRect, cornerRadius: 8)
+            UIColor.systemRed.withAlphaComponent(0.12).setFill()
+            path.fill()
+            "EXCLUSION WARNING".draw(at: CGPoint(x: boxRect.minX + 12, y: boxRect.minY + 8),
+                                       font: .boldSystemFont(ofSize: 12), color: .systemRed)
+            reason.draw(at: CGPoint(x: boxRect.minX + 12, y: boxRect.minY + 26),
+                        font: .systemFont(ofSize: 11), maxWidth: boxRect.width - 24, color: .darkGray)
+            y += 76
+        }
+
+        let statusText: String
+        switch check.status {
+        case .consistent: statusText = "Status: Consistent"
+        case .inconsistent: statusText = "Status: Conflict Detected"
+        case .notDeterminable: statusText = "Status: Not Determinable"
+        }
+        statusText.draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14))
+        y += 22
+
+        if let narrative = check.scenarioNarrative {
+            narrative.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
+            y += 40
+        }
+        if let vDesc = check.victimMotionDescription {
+            "Victim: \(vDesc)".draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+            y += 18
+        }
+        if let sDesc = check.suspectMotionDescription {
+            "Suspect: \(sDesc)".draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+            y += 18
+        }
+        if let delta = check.reciprocityDeltaDegrees {
+            String(format: "Reciprocity deviation: %.1f°", delta)
+                .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), color: .darkGray)
+            y += 18
+        }
+        if !check.notes.isEmpty {
+            check.notes.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
         }
     }
 

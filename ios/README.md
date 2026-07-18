@@ -362,7 +362,31 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   Genspark GitHub OAuth (`setup_github_environment`) has not succeeded for this project in any
   session — pushes require Sean to provide a fine-grained Personal Access Token each session, as
   the sandbox does not persist credentials across sessions.
-- **Last updated**: 2026-07-17 (dead-end regression fix: Damage Dimensions / Height Alignment / Material Transfer false-confidence guards)
+- **Last updated**: 2026-07-18 — three changes:
+  1. **Guided auto-capture on the main 30-shot protocol camera** (`CameraService`,
+     `CaptureCameraView`, `Vehicle.usesEvenLightingGate`): mirrors the standalone
+     Scar-Direction camera's Steady/Focused/conditional-Lighting auto-capture gates so the main
+     protocol camera can also fire the shutter automatically once framing is stable, in focus,
+     and (where required) evenly lit.
+  2. **"Analysis Evidence" PDF section — show that real analysis happened, not just uploaded
+     photos** (Sean: "we need to show that we did something with the images in the report, not
+     just show the pictures uploaded"). `DeformationMatcher.analyze()` now returns a
+     `DeformationResult` that, alongside the existing Deformation Pattern factor score, also
+     captures the actual Vision-detected damage-contour boundary (`VNDetectContoursRequest`,
+     thinned to ≤200 points) for both vehicles. `MatchScoreCalculator.evaluate()` persists this
+     once, at analysis time, as `MatchResult.victimContourOverlay`/`suspectContourOverlay`
+     (paired with the exact source photo ID it was traced from) — `PDFReportGenerator` never
+     re-runs Vision at report-render time (`AnalysisViewModel.generateReport()` calls it
+     synchronously, so a Vision re-run there would risk the same main-thread hang/OOM issues
+     already hit twice on this pipeline). The new `drawAnalysisEvidence` PDF page draws the
+     Y-flipped contour outline directly over each vehicle's actual damage photo, with the
+     Deformation Pattern factor's raw score/notes as a caption.
+  3. **Scar-Direction Consistency surfaced in both the app and the PDF**: `MatchResultsView` now
+     shows a dedicated section (status, scenario narrative, per-vehicle motion description,
+     reciprocity deviation) reading the already-existing `AnalysisViewModel.scarDirectionCheck`/
+     `.suspectExclusionReason`, with a prominent red exclusion-warning callout when the hard
+     exclusion rule fires. `PDFReportGenerator.drawScarDirectionSection` mirrors this in the
+     report.
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
   LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, LiDAR
   startup/interruption feedback, the Car/Truck silhouette toggle with fender/bumper landmarks,
