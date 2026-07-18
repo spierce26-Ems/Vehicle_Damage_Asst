@@ -329,25 +329,37 @@ struct CaptureCameraView: View {
     /// `PhotoType.usesEvenLightingGate`; wide/context/profile shots
     /// don't show a Lighting chip at all since it's never a requirement
     /// for them).
+    // NOTE(AI Developer), reworked 2026-07 alongside the identical fix in
+    // `ScarCaptureView.statusChips` (see that file's comment for the full
+    // root-cause writeup, confirmed via an on-device screenshot of that
+    // screen) -- same three-`.fixedSize`-capsules-in-one-`HStack` pattern
+    // here has the same latent overflow risk once the Lighting chip's
+    // longer messages are shown, so it gets the same two-row fix:
+    // Steady/Focused on row one, Lighting (when shown) alone on row two
+    // at full width with `.minimumScaleFactor` instead of being clipped.
     private var autoCaptureStatusChips: some View {
-        HStack(spacing: 10) {
-            autoCaptureStatusChip(label: "Steady", isGood: camera.isSteady, systemImage: "hand.raised.fill")
-            autoCaptureStatusChip(label: "Focused", isGood: camera.isFocused, systemImage: "camera.metering.spot")
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                autoCaptureStatusChip(label: "Steady", isGood: camera.isSteady, systemImage: "hand.raised.fill")
+                autoCaptureStatusChip(label: "Focused", isGood: camera.isFocused, systemImage: "camera.metering.spot")
+            }
             if viewModel.nextShotType?.usesEvenLightingGate == true {
-                autoCaptureStatusChip(label: camera.lightingMessage, isGood: camera.isWellLit, systemImage: "sun.max.fill")
+                autoCaptureStatusChip(label: camera.lightingMessage, isGood: camera.isWellLit, systemImage: "sun.max.fill", fillWidth: true)
             }
         }
     }
 
-    private func autoCaptureStatusChip(label: String, isGood: Bool, systemImage: String) -> some View {
+    private func autoCaptureStatusChip(label: String, isGood: Bool, systemImage: String, fillWidth: Bool = false) -> some View {
         Label(label, systemImage: isGood ? "checkmark.circle.fill" : systemImage)
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(fillWidth ? 0.75 : 1)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(isGood ? Color.green.opacity(0.75) : Color.black.opacity(0.55), in: Capsule())
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
+            .frame(maxWidth: fillWidth ? .infinity : nil)
+            .fixedSize(horizontal: !fillWidth, vertical: false)
     }
 
     /// NOTE(AI Developer), added 2026-07 per Sean's request ("we also

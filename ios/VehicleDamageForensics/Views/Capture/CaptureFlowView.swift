@@ -82,7 +82,23 @@ struct CaptureFlowView: View {
         // (it has two internal stages with their own toolbar), unlike
         // `ImpactMarkerView` above, so it isn't wrapped in a second one
         // here.
-        .sheet(isPresented: $showScarCapture) {
+        //
+        // NOTE(AI Developer), changed 2026-07 from `.sheet` to
+        // `.fullScreenCover` per Sean's on-device report ("does not fit
+        // well within the view of the app... [Ready button] is low on
+        // the screen and can't activate it"). A `.sheet` on iOS renders
+        // shorter than the true device height (card presentation, extra
+        // top inset for the grab handle) -- fine for a static form like
+        // `ImpactMarkerView`, but `ScarCaptureView`'s aiming stage is a
+        // live full-bleed camera view whose own internal layout
+        // (`.ignoresSafeArea()` preview + a bottom-anchored controls
+        // stack) assumes it owns the full screen. On a `.sheet` that
+        // assumption was false, silently eating into exactly the
+        // vertical space the Ready/library/shutter controls needed.
+        // `.fullScreenCover` gives it the full device height it was
+        // already designed for, on top of the same screen's own layout
+        // tightening (see `aimingStage`'s reworked bottom controls).
+        .fullScreenCover(isPresented: $showScarCapture) {
             ScarCaptureView(viewModel: viewModel)
         }
         // NOTE(AI Developer), added 2026-07 -- see `showPhotoReview`

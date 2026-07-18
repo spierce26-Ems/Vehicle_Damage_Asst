@@ -175,19 +175,36 @@ struct ScarCaptureView: View {
                     readyButton
                         .padding(.bottom, 10)
                 }
-                // NOTE(AI Developer), added 2026-07 -- see
-                // `selectedPhotoItem`/`photoLibraryButton` above. Placed
-                // as its own row above the shutter (rather than beside
-                // it, `CaptureCameraView`-style) since this guide-box
-                // camera's shutter is already the sole element in its
-                // row; adding a second control there would crowd the
-                // guide box's own bottom edge.
-                photoLibraryButton
-                    .padding(.bottom, 10)
-                autoCaptureRingAndShutter
-                    .padding(.bottom, 32)
+                // NOTE(AI Developer), reworked 2026-07 per Sean's
+                // on-device report ("does not fit well within the
+                // view... the [Ready button] is low on the screen and
+                // can't activate it... cannot upload... from the
+                // roll"). The library button used to be its own
+                // stacked row ABOVE the shutter -- on top of
+                // topInstruction/statusChips/readyButton already
+                // stacked above THAT, the total column of bottom-
+                // anchored content ran taller than some devices' visible
+                // sheet height, pushing the library button and/or the
+                // Ready button below the bottom edge where they existed
+                // but couldn't be reached/tapped. Fixed by folding the
+                // library button into the SAME row as the shutter
+                // (`CaptureCameraView`'s existing library—shutter—skip
+                // pattern, minus the skip slot this screen doesn't have)
+                // instead of giving it its own row -- one fewer stacked
+                // row, so everything above it (Ready button included)
+                // sits that much higher and stays on-screen.
+                HStack {
+                    photoLibraryButton
+                    Spacer()
+                    autoCaptureRingAndShutter
+                    Spacer()
+                    Color.clear.frame(width: 56, height: 56)
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 24)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top)
 
             // Brief green "snap" flash the instant auto-capture fires --
             // paired with the haptic in `performCapture(auto:)` to mirror
@@ -257,24 +274,44 @@ struct ScarCaptureView: View {
         .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
     }
 
+    // NOTE(AI Developer), reworked 2026-07 per Sean's on-device report
+    // ("the screen is not formatted properly... does not fit well") with
+    // a screenshot showing the chip row clipped at BOTH edges ("teady"
+    // on the left, the lighting message cut off mid-word on the right).
+    // Root cause: three `.fixedSize(horizontal: true, ...)` capsules in
+    // one `HStack` -- each forced to its own natural/unconstrained width
+    // -- combined with `camera.lightingMessage`'s longest string
+    // ("Uneven light across scar — even out shadows/glare", ~48 chars)
+    // simply don't fit on a phone screen's width at once. Fixed by
+    // splitting into two rows: Steady/Focused (always short, kept at
+    // natural fixed width) on row one, and the Lighting chip alone on
+    // row two -- given the FULL screen width to itself and allowed to
+    // shrink its own text (`.minimumScaleFactor`) rather than being
+    // truncated/clipped, since "Uneven light across scar — even out
+    // shadows/glare" clipped mid-word is actively misleading (reads as
+    // if lighting is fine when it isn't).
     private var statusChips: some View {
-        HStack(spacing: 10) {
-            statusChip(label: "Steady", isGood: camera.isSteady, systemImage: "hand.raised.fill")
-            statusChip(label: "Focused", isGood: camera.isFocused, systemImage: "camera.metering.spot")
-            statusChip(label: camera.lightingMessage, isGood: camera.isWellLit, systemImage: "sun.max.fill")
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                statusChip(label: "Steady", isGood: camera.isSteady, systemImage: "hand.raised.fill")
+                statusChip(label: "Focused", isGood: camera.isFocused, systemImage: "camera.metering.spot")
+            }
+            statusChip(label: camera.lightingMessage, isGood: camera.isWellLit, systemImage: "sun.max.fill", fillWidth: true)
         }
         .padding(.bottom, 12)
     }
 
-    private func statusChip(label: String, isGood: Bool, systemImage: String) -> some View {
+    private func statusChip(label: String, isGood: Bool, systemImage: String, fillWidth: Bool = false) -> some View {
         Label(label, systemImage: isGood ? "checkmark.circle.fill" : systemImage)
             .font(.caption2.weight(.semibold))
             .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(fillWidth ? 0.75 : 1)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(isGood ? Color.green.opacity(0.75) : Color.black.opacity(0.55), in: Capsule())
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
+            .frame(maxWidth: fillWidth ? .infinity : nil)
+            .fixedSize(horizontal: !fillWidth, vertical: false)
     }
 
     /// NOTE(AI Developer), added 2026-07 alongside `ScarCaptureCameraService
@@ -384,18 +421,21 @@ struct ScarCaptureView: View {
 
     /// NOTE(AI Developer), added 2026-07 per Sean's explicit request ("we
     /// need to be able to upload an image for scar from the roll as
-    /// well"). Mirrors `CaptureCameraView.photoLibraryButton` visually
-    /// (same 56x56 circle affordance) so the two capture screens feel
-    /// consistent, but labeled here rather than icon-only since this
-    /// screen doesn't already have a labeled shutter row to sit beside.
+    /// well"); restyled 2026-07 to match `CaptureCameraView
+    /// .photoLibraryButton`'s icon-only 56x56 circle exactly (was a
+    /// labeled pill on its own row -- see that removed row's NOTE at its
+    /// call site above for why the labeled-pill-on-its-own-row layout
+    /// got folded into this screen's shutter row instead).
     private var photoLibraryButton: some View {
         PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-            Label("Choose from Library", systemImage: "photo.on.rectangle")
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.black.opacity(0.45), in: Capsule())
-                .foregroundStyle(.white)
+            Circle()
+                .fill(.black.opacity(0.45))
+                .frame(width: 56, height: 56)
+                .overlay(
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                )
         }
         .disabled(isImportingPhoto)
         .onChange(of: selectedPhotoItem) { _, newItem in
