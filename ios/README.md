@@ -387,6 +387,50 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
      `.suspectExclusionReason`, with a prominent red exclusion-warning callout when the hard
      exclusion rule fires. `PDFReportGenerator.drawScarDirectionSection` mirrors this in the
      report.
+- **2026-07-18 changes, part 2** (Sean's on-device bug report on the Scar-Direction capture
+  screen — layout fit, drag, and library-import issues):
+  1. **Status-chip overflow fixed** — `ScarCaptureView.statusChips` and `CaptureCameraView
+     .autoCaptureStatusChips` each packed three `.fixedSize(horizontal: true, ...)` capsules
+     (Steady/Focused/Lighting) into one `HStack` with no wrapping; the longest lighting message
+     ("Uneven light across scar — even out shadows/glare") overflowed the screen width, clipping
+     text at both edges — confirmed exactly via Sean's screenshot. Fixed identically in both
+     files: Steady/Focused on one row, Lighting alone on a second row at full width with
+     `.minimumScaleFactor` instead of being clipped.
+  2. **Scar-capture screen not fitting the device / Ready button unreachable** — root cause was
+     `CaptureFlowView` presenting `ScarCaptureView` via `.sheet` (which renders shorter than true
+     device height) even though `ScarCaptureView`'s own layout (full-bleed camera preview +
+     stacked bottom controls) assumed it owned the full screen. Switched to `.fullScreenCover`.
+     Also reduced the stacked-control row count in `aimingStage` by merging the photo-library
+     button into the same row as the shutter (library — shutter — centering spacer), matching
+     `CaptureCameraView`'s existing library—shutter—skip layout, so the Ready button above it sits
+     higher and stays on-screen.
+  3. **"Only the red marker can be moved" / "cannot upload from the roll" — root cause was
+     unpushed commits, not a code defect**: comparing local `main` against `github/main` showed
+     local was 3 commits ahead (photo review/retake, the scar-capture nudge/import UX, the B2
+     model layer) that had never actually been pushed — so Sean's on-device build was running
+     code from before those fixes existed. The nearest-endpoint drag disambiguation and the
+     `PhotosPicker` library-import button were already correctly implemented; they just hadn't
+     reached the device. All pending commits plus this round's layout fixes were pushed to
+     `github/main` in one push (the library button was also restyled to an icon-only circle to
+     match `CaptureCameraView`'s look now that it shares a row with the shutter).
+  4. **Fingerprint-style scar matching — answered, not built**: Sean asked whether scars are
+     analyzed "similar to a fingerprint" (discrete, isolated markings matched between vehicles)
+     and, if not, whether they should be. Confirmed the current pipeline (`ScarLineSuggester
+     .suggestLine`, `ColorAnalysis.detectScarTaper`) only extracts a single dominant line plus a
+     binary taper direction — it does **not** do multi-feature/landmark extraction-and-matching.
+     A real fingerprint-style approach (isolating multiple discrete sub-marks along the scar,
+     describing each by position/width/spacing, then nearest-neighbor matching feature sets
+     between victim/suspect scars for a match count) was scoped as a substantial new capability
+     and is **not yet built** — awaiting Sean's go-ahead before starting.
+- **2026-07-18 changes, part 3** (Answer B2 UI/PDF wiring): the `ScarLineComparison` model-layer
+  addition from the prior round (built but never consumed) is now wired into both surfaces Sean
+  asked for:
+  - `MatchResultsView.scarLineComparisonSection` — new section showing victim vs. suspect scar
+    line length/angle/position side-by-side (via `ScarLineComparison.build(victim:suspect:
+    check:)`), plus the reciprocity-deviation number reused from the existing Scar-Direction
+    Consistency check. Shown only when at least one vehicle has a marked scar line.
+  - `PDFReportGenerator.drawScarLineComparison` — same data, same two-column layout, in the PDF
+    report, inserted right after the existing Scar-Direction Consistency page.
 - **Note**: the 2026-07-16 changes (impact-profile capture, score renormalization, skip-a-shot,
   LiDAR tap-to-measure height wiring, the `automaticallyConfigureSession` mesh-scan fix, LiDAR
   startup/interruption feedback, the Car/Truck silhouette toggle with fender/bumper landmarks,
@@ -454,6 +498,15 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   they just silently carry no signal, so they were left as-is pending Sean's prioritization.
   **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file;
   only brace/paren/bracket balance was checked.
+- **2026-07-18 changes, parts 2 & 3 — build/test state**: same no-Xcode-toolchain caveat — only
+  brace/paren/bracket balance was checked (ScarCaptureView.swift, CaptureCameraView.swift,
+  CaptureFlowView.swift, MatchResultsView.swift, PDFReportGenerator.swift), nothing has been
+  compiled. Please rebuild/reinstall from main and re-test on-device: (1) the scar-capture
+  screen now fits/fills the full display, (2) both scar-line endpoints (front/red and rear) can
+  each be dragged independently by touching near that specific dot, (3) the photo-library import
+  button appears next to the shutter and successfully imports a photo, (4) the Ready button is
+  reachable once all gates are green, and (5) the new Scar Line Comparison section appears on the
+  Results screen and in the generated PDF whenever at least one vehicle has a marked scar line.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
