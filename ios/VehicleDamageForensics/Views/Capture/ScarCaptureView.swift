@@ -155,6 +155,14 @@ struct ScarCaptureView: View {
     private enum FocusRegionHandle { case topLeft, topRight, bottomLeft, bottomRight }
     @State private var activeFocusHandle: FocusRegionHandle?
     @State private var isDraggingFocusBody = false
+    /// Named struct (not an anonymous tuple) so `@State` holds a concrete,
+    /// SourceKit-friendly type -- tuples in `@State` are legal but are a
+    /// known rough edge for the editor's live type-checker.
+    private struct FocusDragStart {
+        var min: CGPoint
+        var max: CGPoint
+        var touch: CGPoint
+    }
     /// Captured once at the start of a body-move drag (not updated mid-
     /// drag) so the whole rect translates by the touch's total offset
     /// from where the drag started, rather than compounding per-frame
@@ -162,7 +170,7 @@ struct ScarCaptureView: View {
     /// approach `DragGesture.onChanged`'s `value.translation` already
     /// uses natively; done manually here since the move needs to clamp
     /// against the image bounds using both corners together.
-    @State private var focusBodyDragStart: (min: CGPoint, max: CGPoint, touch: CGPoint)?
+    @State private var focusBodyDragStart: FocusDragStart?
     /// Smallest allowed box dimension (normalized) -- prevents a resize
     /// drag from collapsing the box to zero/negative size, which would
     /// make `ToolMarkExtractor`/`ScarFingerprintExtractor`'s focus-region
@@ -722,7 +730,7 @@ struct ScarCaptureView: View {
                         DragGesture(minimumDistance: 0)
                             .onChanged { value in
                                 if focusBodyDragStart == nil {
-                                    focusBodyDragStart = (min: focusRegionMin, max: focusRegionMax, touch: value.startLocation)
+                                    focusBodyDragStart = FocusDragStart(min: focusRegionMin, max: focusRegionMax, touch: value.startLocation)
                                 }
                                 guard let start = focusBodyDragStart else { return }
                                 let dxNorm = (value.location.x - start.touch.x) / w
