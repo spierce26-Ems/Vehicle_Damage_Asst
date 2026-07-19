@@ -799,7 +799,8 @@ final class CaptureViewModel: ObservableObject {
     func recordScarDirection(
         lineStart: CGPoint,
         lineEnd: CGPoint,
-        frontEndpoint: ScarEndpoint
+        frontEndpoint: ScarEndpoint,
+        focusRegion: CGRect? = nil
     ) async {
         func resolvedDirection(image: UIImage, referenceColor: ColorRGB?) -> ScarSlideDirection? {
             guard let referenceColor,
@@ -822,7 +823,8 @@ final class CaptureViewModel: ObservableObject {
         func extractedMinutiae(image: UIImage, referenceColor: ColorRGB?) -> [ScarMinutia] {
             ScarFingerprintExtractor.extractMinutiae(
                 in: image, lineStart: lineStart, lineEnd: lineEnd,
-                frontEndpoint: frontEndpoint, referenceColor: referenceColor
+                frontEndpoint: frontEndpoint, referenceColor: referenceColor,
+                focusRegion: focusRegion
             )
         }
 
@@ -836,7 +838,8 @@ final class CaptureViewModel: ObservableObject {
         // `ToolMarkAnalysis.swift`'s header for the full algorithm.
         func extractedStriationProfile(image: UIImage) -> StriationProfile? {
             ToolMarkExtractor.extractStriationProfile(
-                in: image, lineStart: lineStart, lineEnd: lineEnd, frontEndpoint: frontEndpoint
+                in: image, lineStart: lineStart, lineEnd: lineEnd, frontEndpoint: frontEndpoint,
+                focusRegion: focusRegion
             )
         }
 

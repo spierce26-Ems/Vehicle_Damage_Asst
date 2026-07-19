@@ -220,7 +220,8 @@ enum ToolMarkExtractor {
         in image: UIImage,
         lineStart: CGPoint,
         lineEnd: CGPoint,
-        frontEndpoint: ScarEndpoint
+        frontEndpoint: ScarEndpoint,
+        focusRegion: CGRect? = nil
     ) -> StriationProfile? {
         guard let cg = image.cgImage else { return nil }
         let pixelWidth = cg.width
@@ -253,10 +254,40 @@ enum ToolMarkExtractor {
         let maxXNorm = max(front.x, rear.x)
         let minYNorm = min(front.y, rear.y)
         let maxYNorm = max(front.y, rear.y)
-        let minPxX = max(0, Int((Double(minXNorm) * Double(pixelWidth) - probeMarginPx).rounded(.down)))
-        let maxPxX = min(pixelWidth - 1, Int((Double(maxXNorm) * Double(pixelWidth) + probeMarginPx).rounded(.up)))
-        let minPxY = max(0, Int((Double(minYNorm) * Double(pixelHeight) - probeMarginPx).rounded(.down)))
-        let maxPxY = min(pixelHeight - 1, Int((Double(maxYNorm) * Double(pixelHeight) + probeMarginPx).rounded(.up)))
+        var minPxX = max(0, Int((Double(minXNorm) * Double(pixelWidth) - probeMarginPx).rounded(.down)))
+        var maxPxX = min(pixelWidth - 1, Int((Double(maxXNorm) * Double(pixelWidth) + probeMarginPx).rounded(.up)))
+        var minPxY = max(0, Int((Double(minYNorm) * Double(pixelHeight) - probeMarginPx).rounded(.down)))
+        var maxPxY = min(pixelHeight - 1, Int((Double(maxYNorm) * Double(pixelHeight) + probeMarginPx).rounded(.up)))
+
+        // NOTE(AI Developer), added 2026-07 per Sean's on-device report
+        // that this analysis "somehow use part of the image of the tape
+        // measure as part of the vehicle damage." The margin-padded crop
+        // above is generous enough (headroom for the ±25° angle fan) to
+        // regularly reach a ruler, background trim, or another panel
+        // sitting just outside the marked line's own bounding box -- and
+        // a tape measure's printed tick marks are, by construction, fine
+        // evenly-spaced high-contrast parallel lines, i.e. exactly the
+        // signal `highPassFilter`/`findStriationPeaks` is built to treat
+        // as a confident striation rhythm. `CapturedPhoto.scarFocusRegion`
+        // (drawn by the user in `ScarCaptureView.focusRegionStage`) is a
+        // HARD boundary against that: when present, it's intersected
+        // with the margin-padded crop rect below, so `PixelCrop`'s own
+        // bounds physically cannot include anything the user didn't draw
+        // the box around -- not just a "prefer this area" hint. Falls
+        // back to the unrestricted margin-padded crop (this function's
+        // pre-existing behavior) when `focusRegion` is `nil`, i.e. for
+        // any scar marked before this feature existed.
+        if let focusRegion {
+            let regionMinPxX = Int((Double(focusRegion.minX) * Double(pixelWidth)).rounded(.down))
+            let regionMaxPxX = Int((Double(focusRegion.maxX) * Double(pixelWidth)).rounded(.up))
+            let regionMinPxY = Int((Double(focusRegion.minY) * Double(pixelHeight)).rounded(.down))
+            let regionMaxPxY = Int((Double(focusRegion.maxY) * Double(pixelHeight)).rounded(.up))
+            minPxX = max(minPxX, regionMinPxX)
+            maxPxX = min(maxPxX, regionMaxPxX)
+            minPxY = max(minPxY, regionMinPxY)
+            maxPxY = min(maxPxY, regionMaxPxY)
+        }
+
         guard maxPxX > minPxX, maxPxY > minPxY,
               let crop = PixelCrop(cgImage: cg, pixelRect: CGRect(
                 x: minPxX, y: minPxY,
