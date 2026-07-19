@@ -826,6 +826,20 @@ final class CaptureViewModel: ObservableObject {
             )
         }
 
+        // NOTE(AI Developer), added 2026-07 for the tool-mark/striation
+        // matching feature (Sean: "we are basically looking for tooling
+        // marks on each vehicle from the other"). A second, independent
+        // extraction alongside `extractedMinutiae` above -- unlike that
+        // one, this needs no reference color (striation rhythm is a pure
+        // texture signal, not a paint-transfer-density signal), so it
+        // runs unconditionally whenever the line is (re-)marked. See
+        // `ToolMarkAnalysis.swift`'s header for the full algorithm.
+        func extractedStriationProfile(image: UIImage) -> StriationProfile? {
+            ToolMarkExtractor.extractStriationProfile(
+                in: image, lineStart: lineStart, lineEnd: lineEnd, frontEndpoint: frontEndpoint
+            )
+        }
+
         let wasAlreadyRecorded: Bool
         switch captureRole {
         case .victim:
@@ -838,6 +852,7 @@ final class CaptureViewModel: ObservableObject {
             let referenceColor = forensicCase.victimVehicle.primaryDamageZone?.paintAnalysis?.primaryColorRGB
             forensicCase.victimVehicle.scarSlideDirection = resolvedDirection(image: image, referenceColor: referenceColor)
             forensicCase.victimVehicle.scarPhoto?.scarMinutiae = extractedMinutiae(image: image, referenceColor: referenceColor)
+            forensicCase.victimVehicle.scarPhoto?.toolMarkStriationProfile = extractedStriationProfile(image: image)
         case .suspect:
             if forensicCase.suspectVehicle == nil {
                 forensicCase.suspectVehicle = Vehicle(role: .suspect)
@@ -856,6 +871,7 @@ final class CaptureViewModel: ObservableObject {
             let referenceColor = suspect.primaryDamageZone?.paintAnalysis?.primaryColorRGB
             suspect.scarSlideDirection = resolvedDirection(image: image, referenceColor: referenceColor)
             suspect.scarPhoto?.scarMinutiae = extractedMinutiae(image: image, referenceColor: referenceColor)
+            suspect.scarPhoto?.toolMarkStriationProfile = extractedStriationProfile(image: image)
             forensicCase.suspectVehicle = suspect
         }
 

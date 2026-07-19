@@ -95,6 +95,24 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     /// same non-punitive principle as `scarSlideDirection == nil`.
     var scarMinutiae: [ScarMinutia] = []
 
+    /// NOTE(AI Developer), added 2026-07 per Sean's explicit request:
+    /// "we should be able to analyse both images and run them through an
+    /// algorithm that looks closely and the lines and measure the
+    /// distance between to see if the same fingerprint... We are
+    /// basically looking for tooling marks on each vehicle from the
+    /// other." The fine parallel striation/scratch-spacing rhythm
+    /// `ToolMarkExtractor.extractStriationProfile` found ACROSS this
+    /// photo's marked scar's width (a different signal from
+    /// `scarMinutiae`, which only looks along the scar's LENGTH -- see
+    /// `ToolMarkAnalysis.swift`'s header for the full rationale).
+    /// Computed and persisted alongside `scarMinutiae`, same "extract
+    /// once at mark time, never re-run Vision/pixel sampling later"
+    /// discipline. `nil` until the scar line is (re-)marked; distinct
+    /// from an empty/non-determinable `StriationProfile` (which means
+    /// extraction ran but found too little texture detail -- see
+    /// `StriationProfile.isDeterminable`).
+    var toolMarkStriationProfile: StriationProfile?
+
     /// Which of the two line endpoints above is nearer this vehicle's own
     /// front. NOTE(AI Developer): a close-up photo of a scrape has no
     /// inherent "which way is toward the front" reference on its own
@@ -133,6 +151,7 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         scarLineStart: CGPoint? = nil,
         scarLineEnd: CGPoint? = nil,
         scarMinutiae: [ScarMinutia] = [],
+        toolMarkStriationProfile: StriationProfile? = nil,
         scarFrontEndpoint: ScarEndpoint? = nil
     ) {
         self.id = id
@@ -153,6 +172,7 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.scarLineStart = scarLineStart
         self.scarLineEnd = scarLineEnd
         self.scarMinutiae = scarMinutiae
+        self.toolMarkStriationProfile = toolMarkStriationProfile
         self.scarFrontEndpoint = scarFrontEndpoint
     }
 
@@ -198,6 +218,12 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         // same non-punitive backward-compat pattern as every other
         // scar-related field above.
         scarMinutiae = try c.decodeIfPresent([ScarMinutia].self, forKey: .scarMinutiae) ?? []
+        // `toolMarkStriationProfile` didn't exist before the tool-mark/
+        // striation matching feature -- every photo saved before this
+        // update decodes `nil` (no striation extraction attempted yet),
+        // same non-punitive backward-compat pattern as `scarMinutiae`
+        // above.
+        toolMarkStriationProfile = try c.decodeIfPresent(StriationProfile.self, forKey: .toolMarkStriationProfile)
         scarFrontEndpoint = try c.decodeIfPresent(ScarEndpoint.self, forKey: .scarFrontEndpoint)
     }
 

@@ -98,6 +98,22 @@ struct MatchResult: Codable, Equatable {
     /// than silently omitting the section.
     var scarFingerprintMatch: ScarFingerprintMatch?
 
+    /// NOTE(AI Developer), added 2026-07 for the tool-mark/striation
+    /// matching feature (Sean: "we are basically looking for tooling
+    /// marks on each vehicle from the other"). A FOURTH, INDEPENDENT
+    /// scar-based signal alongside `scarDirectionCheck`/
+    /// `scarFingerprintMatch` -- this one compares the fine striation
+    /// SPACING RHYTHM found across each scar's width (see
+    /// `ToolMarkAnalysis.swift`'s header for the full rationale), the
+    /// closest analog in this app to real forensic tool-mark
+    /// examination. Same rule as every other scar-based check in this
+    /// file: NEVER blended into `compositeScore`/`factors`. `nil` only
+    /// for a `MatchResult` produced before this feature existed
+    /// (backward compat) or the no-suspect-vehicle early-return case --
+    /// a determinable-but-inconclusive result is represented by
+    /// `ToolMarkComparison.notDeterminable()`, not `nil`.
+    var toolMarkComparison: ToolMarkComparison?
+
     // MARK: Init
 
     init(
@@ -113,7 +129,8 @@ struct MatchResult: Codable, Equatable {
         suspectExclusionReason: String? = nil,
         victimContourOverlay: ContourOverlay? = nil,
         suspectContourOverlay: ContourOverlay? = nil,
-        scarFingerprintMatch: ScarFingerprintMatch? = nil
+        scarFingerprintMatch: ScarFingerprintMatch? = nil,
+        toolMarkComparison: ToolMarkComparison? = nil
     ) {
         self.analysisID = analysisID
         self.compositeScore = compositeScore
@@ -128,6 +145,7 @@ struct MatchResult: Codable, Equatable {
         self.victimContourOverlay = victimContourOverlay
         self.suspectContourOverlay = suspectContourOverlay
         self.scarFingerprintMatch = scarFingerprintMatch
+        self.toolMarkComparison = toolMarkComparison
     }
 
     // MARK: Codable (backward-compatible with the old `probabilityRange` key)
@@ -169,13 +187,20 @@ struct MatchResult: Codable, Equatable {
         // non-punitive backward-compat treatment as
         // `scarDirectionCheck`/the contour overlays above).
         scarFingerprintMatch = try c.decodeIfPresent(ScarFingerprintMatch.self, forKey: .scarFingerprintMatch)
+        // NOTE(AI Developer): decodeIfPresent so any MatchResult JSON
+        // persisted before the tool-mark/striation matching feature
+        // existed still loads correctly (comes back nil, same
+        // non-punitive backward-compat treatment as
+        // `scarFingerprintMatch` above).
+        toolMarkComparison = try c.decodeIfPresent(ToolMarkComparison.self, forKey: .toolMarkComparison)
     }
 
     private enum CodingKeys: String, CodingKey {
         case analysisID, compositeScore, scoreRangeLabel, confidence, factors,
              recommendations, analysisDate, processingTimeSeconds,
              scarDirectionCheck, suspectExclusionReason,
-             victimContourOverlay, suspectContourOverlay, scarFingerprintMatch
+             victimContourOverlay, suspectContourOverlay, scarFingerprintMatch,
+             toolMarkComparison
         case legacyProbabilityRange = "probabilityRange"
     }
 
@@ -204,6 +229,7 @@ struct MatchResult: Codable, Equatable {
         try c.encodeIfPresent(victimContourOverlay, forKey: .victimContourOverlay)
         try c.encodeIfPresent(suspectContourOverlay, forKey: .suspectContourOverlay)
         try c.encodeIfPresent(scarFingerprintMatch, forKey: .scarFingerprintMatch)
+        try c.encodeIfPresent(toolMarkComparison, forKey: .toolMarkComparison)
     }
 
     // MARK: Computed
