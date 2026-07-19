@@ -48,6 +48,7 @@ struct PDFReportGenerator {
                 drawScarDirectionSection(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawScarLineComparison(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawScarFingerprintMatch(ctx: ctx, rect: pageRect, case: forensicCase)
+                drawToolMarkComparison(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawPhotoEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawChainOfCustody(ctx: ctx, rect: pageRect, case: forensicCase)
             }
@@ -465,6 +466,67 @@ struct PDFReportGenerator {
         let leftEndY = drawMinutiaeColumn(title: "Victim", minutiae: match.victimMinutiae, matchedIDs: victimMatchedIDs, x: leftX)
         let rightEndY = drawMinutiaeColumn(title: "Suspect", minutiae: match.suspectMinutiae, matchedIDs: suspectMatchedIDs, x: rightX)
         _ = max(leftEndY, rightEndY)
+    }
+
+    // NOTE(AI Developer), added 2026-07 for the tool-mark/striation
+    // matching feature -- PDF counterpart to `MatchResultsView
+    // .toolMarkSection`. Reads `MatchResult.toolMarkComparison` directly
+    // (computed once at analysis time by `MatchScoreCalculator
+    // .evaluate()`, never recomputed here) so the on-screen and PDF
+    // presentations can't drift apart. Skipped entirely (no blank page)
+    // when no tool-mark result exists at all (a `MatchResult` from
+    // before this feature existed) -- but still renders a page for the
+    // determinable-but-inconclusive case, same "explain why not"
+    // principle as `drawScarFingerprintMatch`.
+    private func drawToolMarkComparison(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
+        guard let comparison = c.matchResult?.toolMarkComparison else { return }
+
+        ctx.beginPage()
+        var y: CGFloat = 50
+        "Tool-Mark / Striation Matching".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
+        y += 26
+        "Looks across each scar's width for fine parallel scratch/gouge lines (tooling marks) and compares the spacing rhythm between them -- independent of photo distance, angle, or zoom, and checked in both normal and mirrored order to account for a victim/suspect stamp-and-impression relationship."
+            .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
+        y += 40
+
+        if let score = comparison.matchScorePercent, let orientation = comparison.orientationUsed {
+            String(format: "%.0f%% Striation Rhythm Match", score)
+                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 16))
+            y += 20
+            let orientationLine = orientation == .reversed
+                ? "Best alignment found in reverse order (stamp/impression pair)"
+                : "Best alignment found in the same order on both vehicles"
+            orientationLine.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), color: .darkGray)
+            y += 18
+        }
+        comparison.summary.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
+        y += 34
+
+        let columnWidth = (rect.width - 100 - 30) / 2
+        let leftX: CGFloat = 50
+        let rightX: CGFloat = 50 + columnWidth + 30
+        let startY = y
+
+        func drawProfileColumn(title: String, profile: StriationProfile, x: CGFloat) -> CGFloat {
+            var cy = startY
+            "\(title) (\(profile.crossSections.count) probes)".draw(at: CGPoint(x: x, y: cy), font: .boldSystemFont(ofSize: 12))
+            cy += 16
+            if !profile.isDeterminable {
+                "Not enough striation detail found".draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10), color: .darkGray)
+                cy += 14
+            } else {
+                for cs in profile.crossSections {
+                    String(format: "%.0f%%: %d marks found", cs.positionAlongLine * 100, cs.peakCount)
+                        .draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10), maxWidth: columnWidth, color: .darkGray)
+                    cy += 14
+                }
+            }
+            return cy
+        }
+
+        let leftEndY2 = drawProfileColumn(title: "Victim", profile: comparison.victimProfile, x: leftX)
+        let rightEndY2 = drawProfileColumn(title: "Suspect", profile: comparison.suspectProfile, x: rightX)
+        _ = max(leftEndY2, rightEndY2)
     }
 
     private func drawPhotoEvidence(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {

@@ -251,6 +251,15 @@ final class AnalysisViewModel: ObservableObject {
         forensicCase.matchResult?.scarFingerprintMatch
     }
 
+    /// NOTE(AI Developer), added 2026-07 for the tool-mark/striation
+    /// matching feature -- exposes `MatchResult.toolMarkComparison` to
+    /// `MatchResultsView`/`PDFReportGenerator`, mirroring
+    /// `scarFingerprintMatch` above. `nil` before analysis has run, or
+    /// for a `MatchResult` produced before this feature existed.
+    var toolMarkComparison: ToolMarkComparison? {
+        forensicCase.matchResult?.toolMarkComparison
+    }
+
     /// NOTE(AI Developer), added 2026-07 implementing Sean's explicit
     /// hard exclusion rule. Non-nil means BOTH a Height Alignment
     /// mismatch AND a Scar-Direction Consistency conflict were detected

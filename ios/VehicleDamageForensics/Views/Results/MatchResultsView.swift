@@ -46,6 +46,9 @@ struct MatchResultsView: View {
                     if let fpMatch = viewModel.scarFingerprintMatch {
                         scarFingerprintSection(fpMatch)
                     }
+                    if let toolMarkMatch = viewModel.toolMarkComparison {
+                        toolMarkSection(toolMarkMatch)
+                    }
                     recommendations
                     reportSection
                 } else {
@@ -492,6 +495,72 @@ struct MatchResultsView: View {
         case 40..<70: return .orange
         default: return .red
         }
+    }
+
+    // MARK: Tool-Mark / Striation Section
+
+    /// NOTE(AI Developer), added 2026-07 for the tool-mark/striation
+    /// matching feature (Sean: "we are basically looking for tooling
+    /// marks on each vehicle from the other"). A FOURTH, INDEPENDENT
+    /// scar-based section alongside Scar-Direction Consistency, Scar
+    /// Line Comparison, and Scar Fingerprint Matching above -- this one
+    /// is about the fine parallel striation/scratch-spacing RHYTHM found
+    /// ACROSS each scar's width (not along its length), the closest
+    /// analog in this app to a real forensic tool-mark examiner's
+    /// comparison. Always shown once analysis has run
+    /// (`viewModel.toolMarkComparison != nil`) -- even the "not enough
+    /// distinct detail to compare" case is shown, same "explain why not"
+    /// principle as `scarFingerprintSection`'s empty case.
+    private func toolMarkSection(_ comparison: ToolMarkComparison) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Tool-Mark / Striation Matching").font(.headline)
+            Text("Looks across each scar's width for fine parallel scratch/gouge lines (tooling marks) and compares the spacing rhythm between them -- independent of photo distance, angle, or zoom, and checked in both normal and mirrored order to account for a victim/suspect stamp-and-impression relationship.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
+            if let score = comparison.matchScorePercent, let orientation = comparison.orientationUsed {
+                Label(String(format: "%.0f%% Striation Rhythm Match", score), systemImage: "waveform.path")
+                    .font(.title3.bold())
+                    .foregroundStyle(scarFingerprintScoreColor(score))
+                Label(
+                    orientation == .reversed ? "Best alignment found in reverse order (stamp/impression pair)" : "Best alignment found in the same order on both vehicles",
+                    systemImage: orientation == .reversed ? "arrow.left.arrow.right" : "arrow.right"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Text(comparison.summary)
+                .font(.subheadline)
+
+            HStack(alignment: .top, spacing: 16) {
+                toolMarkColumn(title: "Victim", profile: comparison.victimProfile)
+                Divider()
+                toolMarkColumn(title: "Suspect", profile: comparison.suspectProfile)
+            }
+        }
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func toolMarkColumn(title: String, profile: StriationProfile) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(title) (\(profile.crossSections.count) probes)").font(.subheadline.bold())
+            if !profile.isDeterminable {
+                Text("Not enough striation detail found")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(profile.crossSections) { cs in
+                    Label(
+                        String(format: "%.0f%%: %d marks found", cs.positionAlongLine * 100, cs.peakCount),
+                        systemImage: "line.3.horizontal.decrease"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: Recommendations

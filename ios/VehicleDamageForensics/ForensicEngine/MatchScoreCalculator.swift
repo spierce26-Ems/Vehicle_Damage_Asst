@@ -117,6 +117,21 @@ struct MatchScoreCalculator {
             victim: victim.scarPhoto?.scarMinutiae ?? [],
             suspect: suspect.scarPhoto?.scarMinutiae ?? []
         )
+        // NOTE(AI Developer), added 2026-07 for the tool-mark/striation
+        // matching feature (Sean: "we are basically looking for tooling
+        // marks on each vehicle from the other") -- a FOURTH,
+        // INDEPENDENT scar-based signal alongside `scarCheck`/
+        // `scarFingerprintMatch` above (see `MatchResult
+        // .toolMarkComparison`'s doc comment). Same "purely a read of
+        // already-extracted data, never re-runs pixel sampling here"
+        // property as `scarFingerprintMatch` -- `toolMarkStriationProfile`
+        // was computed once at capture time by `CaptureViewModel
+        // .recordScarDirection`, so this comparison is cheap enough to
+        // run synchronously right alongside it.
+        let toolMarkComparison = ToolMarkMatcher.compare(
+            victim: victim.scarPhoto?.toolMarkStriationProfile ?? .empty(),
+            suspect: suspect.scarPhoto?.toolMarkStriationProfile ?? .empty()
+        )
         log("synchronous heuristic factors done, awaiting concurrent factors")
 
         let resolvedDeform = await deformResult
@@ -246,7 +261,8 @@ struct MatchScoreCalculator {
             suspectExclusionReason: suspectExclusionReason,
             victimContourOverlay: victimOverlay,
             suspectContourOverlay: suspectOverlay,
-            scarFingerprintMatch: scarFingerprintMatch
+            scarFingerprintMatch: scarFingerprintMatch,
+            toolMarkComparison: toolMarkComparison
         )
     }
 

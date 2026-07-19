@@ -540,6 +540,83 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   line marked (or no clean-panel reference recorded) shows the "not enough distinct detail to
   compare" wording rather than a fabricated score.
 
+- **2026-07-19 changes (existing-case-photo picker for scar marking, per Sean's explicit request
+  "I want the option to pick from roll or take a picture right then for the scar picture. Scar
+  picture may also be the same picture with paint transfer.")**: `ScarCaptureView` previously only
+  accepted a BRAND NEW photo for scar marking (live auto-capture or a fresh camera-roll import) —
+  there was no way to reuse an already-excellent `.closeupDamage`/`.paintTransfer` shot taken
+  moments earlier in the main protocol camera, even when that exact photo already clearly showed
+  both the scar and its paint-transfer taper. Added a third button (grid icon, next to the shutter
+  and photo-library buttons) opening `ExistingPhotoForScarPicker` — a thumbnail grid (modeled on
+  `PhotoReviewView.PhotoReviewCell`'s `LazyVGrid` layout) of this vehicle's already-captured
+  `.closeupDamage`/`.paintTransfer` photos, with a non-punitive empty state
+  (`ContentUnavailableView`) when none exist yet. Picking a photo reuses the existing
+  `installFreshlyCapturedPhoto(_:)` hand-off, landing in the `.marking` stage identically to a
+  fresh capture. No new files — both new views added as private structs at the bottom of
+  `ScarCaptureView.swift`, so no `project.pbxproj` changes were needed.
+- **2026-07-19 changes (Tool-Mark / Striation Matching, per Sean's explicit request: "we should be
+  able to analyse both images and run them through an algorithm that looks closely at the lines
+  and measure the distance between to see if the same fingerprint... change the light rays of the
+  image or change the spectrum somehow to really bring out unique characteristics that can be
+  matched at a high level of confidence just like finger prints. We are basically looking for
+  tooling marks on each vehicle from the other.")**: a FOURTH, independent scar-based signal
+  alongside Scar-Direction Consistency, Scar Line Comparison, and Scar Fingerprint Matching — this
+  one is a genuine forensic tool-mark/striation examination analog. New
+  `Utilities/ToolMarkAnalysis.swift` looks ACROSS the marked scar's width (not along its length,
+  which is what `ScarFingerprintAnalysis` already does) for fine parallel scratch/gouge lines, and
+  compares the SPACING RHYTHM between them, not their absolute size:
+  - **Computational "raking light"** (answering "change the light rays/spectrum"): a high-pass
+    filter subtracts a wide moving average from each cross-section's luminance profile, stripping
+    broad shading/color gradients and leaving only the fine, fast-varying texture ripples a real
+    raking (grazing) light would make visible.
+  - **Scale/distance invariance** (answering "regardless of the height or size of the picture" /
+    "match a close up... with an image that is not a closeup"): every gap between two detected
+    striations is expressed as a ratio of that cross-section's own mean gap, never raw pixels — so
+    a closeup and a wide shot of the same physical mark produce comparable "rhythm" sequences
+    despite completely different absolute scales.
+  - **Angle fan-out** (answering "analyse the scars from all angles"): probes several candidate
+    angles at each of 7 evenly-spaced positions along the line and keeps whichever reveals the
+    clearest periodic pattern, since the user only marks the scar's overall line, not the exact
+    angle individual tool marks run at.
+  - **"Stamp" pairing** (answering "granted it should be the opposite on the opposing vehicle
+    similar to a stamp"): `ToolMarkMatcher.compare` tries the suspect's rhythm both forward and
+    reversed against the victim's, and reports whichever orientation actually aligns
+    (`ToolMarkComparison.orientationUsed`) — a genuine impression-pair comparison, not an
+    identical-copy one.
+  - Non-punitive: too little real texture detail (too blurry/distant/smooth) reports "not enough
+    distinct striation detail to compare" (`matchScorePercent == nil`), never a fabricated
+    low/negative score — same principle as `ScarFingerprintMatch`/`ScarDirectionCheck.notDeterminable`.
+
+  Extraction (`ToolMarkExtractor.extractStriationProfile`) runs at capture time
+  (`CaptureViewModel.recordScarDirection`, both victim/suspect branches) alongside the existing
+  minutiae extraction, and is persisted on `CapturedPhoto.toolMarkStriationProfile`. The comparison
+  itself (`MatchResult.toolMarkComparison`) is computed in `MatchScoreCalculator.evaluate()` as a
+  read of that already-extracted data (no re-run of pixel sampling) — like every other scar-based
+  check in this app, it is deliberately NEVER blended into `compositeScore`/`factors`. Surfaced as
+  a new "Tool-Mark / Striation Matching" section on the Results screen
+  (`MatchResultsView.toolMarkSection`) and as its own PDF page
+  (`PDFReportGenerator.drawToolMarkComparison`), both showing each vehicle's per-position probe
+  results and the best-aligned orientation. `project.pbxproj` updated to register the new source
+  file (all 4 required entries: PBXBuildFile, PBXFileReference, Utilities group, Sources build
+  phase) via a verified Python line-insertion method (occurrence counts checked before/after),
+  not the file-editing tool.
+
+  **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file;
+  only brace/paren/bracket balance was checked on all 9 touched files (`ToolMarkAnalysis.swift`,
+  `CapturedPhoto.swift`, `CaptureViewModel.swift`, `MatchResult.swift`,
+  `MatchScoreCalculator.swift`, `AnalysisViewModel.swift`, `MatchResultsView.swift`,
+  `PDFReportGenerator.swift`, `ScarCaptureView.swift`) plus `project.pbxproj` (all balanced, with
+  `ToolMarkAnalysis.swift` confirmed present exactly 4 times). Please rebuild/reinstall from main
+  and re-test on-device: (1) the new grid-icon button on the scar aiming screen opens a thumbnail
+  picker of this vehicle's existing closeup-damage/paint-transfer photos and picking one advances
+  to line-marking on that photo, (2) marking a scar line on both vehicles runs without hanging or
+  crashing, (3) the new "Tool-Mark / Striation Matching" section renders on the Results screen once
+  both vehicles have a marked scar line, showing each vehicle's per-position striation counts and
+  the best-aligned orientation (same-direction vs. reversed), (4) the equivalent section appears as
+  its own page in the generated PDF, and (5) a case where one or both vehicles' scars are too
+  smooth/blurry/distant to show real striations shows the "not enough distinct striation detail to
+  compare" wording rather than a fabricated score.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
