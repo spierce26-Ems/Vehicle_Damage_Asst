@@ -51,6 +51,21 @@ struct ScarCaptureView: View {
     // fresh auto-capture would.
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var isImportingPhoto = false
+    // NOTE(AI Developer), added 2026-07 per Sean's explicit request: "I
+    // want the option to pick from roll or take a picture right then for
+    // the scar picture. Scar picture may also be the same picture with
+    // paint transfer." Root cause this fixes: this screen previously only
+    // accepted a BRAND NEW photo (live auto-capture or a fresh camera-roll
+    // import) -- there was no way to reuse an already-excellent
+    // `.closeupDamage`/`.paintTransfer` shot taken moments earlier in the
+    // main protocol camera (`CaptureCameraView`), even when that exact
+    // photo already clearly shows the scar and its paint-transfer taper
+    // (Sean's own example: a single photo good enough for both). Drives
+    // `existingPhotoPicker` -- a thumbnail grid of this vehicle's already-
+    // captured photos -- and reuses the SAME `installFreshlyCapturedPhoto`
+    // hand-off every other photo source already goes through, so a picked
+    // existing photo lands in `.marking` identically to a fresh capture.
+    @State private var showExistingPhotoPicker = false
     /// Briefly true right at the moment auto-capture fires, driving both
     /// the green full-screen flash (`autoCaptureFlash`) and a success
     /// haptic in `performCapture(auto:)` -- the "snap" feedback pairing
@@ -198,7 +213,13 @@ struct ScarCaptureView: View {
                     Spacer()
                     autoCaptureRingAndShutter
                     Spacer()
-                    Color.clear.frame(width: 56, height: 56)
+                    // NOTE(AI Developer), added 2026-07: this slot used
+                    // to be an inert `Color.clear` spacer only there to
+                    // keep `autoCaptureRingAndShutter` visually centered
+                    // against `photoLibraryButton`'s width -- now a real
+                    // third photo-source button, see `showExistingPhotoPicker`'s
+                    // doc comment above for why.
+                    existingPhotoButton
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 24)
@@ -222,6 +243,32 @@ struct ScarCaptureView: View {
                isPresented: .constant(lastError != nil),
                actions: { Button("OK") { lastError = nil } },
                message: { Text(lastError ?? "") })
+        .sheet(isPresented: $showExistingPhotoPicker) {
+            ExistingPhotoForScarPicker(
+                photos: existingVehicle?.photos.filter { $0.photoType == .closeupDamage || $0.photoType == .paintTransfer } ?? []
+            ) { chosen in
+                installFreshlyCapturedPhoto(chosen)
+                camera.stopSession()
+                showExistingPhotoPicker = false
+            }
+        }
+    }
+
+    /// Same 56x56 icon-circle affordance as `photoLibraryButton`, opening
+    /// `ExistingPhotoForScarPicker` instead of the OS photo library.
+    private var existingPhotoButton: some View {
+        Button {
+            showExistingPhotoPicker = true
+        } label: {
+            Circle()
+                .fill(.black.opacity(0.45))
+                .frame(width: 56, height: 56)
+                .overlay(
+                    Image(systemName: "square.grid.2x2")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                )
+        }
     }
 
     /// Dimmed everywhere except a cut-out matching
@@ -879,6 +926,106 @@ struct ScarCaptureView: View {
         )
         isSaving = false
         dismiss()
+    }
+}
+
+// MARK: - Existing Case Photo Picker (for reusing an already-captured shot)
+
+/// Thumbnail grid of this vehicle's already-captured `.closeupDamage`/
+/// `.paintTransfer` photos, letting the user reuse one of them as the
+/// scar photo instead of shooting/importing a brand new one.
+///
+/// NOTE(AI Developer), added 2026-07 per Sean's explicit request: "yes, I
+/// want the option to pick from roll or take a picture right then for the
+/// scar picture. Scar picture may also be the same picture with paint
+/// transfer." Modeled on `PhotoReviewView.swift`'s `PhotoReviewCell`/
+/// `LazyVGrid` layout for visual consistency with the rest of the app's
+/// photo-grid UI, but far simpler -- this is a one-shot picker (tap a
+/// tile, done), not an editable review grid, so there's no replace/retake
+/// affordance here.
+private struct ExistingPhotoForScarPicker: View {
+    let photos: [CapturedPhoto]
+    let onSelect: (CapturedPhoto) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if photos.isEmpty {
+                    // NOTE(AI Developer): non-punitive empty state -- this
+                    // vehicle simply hasn't had a closeup-damage or paint-
+                    // transfer shot taken yet in the main protocol camera,
+                    // which is a completely normal capture order (scar
+                    // marking can happen before or after those shots).
+                    // Explains why the grid is empty and what to do next,
+                    // rather than just showing a blank screen.
+                    ContentUnavailableView(
+                        "No Case Photos Yet",
+                        systemImage: "photo.on.rectangle.angled",
+                        description: Text("Take or import a Close-up Damage or Paint Transfer photo in the main capture flow first, then come back here to reuse it -- or use the camera or library buttons instead to shoot/import a photo just for this scar mark.")
+                    )
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 108), spacing: 14)], spacing: 18) {
+                            ForEach(photos) { photo in
+                                Button {
+                                    onSelect(photo)
+                                } label: {
+                                    ExistingPhotoTile(photo: photo)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle("Choose a Case Photo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+/// Single tappable thumbnail tile -- deliberately just a thumbnail + type
+/// label with no per-tile controls (unlike `PhotoReviewCell`, which needs
+/// replace/retake buttons; this grid's only action is "tap to choose").
+private struct ExistingPhotoTile: View {
+    let photo: CapturedPhoto
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Group {
+                // Same non-optional-`Data` fix as `PhotoReviewView
+                // .PhotoReviewCell.thumbnail` -- `thumbnailData ??
+                // imageData` is already non-optional `Data`, so only the
+                // final `UIImage(data:)` step belongs in `if let`.
+                if let uiImage = UIImage(data: photo.thumbnailData ?? photo.imageData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Color.secondary.opacity(0.15)
+                }
+            }
+            .frame(width: 108, height: 108)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(.secondary.opacity(0.3), lineWidth: 1)
+            )
+
+            Text(photo.photoType.displayName)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .frame(height: 28)
+        }
     }
 }
 
