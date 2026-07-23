@@ -43,14 +43,32 @@ enum ScarLineSuggester {
 
     /// Attempts to find a candidate scar/scrape line within `image`,
     /// restricted to the same normalized guide region the user aimed the
-    /// camera at during capture.
+    /// camera at during capture (or, once drawn, the user's own
+    /// `focusRegion` box -- see below).
+    /// - Parameters:
+    ///   - focusRegion: NOTE(AI Developer), added 2026-07 per Sean's
+    ///     on-device report that analysis "somehow use part of the
+    ///     image of the tape measure as part of the vehicle damage." The
+    ///     box the user drew in `ScarCaptureView.focusRegionStage`,
+    ///     normalized (0-1, 0-1) top-left-origin same convention as
+    ///     `CapturedPhoto.scarLineStart`/`scarLineEnd`. When provided,
+    ///     this REPLACES `ScarCaptureCameraService.guideRect` as the
+    ///     search region below (rather than merely narrowing it further)
+    ///     -- the user-drawn box is deliberately tighter and more
+    ///     accurate than the generic aiming guide, since it was drawn
+    ///     against the actual captured photo with the tape measure/
+    ///     clutter already visible, not against a live camera feed
+    ///     before the shot was even taken. `nil` (the caller's fallback
+    ///     for a scar marked before this feature existed, or before the
+    ///     user has drawn a box yet) preserves this function's original
+    ///     guide-rect-only behavior exactly.
     /// - Returns: normalized (top-left origin, y-down) start/end points
     ///   matching the same coordinate convention as
     ///   `CapturedPhoto.scarLineStart`/`scarLineEnd`, or `nil` if no
     ///   usable contour was found (photo too low-contrast, scar too
     ///   subtle, etc. -- the caller falls back to an empty manual-draw
     ///   state, exactly as if this feature didn't exist).
-    static func suggestLine(in image: UIImage) -> (start: CGPoint, end: CGPoint)? {
+    static func suggestLine(in image: UIImage, focusRegion: CGRect? = nil) -> (start: CGPoint, end: CGPoint)? {
         guard let cgImage = image.cgImage else { return nil }
 
         let request = VNDetectContoursRequest()
@@ -66,7 +84,7 @@ enum ScarLineSuggester {
         // UIKit/SwiftUI convention). This flip is the one place that
         // conversion has to happen going IN; the matching flip on the
         // way OUT is in the point-conversion below.
-        let guide = ScarCaptureCameraService.guideRect
+        let guide = focusRegion ?? ScarCaptureCameraService.guideRect
         request.regionOfInterest = CGRect(
             x: guide.minX,
             y: 1 - guide.maxY,
