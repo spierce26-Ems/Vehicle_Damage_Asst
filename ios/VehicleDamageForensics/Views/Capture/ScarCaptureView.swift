@@ -34,7 +34,6 @@ struct ScarCaptureView: View {
 
     private enum Stage {
         case aiming
-        case focusRegion
         case marking
     }
 
@@ -117,67 +116,6 @@ struct ScarCaptureView: View {
     /// should fire at most once per freshly-captured photo.
     @State private var didAttemptSuggestion = false
 
-    // MARK: Focus-region stage state
-    //
-    // NOTE(AI Developer), added 2026-07 per Sean's on-device report that
-    // tool-mark/scar analysis "somehow use part of the image of the tape
-    // measure as part of the vehicle damage." `.focusRegion` is a new
-    // stage inserted between `.aiming` and `.marking`: the user drags a
-    // resizable box around JUST the visible scar/scrape (excluding any
-    // ruler, tape measure, or background clutter also in frame) before
-    // marking the line -- see `focusRegionStage`/`CapturedPhoto
-    // .scarFocusRegion`'s doc comment for the full rationale and how
-    // this rect becomes a hard boundary for every scar/tool-mark
-    // extractor downstream.
-
-    /// Top-left corner of the working focus-region rectangle, normalized
-    /// (0-1, 0-1) top-left-origin -- same convention as `lineStart`/
-    /// `lineEnd`. Stored as two independent corner points (rather than a
-    /// single `CGRect`) since each resize handle only ever needs to move
-    /// ONE of these two points -- see `resizeFocusRegion(handle:to:)`.
-    @State private var focusRegionMin = CGPoint(x: 0.15, y: 0.15)
-    /// Bottom-right corner of the working focus-region rectangle, paired
-    /// with `focusRegionMin` above. Together these two points define
-    /// `focusRegionDraft` below. Defaults (0.15-0.85 on both axes)
-    /// deliberately mirror `ScarCaptureCameraService.guideRect`'s own
-    /// generous center inset, so the box the user sees already roughly
-    /// matches what they were aiming at during capture, rather than
-    /// starting as a jarring full-frame or tiny box they'd have to
-    /// reposition from scratch every time.
-    @State private var focusRegionMax = CGPoint(x: 0.85, y: 0.85)
-    private var focusRegionDraft: CGRect {
-        CGRect(
-            x: focusRegionMin.x, y: focusRegionMin.y,
-            width: focusRegionMax.x - focusRegionMin.x,
-            height: focusRegionMax.y - focusRegionMin.y
-        )
-    }
-    private enum FocusRegionHandle { case topLeft, topRight, bottomLeft, bottomRight }
-    @State private var activeFocusHandle: FocusRegionHandle?
-    @State private var isDraggingFocusBody = false
-    /// Named struct (not an anonymous tuple) so `@State` holds a concrete,
-    /// SourceKit-friendly type -- tuples in `@State` are legal but are a
-    /// known rough edge for the editor's live type-checker.
-    private struct FocusDragStart {
-        var min: CGPoint
-        var max: CGPoint
-        var touch: CGPoint
-    }
-    /// Captured once at the start of a body-move drag (not updated mid-
-    /// drag) so the whole rect translates by the touch's total offset
-    /// from where the drag started, rather than compounding per-frame
-    /// deltas -- same "capture the start state, apply cumulative offset"
-    /// approach `DragGesture.onChanged`'s `value.translation` already
-    /// uses natively; done manually here since the move needs to clamp
-    /// against the image bounds using both corners together.
-    @State private var focusBodyDragStart: FocusDragStart?
-    /// Smallest allowed box dimension (normalized) -- prevents a resize
-    /// drag from collapsing the box to zero/negative size, which would
-    /// make `ToolMarkExtractor`/`ScarFingerprintExtractor`'s focus-region
-    /// intersection produce an unusable (or crashing, for a
-    /// zero-or-negative-size `CGRect`) crop.
-    private let minimumFocusRegionSize: CGFloat = 0.08
-
     private enum LineEndpoint { case start, end }
 
     var body: some View {
@@ -185,7 +123,6 @@ struct ScarCaptureView: View {
             Group {
                 switch stage {
                 case .aiming: aimingStage
-                case .focusRegion: focusRegionStage
                 case .marking: markingStage
                 }
             }
@@ -207,18 +144,6 @@ struct ScarCaptureView: View {
                 // Already-marked scar being reopened -- no need for the
                 // one-time drawing example or an auto-suggested line.
                 if existing.scarLineStart != nil { showDrawingExample = false }
-                // NOTE(AI Developer), added 2026-07 alongside the focus-
-                // region feature: an already-marked scar already has its
-                // box drawn (or, for a scar marked before this feature
-                // existed, `scarFocusRegion == nil` and the defaults
-                // above simply stay put) -- either way there's nothing
-                // new to draw, so this skips straight past
-                // `.focusRegion` to `.marking`, exactly like the
-                // pre-existing skip-past-`.aiming` behavior right below.
-                if let region = existing.scarFocusRegion {
-                    focusRegionMin = CGPoint(x: region.minX, y: region.minY)
-                    focusRegionMax = CGPoint(x: region.maxX, y: region.maxY)
-                }
                 stage = .marking
             }
         }
@@ -538,17 +463,7 @@ struct ScarCaptureView: View {
         showDrawingExample = true
         lineWasAutoSuggested = false
         didAttemptSuggestion = false
-        // Fresh photo -- reset the focus-region box back to its default
-        // centered position too, rather than leaving whatever box (if
-        // any) was drawn for a previous photo in this same session.
-        focusRegionMin = CGPoint(x: 0.15, y: 0.15)
-        focusRegionMax = CGPoint(x: 0.85, y: 0.85)
-        // NOTE(AI Developer), added 2026-07: routes through the new
-        // `.focusRegion` box-drawing step FIRST, before `.marking` --
-        // see that stage's doc comment for why this ordering (draw the
-        // boundary, then mark the line inside it) rather than the
-        // reverse.
-        withAnimation { stage = .focusRegion }
+        withAnimation { stage = .marking }
     }
 
     /// NOTE(AI Developer), added 2026-07 per Sean's explicit request ("we
@@ -609,204 +524,6 @@ struct ScarCaptureView: View {
             installFreshlyCapturedPhoto(photo)
         } catch {
             lastError = error.localizedDescription
-        }
-    }
-
-    // MARK: Focus-Region stage
-    //
-    // NOTE(AI Developer), added 2026-07 per Sean's on-device report that
-    // tool-mark/scar analysis "somehow use part of the image of the tape
-    // measure as part of the vehicle damage." Before marking the scar's
-    // line, the user drags a resizable box to bound JUST the visible
-    // scar/scrape -- excluding a ruler, tape measure, or background
-    // clutter that may also be in frame. This box is saved as
-    // `CapturedPhoto.scarFocusRegion` and becomes a HARD boundary for
-    // every scar/tool-mark pixel-analysis step downstream (see that
-    // field's doc comment, and `ToolMarkExtractor.extractStriationProfile`
-    // / `ScarFingerprintExtractor.extractMinutiae`'s `focusRegion`
-    // parameters) -- nothing outside it can ever be sampled as if it
-    // were scar texture, no matter how close it sits to the marked line.
-    //
-    // Placed BEFORE `.marking` (not after) so the line the user marks
-    // next is always drawn on an already-cropped mental frame -- makes
-    // it natural to mark a line that stays well inside the box, rather
-    // than drawing the line first and then having to remember to keep
-    // the box clear of it afterward.
-    private var focusRegionStage: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                VStack(spacing: 4) {
-                    Text("Box in just the scar")
-                        .font(.title3.bold())
-                    Text("Drag the corners so the box covers ONLY the scar/scrape — keep any ruler, tape measure, or background clutter OUTSIDE the box. This keeps those objects from being mistaken for part of the damage.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                whyThisMattersNote("Tool-mark matching looks for fine parallel scratch lines. A ruler's printed tick marks are exactly that kind of pattern — if one ends up inside the analyzed area, it can be mistaken for a real tool mark. This box guarantees only the scar itself gets analyzed.")
-
-                focusRegionArea
-                    .frame(height: 340)
-
-                Button {
-                    withAnimation { stage = .marking }
-                } label: {
-                    Label("Continue", systemImage: "arrow.right.circle.fill")
-                        .frame(maxWidth: .infinity)
-                        .font(.headline)
-                }
-                .buttonStyle(.borderedProminent)
-
-                Button("Retake Photo") {
-                    withAnimation { stage = .aiming }
-                    Task {
-                        do {
-                            try await camera.setupSession()
-                            camera.startSession()
-                        } catch {
-                            lastError = error.localizedDescription
-                        }
-                    }
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
-            .padding()
-        }
-    }
-
-    /// The photo with a draggable/resizable box overlay -- four corner
-    /// handles (resize) plus a drag-anywhere-inside-the-box gesture
-    /// (move, without resizing). NOTE(AI Developer): deliberately kept
-    /// as two separate, non-overlapping gesture regions (handle circles
-    /// vs. the box's interior) rather than one combined gesture with
-    /// hit-test disambiguation, since a resize-vs-move decision only
-    /// needs to be "which discrete region did the touch land in," unlike
-    /// `lineMarkingArea`'s continuous nearest-endpoint calculation (that
-    /// one has to disambiguate between two arbitrarily-close point
-    /// targets; a corner handle vs. a large box interior are never
-    /// ambiguous the same way).
-    private var focusRegionArea: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            let boxRect = CGRect(
-                x: focusRegionDraft.minX * w,
-                y: focusRegionDraft.minY * h,
-                width: focusRegionDraft.width * w,
-                height: focusRegionDraft.height * h
-            )
-            ZStack {
-                if let uiImage {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: w, height: h)
-                        .clipped()
-                } else {
-                    RoundedRectangle(cornerRadius: 12).fill(Color(.systemGray5))
-                }
-
-                // Dim everything OUTSIDE the box -- same "punch a hole"
-                // technique as `guideOverlay` -- so it's immediately
-                // visually obvious what will and won't be analyzed.
-                Color.black.opacity(0.5)
-                    .overlay(
-                        Rectangle()
-                            .frame(width: boxRect.width, height: boxRect.height)
-                            .position(x: boxRect.midX, y: boxRect.midY)
-                            .blendMode(.destinationOut)
-                    )
-                    .compositingGroup()
-                    .allowsHitTesting(false)
-
-                Rectangle()
-                    .strokeBorder(Color.yellow, lineWidth: 3)
-                    .frame(width: boxRect.width, height: boxRect.height)
-                    .position(x: boxRect.midX, y: boxRect.midY)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                if focusBodyDragStart == nil {
-                                    focusBodyDragStart = FocusDragStart(min: focusRegionMin, max: focusRegionMax, touch: value.startLocation)
-                                }
-                                guard let start = focusBodyDragStart else { return }
-                                let dxNorm = (value.location.x - start.touch.x) / w
-                                let dyNorm = (value.location.y - start.touch.y) / h
-                                let width = start.max.x - start.min.x
-                                let height = start.max.y - start.min.y
-                                // Clamp so the box can be dragged freely
-                                // but never pushed off the image bounds
-                                // (0-1 on both axes) -- moving, not
-                                // resizing, so width/height stay fixed
-                                // while only the shared offset is
-                                // clamped.
-                                let newMinX = min(max(0, start.min.x + dxNorm), 1 - width)
-                                let newMinY = min(max(0, start.min.y + dyNorm), 1 - height)
-                                focusRegionMin = CGPoint(x: newMinX, y: newMinY)
-                                focusRegionMax = CGPoint(x: newMinX + width, y: newMinY + height)
-                            }
-                            .onEnded { _ in
-                                focusBodyDragStart = nil
-                            }
-                    )
-
-                focusHandle(at: CGPoint(x: boxRect.minX, y: boxRect.minY), handle: .topLeft, containerSize: CGSize(width: w, height: h))
-                focusHandle(at: CGPoint(x: boxRect.maxX, y: boxRect.minY), handle: .topRight, containerSize: CGSize(width: w, height: h))
-                focusHandle(at: CGPoint(x: boxRect.minX, y: boxRect.maxY), handle: .bottomLeft, containerSize: CGSize(width: w, height: h))
-                focusHandle(at: CGPoint(x: boxRect.maxX, y: boxRect.maxY), handle: .bottomRight, containerSize: CGSize(width: w, height: h))
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-    }
-
-    /// A single draggable corner handle. NOTE(AI Developer): a
-    /// deliberately large (44pt) invisible hit target around a small
-    /// (22pt) visible dot -- same oversized-hit-target philosophy as
-    /// `lineMarkingArea`'s endpoint dots (per Sean's "too hard to use"
-    /// feedback on that screen), applied here up front rather than
-    /// waiting for the same complaint to resurface on this screen too.
-    private func focusHandle(at point: CGPoint, handle: FocusRegionHandle, containerSize: CGSize) -> some View {
-        Circle()
-            .fill(Color.yellow)
-            .overlay(Circle().stroke(.white, lineWidth: 2))
-            .frame(width: 22, height: 22)
-            .contentShape(Circle().size(width: 44, height: 44))
-            .position(x: point.x, y: point.y)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let normalized = CGPoint(
-                            x: min(max(value.location.x / containerSize.width, 0), 1),
-                            y: min(max(value.location.y / containerSize.height, 0), 1)
-                        )
-                        resizeFocusRegion(handle: handle, to: normalized)
-                    }
-            )
-    }
-
-    /// Moves exactly the one corner `handle` controls to `normalized`,
-    /// clamping so the box never collapses below `minimumFocusRegionSize`
-    /// on either axis -- the opposite corner (owned by whichever handle
-    /// is diagonally across) never moves as a side effect, so resizing
-    /// from one corner never surprises the user by shifting the corner
-    /// they're not touching.
-    private func resizeFocusRegion(handle: FocusRegionHandle, to normalized: CGPoint) {
-        switch handle {
-        case .topLeft:
-            focusRegionMin.x = min(normalized.x, focusRegionMax.x - minimumFocusRegionSize)
-            focusRegionMin.y = min(normalized.y, focusRegionMax.y - minimumFocusRegionSize)
-        case .topRight:
-            focusRegionMax.x = max(normalized.x, focusRegionMin.x + minimumFocusRegionSize)
-            focusRegionMin.y = min(normalized.y, focusRegionMax.y - minimumFocusRegionSize)
-        case .bottomLeft:
-            focusRegionMin.x = min(normalized.x, focusRegionMax.x - minimumFocusRegionSize)
-            focusRegionMax.y = max(normalized.y, focusRegionMin.y + minimumFocusRegionSize)
-        case .bottomRight:
-            focusRegionMax.x = max(normalized.x, focusRegionMin.x + minimumFocusRegionSize)
-            focusRegionMax.y = max(normalized.y, focusRegionMin.y + minimumFocusRegionSize)
         }
     }
 
@@ -994,15 +711,8 @@ struct ScarCaptureView: View {
         guard !didAttemptSuggestion, lineStart == nil, lineEnd == nil, let uiImage else { return }
         didAttemptSuggestion = true
         isSuggesting = true
-        // NOTE(AI Developer), added 2026-07 alongside the focus-region
-        // feature: captured here (not read inside the detached task)
-        // since `focusRegionDraft` is a `@MainActor`-isolated computed
-        // property reading `@State` -- same "capture what's needed
-        // before hopping off-main" pattern already used for `uiImage`
-        // itself just above.
-        let region = focusRegionDraft
         let result = await Task.detached(priority: .userInitiated) {
-            ScarLineSuggester.suggestLine(in: uiImage, focusRegion: region)
+            ScarLineSuggester.suggestLine(in: uiImage)
         }.value
         isSuggesting = false
         guard lineStart == nil, lineEnd == nil, let result else { return }
@@ -1206,21 +916,13 @@ struct ScarCaptureView: View {
     }
 
     private func save() async {
-        guard var capturedPhoto, let lineStart, let lineEnd else { return }
+        guard let capturedPhoto, let lineStart, let lineEnd else { return }
         isSaving = true
-        // NOTE(AI Developer), added 2026-07 alongside the focus-region
-        // feature: stamps the box the user drew in `.focusRegion` onto
-        // the photo being saved, so it's on hand for
-        // `CaptureViewModel.recordScarDirection` to pass into the
-        // extractors below -- see `CapturedPhoto.scarFocusRegion`'s doc
-        // comment.
-        capturedPhoto.scarFocusRegion = focusRegionDraft
         await viewModel.captureScarPhoto(capturedPhoto)
         await viewModel.recordScarDirection(
             lineStart: lineStart,
             lineEnd: lineEnd,
-            frontEndpoint: frontEndpoint,
-            focusRegion: focusRegionDraft
+            frontEndpoint: frontEndpoint
         )
         isSaving = false
         dismiss()

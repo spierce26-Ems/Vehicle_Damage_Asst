@@ -113,29 +113,6 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     /// `StriationProfile.isDeterminable`).
     var toolMarkStriationProfile: StriationProfile?
 
-    /// NOTE(AI Developer), added 2026-07 per Sean's on-device report that
-    /// scar analysis "somehow use part of the image of the tape measure
-    /// as part of the vehicle damage" -- a hard boundary the user draws
-    /// (drag to move, drag the corner to resize) around JUST the visible
-    /// scar/scrape on this photo, normalized (0-1, 0-1) top-left-origin
-    /// same convention as `scarLineStart`/`scarLineEnd`. Once set,
-    /// `ToolMarkExtractor`/`ScarFingerprintExtractor`/`ScarLineSuggester`
-    /// all treat anything OUTSIDE this rect as if it weren't part of the
-    /// photo at all -- a tape measure, background trim, or another body
-    /// panel sitting just outside the marked line's own bounding box can
-    /// no longer be sampled as if it were scar texture. See
-    /// `ScarCaptureView.focusRegionStage` for the drawing UI.
-    ///
-    /// `nil` for any scar photo captured before this feature existed, or
-    /// (in principle) if a caller somehow skips the focus-region step --
-    /// every extractor treats `nil` as "no region drawn," falling back to
-    /// its own generous default margin around the marked line, i.e. the
-    /// exact unrestricted behavior this app had before this field
-    /// existed. Non-punitive by the same convention as every other
-    /// optional scar field: a missing region is a fallback, never an
-    /// error.
-    var scarFocusRegion: CGRect?
-
     /// Which of the two line endpoints above is nearer this vehicle's own
     /// front. NOTE(AI Developer): a close-up photo of a scrape has no
     /// inherent "which way is toward the front" reference on its own
@@ -175,7 +152,6 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         scarLineEnd: CGPoint? = nil,
         scarMinutiae: [ScarMinutia] = [],
         toolMarkStriationProfile: StriationProfile? = nil,
-        scarFocusRegion: CGRect? = nil,
         scarFrontEndpoint: ScarEndpoint? = nil
     ) {
         self.id = id
@@ -197,7 +173,6 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.scarLineEnd = scarLineEnd
         self.scarMinutiae = scarMinutiae
         self.toolMarkStriationProfile = toolMarkStriationProfile
-        self.scarFocusRegion = scarFocusRegion
         self.scarFrontEndpoint = scarFrontEndpoint
     }
 
@@ -249,14 +224,6 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         // same non-punitive backward-compat pattern as `scarMinutiae`
         // above.
         toolMarkStriationProfile = try c.decodeIfPresent(StriationProfile.self, forKey: .toolMarkStriationProfile)
-        // `scarFocusRegion` didn't exist before the tape-measure-
-        // contamination fix -- every photo saved before this update
-        // decodes `nil` (no drawn boundary; extractors fall back to
-        // their unrestricted default margin, i.e. this update's
-        // behavior is purely additive for old data), same non-punitive
-        // backward-compat pattern as every other optional scar field
-        // above.
-        scarFocusRegion = try c.decodeIfPresent(CGRect.self, forKey: .scarFocusRegion)
         scarFrontEndpoint = try c.decodeIfPresent(ScarEndpoint.self, forKey: .scarFrontEndpoint)
     }
 

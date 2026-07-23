@@ -152,8 +152,7 @@ enum ScarFingerprintExtractor {
         lineStart: CGPoint,
         lineEnd: CGPoint,
         frontEndpoint: ScarEndpoint,
-        referenceColor: ColorRGB?,
-        focusRegion: CGRect? = nil
+        referenceColor: ColorRGB?
     ) -> [ScarMinutia] {
         guard let referenceColor else { return [] }
         let front = frontEndpoint == .start ? lineStart : lineEnd
@@ -204,23 +203,6 @@ enum ScarFingerprintExtractor {
                         x: point.x + CGFloat(direction * reachFraction * perp.x),
                         y: point.y + CGFloat(direction * reachFraction * perp.y)
                     )
-                    // NOTE(AI Developer), added 2026-07 alongside
-                    // `ToolMarkExtractor`'s matching fix, per Sean's
-                    // on-device report that analysis "somehow use part
-                    // of the image of the tape measure as part of the
-                    // vehicle damage." This width probe walks OUTWARD
-                    // from the line with no fixed cap other than
-                    // `widthProbeMaxFraction` -- exactly the kind of
-                    // reach that can wander onto a ruler or trim panel
-                    // sitting just past the scar's visible edge and
-                    // misread it as "still transferred paint." When the
-                    // user has drawn `scarFocusRegion`, stop reaching
-                    // the moment a probe step would leave it -- same
-                    // hard-boundary treatment as the crop restriction in
-                    // `ToolMarkExtractor.extractStriationProfile`, just
-                    // enforced probe-by-probe here since this function
-                    // never crops a single fixed rect up front.
-                    if let focusRegion, !focusRegion.contains(probePoint) { break }
                     guard let probeSample = ColorAnalysis.sampleColor(from: image, at: probePoint, radiusFraction: 0.012) else { break }
                     let probeDeltaE = ColorAnalysis.deltaE2000(referenceLab, ColorAnalysis.rgbToLab(probeSample.color))
                     if probeDeltaE < widthThreshold { break }

@@ -617,37 +617,6 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   smooth/blurry/distant to show real striations shows the "not enough distinct striation detail to
   compare" wording rather than a fabricated score.
 
-- **Scar Focus Region — hard-boundary crop to stop tape-measure/background contamination.**
-  Root cause of the reported bug ("software somehow use part of the image of the tape measure as
-  part of the vehicle damage"): three separate code paths could sample pixels outside the actual
-  scar — `ToolMarkExtractor`'s margin-padded crop (extra headroom for the ±25° probe angle fan),
-  `ScarFingerprintExtractor.extractMinutiae`'s perpendicular width-probe (fixed max-fraction reach,
-  no boundary awareness), and `ScarLineSuggester.suggestLine`'s Vision contour search (ran over the
-  generic aiming guide box, which can include a ruler/tape measure lying near the scar — its fine,
-  evenly-spaced, high-contrast tick marks are exactly the signal the striation detector looks for,
-  producing a confident-looking but fake match). Fix: a new user-drawn `CapturedPhoto.scarFocusRegion`
-  (`CGRect?`, normalized image coordinates, `nil` = old unrestricted behavior, fully backward
-  compatible) is now a HARD intersection boundary for all three extractors — `ToolMarkExtractor`
-  intersects its crop bounds with it, `ScarFingerprintExtractor` stops each width-probe the instant
-  it would leave the box, and `ScarLineSuggester` uses it in place of the generic aiming guide when
-  present. New capture stage in `ScarCaptureView` ("Box in just the scar") between the aiming photo
-  and line-marking: a draggable, resizable dim-outside box (4 corner handles with oversized 44pt hit
-  targets, drag-to-move body) that the user positions around just the scar before marking the line;
-  the drawn box is stamped onto the saved photo and threaded through
-  `CaptureViewModel.recordScarDirection(focusRegion:)` to both extractors and the auto-suggest call.
-
-  **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file; only
-  brace/paren/bracket balance was checked on all 6 touched files (`CapturedPhoto.swift`,
-  `ScarFingerprintAnalysis.swift`, `ScarLineSuggester.swift`, `ToolMarkAnalysis.swift`,
-  `CaptureViewModel.swift`, `ScarCaptureView.swift`), all confirmed balanced. Please rebuild/reinstall
-  from main and re-test on-device: (1) starting a new scar capture shows the "Box in just the scar"
-  screen right after taking/picking the photo, before line-marking, (2) the box can be dragged to
-  move and resized from all 4 corners without the box collapsing or inverting, (3) Continue advances
-  to line-marking as before and the box doesn't reappear/interfere there, (4) auto-suggest-line and
-  the final tool-mark/striation comparison both ignore anything outside the drawn box (test with a
-  tape measure or other object partly inside the aiming guide but outside the drawn box), and (5)
-  reopening an already-marked scar restores the previously drawn box instead of resetting it.
-
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
