@@ -617,6 +617,44 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   smooth/blurry/distant to show real striations shows the "not enough distinct striation detail to
   compare" wording rather than a fabricated score.
 
+- **Tool-mark score statistical significance — null-model/shuffle baseline.** Root cause of
+  Sean's question "how do we get two different suspect vehicles with 69% and 78% tool
+  mark/striation matching? How is that possible?": `ToolMarkMatcher.compare` tries every sliding
+  offset in both orientations and keeps only the best-scoring result, and every gap is stored as a
+  ratio to its own cross-section's mean gap — both of these compress most real-world, UNRELATED
+  scrapes toward a "50-85% moderately similar" band purely by chance, with no way to tell that
+  apart from a real match using the raw percentage alone. Fix: for the winning alignment, the exact
+  same search (same offsets, same both-orientations check) is re-run 120 times against randomly
+  shuffled copies of the suspect's own rhythm values (same numbers, real order destroyed;
+  `ToolMarkMatcher.nullModelTrialCount`), building a baseline distribution of what an unrelated
+  scrape would typically score from this same search by chance alone
+  (`ToolMarkComparison.nullModelMeanPercent`/`nullModelStdDevPercent`). The real score is expressed
+  as a z-score against that baseline (`ToolMarkComparison.zScore`), and only a score that clears 2.0
+  standard deviations above the baseline is called statistically significant
+  (`ToolMarkComparison.isStatisticallySignificant`, threshold in
+  `ToolMarkMatcher.significanceZScoreThreshold`). `ToolMarkComparison.summary` now says so directly
+  — e.g. "...however, unrelated/random spacing patterns of this same length typically score around
+  X% with this same search purely by chance — this result is NOT statistically distinguishable from
+  random..." — instead of presenting a raw percentage as if it were automatically meaningful. Uses a
+  small deterministic seeded PRNG (`SeededGenerator`, SplitMix64) keyed off a stable hash of both
+  rhythm sequences, not Swift's system RNG or `Hasher` (both are non-reproducible across
+  runs/launches by design) — re-running analysis on the same two photos must always report the same
+  verdict. Fully self-contained inside `ToolMarkAnalysis.swift`: `MatchResultsView.swift` and
+  `PDFReportGenerator.swift` need NO changes since both only ever read `comparison.summary` and the
+  pre-existing `matchScorePercent`/`orientationUsed` fields, which are unchanged in shape (3 new
+  fields on `ToolMarkComparison` are purely additive/optional).
+
+  **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file; only
+  brace/paren/bracket balance was checked on `ToolMarkAnalysis.swift` (the only file touched),
+  confirmed balanced. Please rebuild/reinstall from main and re-test on-device: (1) the Tool-Mark /
+  Striation Matching section on the Results screen and its PDF page both still render normally, (2)
+  a comparison that previously showed a raw percentage now also shows either "...unlikely to be a
+  coincidence" or "...NOT statistically distinguishable from random" appended to the summary
+  sentence, (3) re-running analysis on the same two photos without changing anything reports the
+  exact same percentage/verdict every time (determinism check), and (4) the "not enough distinct
+  striation detail to compare" / "no consistent overlapping rhythm found" cases (no score at all)
+  are unaffected and still show their original wording with no baseline/significance text appended.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.

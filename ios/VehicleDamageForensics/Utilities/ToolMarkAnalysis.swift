@@ -571,8 +571,46 @@ struct ToolMarkComparison: Codable, Equatable {
     /// the score above is actually based on. `nil` alongside
     /// `matchScorePercent`.
     var overlapLength: Int?
+    // NOTE(AI Developer), added 2026-07 per Sean's question "how do we
+    // get two different suspect vehicles with 69% and 78% tool
+    // mark/striation matching? how is that possible?" -- see
+    // `ToolMarkMatcher.compare`'s header note for the full explanation
+    // and `ToolMarkMatcher.nullModelBaseline` for how these three values
+    // are computed. In short: `bestAlignment` already searches every
+    // offset in both orientations and keeps only the best-scoring
+    // result, which alone inflates a reported score above what a truly
+    // UNRELATED scrape would score -- these three fields answer "how
+    // much of this score is just that search's own selection bias?" so
+    // two different raw percentages can be told apart by whether either
+    // one is actually distinguishable from noise, not just by which
+    // number is bigger.
+    /// Mean score (0-100, same scale as `matchScorePercent`) that this
+    /// exact same search produced when run against `ToolMarkMatcher
+    /// .nullModelTrialCount` random shuffles of the suspect's own rhythm
+    /// values (same values, order destroyed) -- i.e. what an UNRELATED
+    /// scrape with similar overall texture would typically score by
+    /// chance alone. `nil` alongside `matchScorePercent`.
+    var nullModelMeanPercent: Double?
+    /// Standard deviation of that same shuffled-baseline score
+    /// distribution. `nil` alongside `matchScorePercent`.
+    var nullModelStdDevPercent: Double?
+    /// How many standard deviations `matchScorePercent` sits above
+    /// `nullModelMeanPercent` -- the actual statistical test. `nil`
+    /// alongside `matchScorePercent`.
+    var zScore: Double?
 
     var isDeterminable: Bool { matchScorePercent != nil }
+
+    /// `nil` alongside `matchScorePercent` (nothing to test yet). `true`
+    /// only when `zScore` clears `ToolMarkMatcher
+    /// .significanceZScoreThreshold` -- i.e. this specific score is
+    /// meaningfully higher than what an unrelated scrape would be
+    /// expected to score from this same search, not just a bigger raw
+    /// number than some other comparison.
+    var isStatisticallySignificant: Bool? {
+        guard let zScore else { return nil }
+        return zScore >= ToolMarkMatcher.significanceZScoreThreshold
+    }
 
     /// Human-readable summary, deliberately in the same plain-language,
     /// non-overclaiming register as `ScarFingerprintMatch.summary` and
@@ -593,11 +631,29 @@ struct ToolMarkComparison: Codable, Equatable {
         let orientationPhrase = orientation == .reversed
             ? "in reverse order, as expected for a stamp/impression pair from opposite sides of the same contact"
             : "in the same order on both vehicles"
-        return String(format: "Striation spacing rhythm correlates at %.0f%% across %d overlapping marks, %@.", score, overlap, orientationPhrase)
+        let baseSummary = String(format: "Striation spacing rhythm correlates at %.0f%% across %d overlapping marks, %@.", score, overlap, orientationPhrase)
+
+        // NOTE(AI Developer), added 2026-07 -- see the header note on
+        // `nullModelMeanPercent` above. This is the actual answer to
+        // Sean's "how is that possible" question, surfaced directly in
+        // the sentence an investigator reads, not buried in a separate
+        // number they'd have to interpret themselves.
+        guard let baselineMean = nullModelMeanPercent, let significant = isStatisticallySignificant else {
+            return baseSummary
+        }
+        if significant {
+            return baseSummary + String(format: " This is meaningfully higher than the ~%.0f%% an unrelated scrape would be expected to score from this same search by chance alone, so this correlation is unlikely to be a coincidence.", baselineMean)
+        } else {
+            return baseSummary + String(format: " However, unrelated/random spacing patterns of this same length typically score around %.0f%% with this same search purely by chance -- this result is NOT statistically distinguishable from random and should not be treated as meaningful evidence on its own.", baselineMean)
+        }
     }
 
     static func notDeterminable(victim: StriationProfile = .empty(), suspect: StriationProfile = .empty()) -> ToolMarkComparison {
-        ToolMarkComparison(victimProfile: victim, suspectProfile: suspect, matchScorePercent: nil, orientationUsed: nil, overlapLength: nil)
+        ToolMarkComparison(
+            victimProfile: victim, suspectProfile: suspect,
+            matchScorePercent: nil, orientationUsed: nil, overlapLength: nil,
+            nullModelMeanPercent: nil, nullModelStdDevPercent: nil, zScore: nil
+        )
     }
 }
 
@@ -614,51 +670,193 @@ enum ToolMarkMatcher {
     /// gets a chance to score.
     static let minimumOverlapLength = 4
 
+    // NOTE(AI Developer), added 2026-07 per Sean's question: "how do we
+    // get two different suspect vehicles with 69% and 78% tool
+    // mark/striation matching? How is that possible?"
+    //
+    // The honest answer is that `bestAlignment` below tries EVERY offset
+    // (sliding window), in BOTH orientations (forward/reversed), and
+    // keeps only the single best-scoring result. Each of those is a
+    // "keep the best of many independent tries" step, and each one
+    // inflates the reported score above what a truly UNRELATED pair of
+    // scrapes would score, purely because there were so many chances to
+    // find something that happens to line up. On top of that, every gap
+    // is stored as a RATIO to its own cross-section's mean gap
+    // (`StriationCrossSection.normalizedGapRatios`), which compresses
+    // most real-world rhythms toward ~1.0 -- so two completely unrelated
+    // scrapes routinely land in a "50-85% moderately similar" band by
+    // chance alone, with no way to tell that apart from a real match
+    // using the raw score alone.
+    //
+    // The fix: a null-model / permutation-test baseline. For the exact
+    // same pair of profiles, run this exact same search
+    // (`bestOverallAlignment` -- same offsets, same both-orientations
+    // check) against `nullModelTrialCount` randomly SHUFFLED copies of
+    // the suspect's own rhythm values (same numbers, real order
+    // destroyed). That produces a distribution of scores an UNRELATED
+    // scrape with similar overall texture statistics would be expected
+    // to produce from this same "keep the best" search, purely by
+    // chance. The real score is then expressed as a z-score against that
+    // distribution (`ToolMarkComparison.zScore`) -- only a real score
+    // that clears `significanceZScoreThreshold` standard deviations
+    // above the shuffled baseline is called "statistically significant"
+    // (`ToolMarkComparison.isStatisticallySignificant`); otherwise the
+    // app now says so explicitly instead of presenting a raw percentage
+    // as if it were automatically meaningful. This is exactly the
+    // "compare against chance" step a real tool-mark examiner's
+    // statistical validation study would also require before calling a
+    // correlation meaningful.
+    //
+    // A deterministic (not system-random) seeded generator is used for
+    // the shuffles (see `SeededGenerator`/`nullModelSeed` below) so
+    // re-running analysis on the exact same two profiles always reports
+    // the exact same baseline/z-score -- a forensic tool must not give a
+    // different answer each time it's asked the same question.
+    /// Number of shuffled trials used to build the null-model baseline
+    /// distribution. Chosen as a balance between statistical stability
+    /// (more trials narrows the estimate of the baseline's mean/stdDev)
+    /// and staying well within this function's existing "cheap enough to
+    /// run synchronously" budget (see `MatchScoreCalculator.evaluate`) --
+    /// even on the longest possible rhythm sequences this stays well
+    /// under a second on-device.
+    static let nullModelTrialCount = 120
+
+    /// How many standard deviations above the shuffled-baseline mean a
+    /// real score must reach to be called "statistically significant."
+    /// 2.0 corresponds to roughly the 97.7th percentile of a one-tailed
+    /// normal distribution (~2.3% false-positive rate if the null
+    /// model's approximately-normal assumption holds) -- a standard,
+    /// defensible threshold for this kind of screening comparison,
+    /// deliberately not pushed higher/stricter given this is a
+    /// screening/investigative aid, not a courtroom statistical claim.
+    static let significanceZScoreThreshold = 2.0
+
     /// Compares two vehicles' extracted striation rhythms.
     static func compare(victim: StriationProfile, suspect: StriationProfile) -> ToolMarkComparison {
         guard victim.isDeterminable, suspect.isDeterminable else {
-            return ToolMarkComparison(
-                victimProfile: victim, suspectProfile: suspect,
-                matchScorePercent: nil, orientationUsed: nil, overlapLength: nil
-            )
+            return .notDeterminable(victim: victim, suspect: suspect)
         }
 
         let victimSeq = victim.rhythmSequence
-        let suspectForward = suspect.rhythmSequence
-        let suspectReversed = Array(suspectForward.reversed())
+        let suspectSeq = suspect.rhythmSequence
 
-        let forwardBest = bestAlignment(victimSeq, suspectForward)
-        let reversedBest = bestAlignment(victimSeq, suspectReversed)
-
-        let chosen: (score: Double, overlap: Int)?
-        let orientation: ToolMarkOrientation?
-        switch (forwardBest, reversedBest) {
-        case (nil, nil):
-            chosen = nil
-            orientation = nil
-        case (let f?, nil):
-            chosen = f
-            orientation = .sameDirection
-        case (nil, let r?):
-            chosen = r
-            orientation = .reversed
-        case (let f?, let r?):
-            if f.score >= r.score {
-                chosen = f
-                orientation = .sameDirection
-            } else {
-                chosen = r
-                orientation = .reversed
-            }
+        guard let real = bestOverallAlignment(victimSeq: victimSeq, suspectSeq: suspectSeq) else {
+            return .notDeterminable(victim: victim, suspect: suspect)
         }
+        let realPercent = real.score * 100
+
+        let baseline = nullModelBaseline(victimSeq: victimSeq, suspectSeq: suspectSeq)
+        let zScore: Double? = {
+            guard let baseline, baseline.stdDev > 0.0001 else { return nil }
+            return (realPercent - baseline.mean) / baseline.stdDev
+        }()
 
         return ToolMarkComparison(
             victimProfile: victim,
             suspectProfile: suspect,
-            matchScorePercent: chosen.map { $0.score * 100 },
-            orientationUsed: chosen != nil ? orientation : nil,
-            overlapLength: chosen?.overlap
+            matchScorePercent: realPercent,
+            orientationUsed: real.orientation,
+            overlapLength: real.overlap,
+            nullModelMeanPercent: baseline?.mean,
+            nullModelStdDevPercent: baseline?.stdDev,
+            zScore: zScore
         )
+    }
+
+    /// Tries both orientations (forward/reversed suspect rhythm) against
+    /// the victim's rhythm and keeps whichever scores higher -- the
+    /// exact same "which orientation" decision `compare` above used to
+    /// make inline, factored out so `nullModelBaseline`'s shuffled trials
+    /// can run the IDENTICAL search (both orientations, every offset)
+    /// that produced the real score. Comparing a real score against a
+    /// baseline built from a DIFFERENT, easier search would understate
+    /// how much of the real score is just search-driven inflation.
+    private static func bestOverallAlignment(
+        victimSeq: [Double],
+        suspectSeq: [Double]
+    ) -> (score: Double, overlap: Int, orientation: ToolMarkOrientation)? {
+        let forwardBest = bestAlignment(victimSeq, suspectSeq)
+        let reversedBest = bestAlignment(victimSeq, Array(suspectSeq.reversed()))
+        switch (forwardBest, reversedBest) {
+        case (nil, nil):
+            return nil
+        case (let f?, nil):
+            return (f.score, f.overlap, .sameDirection)
+        case (nil, let r?):
+            return (r.score, r.overlap, .reversed)
+        case (let f?, let r?):
+            return f.score >= r.score ? (f.score, f.overlap, .sameDirection) : (r.score, r.overlap, .reversed)
+        }
+    }
+
+    /// Builds the shuffled-baseline distribution described in the header
+    /// note above. `nil` when there aren't enough elements to shuffle
+    /// meaningfully, or when too few trials produced any scoreable
+    /// alignment at all to trust the resulting mean/stdDev (in which case
+    /// `ToolMarkComparison.zScore` stays `nil` and the UI falls back to
+    /// its pre-existing, non-statistical summary wording).
+    private static func nullModelBaseline(
+        victimSeq: [Double],
+        suspectSeq: [Double]
+    ) -> (mean: Double, stdDev: Double)? {
+        guard suspectSeq.count >= 2 else { return nil }
+        var rng = SeededGenerator(seed: nullModelSeed(victimSeq, suspectSeq))
+        var scores: [Double] = []
+        scores.reserveCapacity(nullModelTrialCount)
+        for _ in 0..<nullModelTrialCount {
+            let shuffled = suspectSeq.shuffled(using: &rng)
+            guard let trial = bestOverallAlignment(victimSeq: victimSeq, suspectSeq: shuffled) else { continue }
+            scores.append(trial.score * 100)
+        }
+        // If shuffling destroyed the overlap requirement often enough
+        // that fewer than half the trials even produced a score, the
+        // baseline itself isn't trustworthy -- report no baseline rather
+        // than one built from a biased handful of trials.
+        guard scores.count >= nullModelTrialCount / 2 else { return nil }
+        let mean = scores.reduce(0, +) / Double(scores.count)
+        let variance = scores.reduce(0.0) { $0 + pow($1 - mean, 2) } / Double(scores.count)
+        return (mean: mean, stdDev: variance.squareRoot())
+    }
+
+    /// A small deterministic PRNG (SplitMix64) used ONLY for the
+    /// null-model shuffles above. NOTE(AI Developer): deliberately NOT
+    /// Swift's `SystemRandomNumberGenerator` -- this needs to produce the
+    /// SAME shuffles (and therefore the same baseline/z-score) every time
+    /// `compare` is called again on the exact same two profiles, which a
+    /// forensic tool must guarantee; a truly random generator would make
+    /// re-running analysis on unchanged data silently report a different
+    /// significance verdict each time.
+    private struct SeededGenerator: RandomNumberGenerator {
+        private var state: UInt64
+        init(seed: UInt64) { state = seed == 0 ? 0x9E3779B97F4A7C15 : seed }
+        mutating func next() -> UInt64 {
+            state = state &+ 0x9E3779B97F4A7C15
+            var z = state
+            z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
+            z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
+            return z ^ (z >> 31)
+        }
+    }
+
+    /// Deterministic hash of both rhythm sequences into a seed for
+    /// `SeededGenerator`. NOTE(AI Developer): deliberately NOT Swift's
+    /// `Hasher`/`hashValue` -- those incorporate a random per-process
+    /// seed (hash-flooding protection) by design, so the same two
+    /// profiles would hash differently across app launches and silently
+    /// break the reproducibility this whole seeded-RNG approach exists
+    /// for. This is a plain FNV-1a style mix over each `Double`'s raw bit
+    /// pattern instead, which is stable across runs/launches/devices for
+    /// the same input values.
+    private static func nullModelSeed(_ a: [Double], _ b: [Double]) -> UInt64 {
+        var h: UInt64 = 1469598103934665603 // FNV-1a 64-bit offset basis
+        func mix(_ value: UInt64) {
+            h ^= value
+            h = h &* 1099511628211 // FNV-1a 64-bit prime
+        }
+        for v in a { mix(v.bitPattern) }
+        mix(0x9E3779B97F4A7C15) // separator between the two sequences
+        for v in b { mix(v.bitPattern) }
+        return h
     }
 
     /// Slides `b` against `a` at every possible offset (in both
