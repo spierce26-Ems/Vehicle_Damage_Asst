@@ -222,7 +222,60 @@ it records intent for maintainers and reaches no reader of the report.
 The general form, which also disposed of the `ALGORITHM_EXPLAINER` citation:
 **a reference in report copy has to be something the reader can act on.** A
 section number and a person's name are both unactionable, so both cost
-everything a citation commits us to and return nothing. Provenance goes in
+everything a citation commits us to and return nothing.
+
+**Provenance in a comment is the recommended form, and it must never trigger
+the lock.** This rule tells people to move a citation out of report copy and
+into a code comment. A check that then fires on the comment charges the full
+price of a citation for complying -- and its own printed remedy, "move it into
+a doc comment", would not have silenced it. `check_cited_doc_copy()` harvested
+a document name from a *trailing* comment (`let x = 6  // see
+ALGORITHM_EXPLAINER §2`), because it skipped a line only when its first token
+was `//`. Corrected at `2f5dc32` by harvesting from string literals only:
+multiline spans lifted first, then comments stripped, then single-line
+literals. **A rule and the check enforcing it must agree about which artefact
+is the compliant one**, or the check penalises the behaviour the rule asks for
+-- and it does so most convincingly to the person who just complied.
+
+One note on which artefact each of us tested, because the sequence is
+instructive. My single-line sweep's blind spot above is real and is mine. The
+same gap was then diagnosed in the *landed* check by reading its pattern text
+-- and the landed check does not have it, since it scans line by line and so
+reads lines inside a """ body like any other. The finding was accurate about a
+superseded draft. Hence the habit worth keeping: **name the commit you verified
+against.** "Verified the patch" is true, costs a round, and is exactly as
+confident as the useful version.
+
+### 4.0.3 An absent verdict is now a corruption disguise
+
+Recorded here because it changes what the honest-absence wording means, and
+that wording is locked copy.
+
+Merging the per-cross-section exclusion work with the version-stamp work
+produced a hand-written decoder that compiles perfectly and omits two
+persisted fields. `encode(to:)` stays synthesized, so the values are still
+*written* -- they simply never come back. `permutationPValue` and
+`nullTrialCount` return `nil`, and the surfaces then render **"no
+significance test was possible"**: the exact honest-absence state this
+document specifies, produced by silent data loss instead of by an absent null
+model.
+
+So the wording we chose for integrity is also the wording data loss wears. That
+does not make it the wrong wording -- there is no phrasing that distinguishes
+"no baseline could be built" from "the baseline was dropped on load", because
+the surface cannot tell -- but it does mean **the absence states in this
+document cannot be the only thing standing between a case file and a wrong
+report.** They are honest about what the app knows; they are not evidence that
+the app knows it.
+
+The check that catches it (`decoder-completeness`, `2d56a5d`) is a
+**staged-mode** check, so `--all` cannot see it -- it needs `--since` or a real
+commit. Anyone reviewing a merge that touches a hand-written decoder and
+reading a clean `--all` has confirmed nothing about this hazard.
+
+Standing consequence for copy review: when a persisted field is added or a
+decoder is hand-written, an absence state appearing on screen is no longer
+self-evidently correct. It has to be traced to a real absence. Provenance goes in
 code comments and on the Analysis Provenance page, both of which are
 reviewable and neither of which is the report's argument.
 
