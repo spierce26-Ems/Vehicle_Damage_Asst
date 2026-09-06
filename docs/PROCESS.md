@@ -486,7 +486,13 @@ Two design rules govern it, and they are the reason to trust its output:
   test appeared to block; the blocking line was a missing `project.pbxproj` in
   the synthetic repo built for the test, and the guard under test had correctly
   warned. An exit code is a verdict on the run, not on the thing you are
-  probing — one more way a correct probe gets read off the wrong surface. Two
+  probing — one more way a correct probe gets read off the wrong surface. Three
+  surfaces in one hour, two of them on the same verification, and the third
+  generalises the other two: **the fixture is part of the instrument.** A
+  residual demo died on a partial-clone pack error that briefly looked like the
+  guard misbehaving and was the fixture being a worktree of a blobless clone.
+  Before believing a probe's verdict, confirm the failure came from the subject
+  and not from the scaffolding around it. Two
   people hit it within twenty minutes on the same verification, which is what
   makes it a clause rather than an anecdote: an exit code is a *representation*
   of a verdict, so this is the assert-on-behaviour rule below, one level down.
@@ -589,10 +595,21 @@ Two design rules govern it, and they are the reason to trust its output:
     action; per §5b's scope rule a reader needs to know *which* checks were
     absent to judge what the clean line was worth.
 
-  One residual, stated rather than hidden: the comparison is against the local
-  `origin/main` ref, so the guard inherits the staleness failure above — a
-  clone with a main-only refspec and no recent fetch measures against whatever
-  it last saw. The advisory covers the absent case, not the stale one. §1's
+  One residual, stated rather than hidden and since **demonstrated** on an
+  isolated fixture: the comparison is against the local `origin/main` ref, so
+  the guard inherits the staleness failure above. With the tracking ref pinned
+  to an older commit the stale script emits **nothing** and clears itself; with
+  the same script and the same tree and only the ref updated, it fails naming
+  the missing check. The advisory covers the absent case, not the stale one.
+
+  This is worth more than a footnote because **it composes with the
+  misconfigured-clone defect above**: a main-only refspec plus this guard is a
+  guard that silently approves itself, which is the `__file__` bug's failure
+  mode arriving by another route. The remedy is already written — wildcard
+  refspec, `fetch.prune`, `ls-remote` before asserting a remote fact — but the
+  guard is now a *consumer* of that rule and not only a subject of it, so
+  configuring the clone is a precondition of the guard working rather than
+  personal hygiene. §1's
   "run `main`'s script against a feature branch" is enforced by the tool only
   for a tree that already carries the guard. Every branch in flight when it
   lands predates it and cannot refuse itself — verified zero occurrences in
@@ -600,7 +617,11 @@ Two design rules govern it, and they are the reason to trust its output:
   rebased onto a `main` carrying the guard. This bootstrap gap is a property of
   any guard that travels inside the thing it guards, not a defect in this one,
   and it is the argument for landing it ahead of the remaining branch merges
-  rather than after them. A rule that claims mechanical enforcement it does not
+  rather than after them — a call since borne out: with #5, #6, #7, #8, #10a,
+  #10b, #11 and #13 merged, those trees carry `main`'s script and the guard is
+  correctly silent on a current copy. What remains is any branch cut before the
+  guard landed and not yet rebased: a smaller and shrinking set, but not an
+  empty one. A rule that claims mechanical enforcement it does not
   yet have is the true-instruction-false-reason failure above.
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
