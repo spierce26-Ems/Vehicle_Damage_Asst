@@ -513,6 +513,65 @@ def check_doc_drift():
              "three-class diagnosis: doc-format means the comparison did "
              "not run, doc-anchor means it lost its subject in the Swift, "
              "doc-drift means the numbers genuinely disagree")
+def check_conflict_markers():
+    """No tracked text file may contain a source-control conflict marker.
+
+    Blocking, and tree-wide rather than staged-diff, because the failure this
+    exists for is a MERGE commit: `f7921d8` (merge of #7 and #11) committed
+    two unresolved hunks into Models/Case.swift and they reached `main`,
+    survived four further commits, and were still there at `644c8fe`. Every
+    check that could have caught it was aimed somewhere else --
+    delimiter_balance runs only over Swift files it was handed and a conflict
+    whose two sides are both balanced passes it, decoder_completeness and
+    commit_size are staged-diff only and a merge resolution has nothing
+    staged, and doc-drift and the manifest were clean because the defect was
+    inside a file both already knew about. So the tree was reported clear with
+    a file in it that does not parse.
+
+    That is the sec.1 failure shape, not a missed lint: the tool printed the
+    right output format for a tree it had not actually examined. Found by
+    parsing all 42 tracked Swift files with swift-frontend -parse rather than
+    by reading a report -- which is sec.5b's own rule, assert on behaviour and
+    not on a representation of it.
+
+    Both sides of that conflict were purely additive (two new enum cases and
+    two new switch arms against one of each), which is why nobody saw it: the
+    resolution was "keep both" and the merge would have been clean if anyone
+    had opened the file. A conflict is only a choice when both sides make the
+    same claim, and an unresolved marker is the case where no choice was made
+    at all.
+
+    Matched anchored at column 0 with the marker's required trailing space or
+    line end, so a marker discussed in prose (or in this docstring) does not
+    trip it. Skips nothing by extension: the merge that caused this touched
+    Swift, but a marker in a .md, .json or .pbxproj is equally a broken file,
+    and pbxproj especially would fail in Xcode rather than here.
+    """
+    lead, mid, tail = "<" * 7, "=" * 7, ">" * 7
+    pats = (re.compile(r"(?m)^" + lead + r"(?:[ \t]|$)"),
+            re.compile(r"(?m)^" + mid + r"$"),
+            re.compile(r"(?m)^" + tail + r"(?:[ \t]|$)"))
+    for f in sh("git", "ls-files").splitlines():
+        if not f:
+            continue
+        p = os.path.join(REPO, f)
+        if not os.path.exists(p):
+            continue
+        try:
+            src = open(p, encoding="utf-8").read()
+        except (UnicodeDecodeError, OSError):
+            continue          # binary or unreadable: not our subject
+        hits = sorted({m.start() for pat in pats for m in pat.finditer(src)})
+        if not hits:
+            continue
+        lines = [src.count("\n", 0, h) + 1 for h in hits]
+        fail("conflict-markers",
+             f"{f}: {len(lines)} unresolved conflict marker(s) at line(s) "
+             + ", ".join(str(n) for n in lines),
+             "open the file and finish the merge -- check whether the two "
+             "sides are additive (keep both) or actually contradict; then "
+             "re-run, because a file with a marker in it does not compile "
+             "and every other clean line in this report was measured on it")
 
 
 def check_manifest_drift():
@@ -1337,6 +1396,7 @@ def main():
     check_manifest_drift()
     check_cited_doc_copy()
     check_doc_drift()
+    check_conflict_markers()
 
     # Commit-shaped checks: only meaningful against a staged diff. In --all
     # mode there is no commit to judge, and firing them anyway trains people
