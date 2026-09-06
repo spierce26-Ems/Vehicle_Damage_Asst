@@ -24,6 +24,7 @@ REPO = subprocess.run(["git", "rev-parse", "--show-toplevel"],
 PBXPROJ = "ios/VehicleDamageForensics.xcodeproj/project.pbxproj"
 SKELETON = "scripts/pbxproj_skeleton.txt"
 SOURCE_ROOT = "ios/VehicleDamageForensics"
+MODELS_DIR = f"{SOURCE_ROOT}/Models"
 
 # A single commit that grows one file by more than this many lines is the
 # shape that took Xcode down (reverted at 9b6a67e). Warn, do not block --
@@ -288,6 +289,67 @@ def check_docs_owed(files):
              "determinism check belongs in the on-device checklist")
 
 
+# ---------------------------------------------------------------- check 7
+def check_persisted_model_optionality(files):
+    """New fields on a persisted Codable model must be optional.
+
+    PROCESS.md sec.1: Swift's synthesized init(from:) throws keyNotFound for a
+    missing non-optional key. A default value in the declaration does NOT make
+    decoding tolerant -- the synthesized decoder never consults it. Every case
+    file already on a device predates the new field, so a non-optional addition
+    breaks all of them at load time with no partial recovery.
+
+    This is the only check here whose failure is silent, permanent, and lands
+    on the user rather than the developer: it destroys real case data on
+    upgrade, and it cannot be caught by compiling -- the code is valid Swift
+    and the build is green. Blocking.
+
+    Scoped to added lines in Models/, since Models are the persistence format;
+    a non-optional stored property elsewhere is not a decoding hazard.
+    """
+    model_files = [f for f in files
+                   if f.startswith(MODELS_DIR) and f.endswith(".swift")]
+    if not model_files:
+        return
+
+    for f in model_files:
+        # Only ADDED lines matter. An existing non-optional field is already
+        # in the persisted format and is not a new hazard.
+        diff = sh("git", "diff", "--cached", "-U0", "--", f)
+        if not diff:
+            continue
+        for line in diff.splitlines():
+            if not line.startswith("+") or line.startswith("+++"):
+                continue
+            decl = line[1:].strip()
+            # A computed property is not persisted -- Codable ignores it --
+            # and neither is a getter written inline on one line. Checking for
+            # a brace anywhere after the colon catches both shapes; testing
+            # only the end of the line misses `var x: String { "y" }` and
+            # reports it as a decoding hazard, which is the kind of false
+            # alarm that gets the whole tool bypassed.
+            if "{" in decl:
+                continue
+            # Property wrappers and statics are not part of the decoded
+            # payload either.
+            if decl.startswith("@") or re.match(r"(static|class)\s", decl):
+                continue
+            m = re.match(
+                r"(?:var|let)\s+(\w+)\s*:\s*([^=]+?)\s*(?:=|$)", decl)
+            if not m:
+                continue
+            name, type_str = m.group(1), m.group(2).strip()
+            if type_str.endswith("?") or type_str.startswith("Optional"):
+                continue
+            fail("persisted-model",
+                 f"{f}: new non-optional field `{name}: {type_str}` on a "
+                 "persisted model",
+                 f"make it `{type_str}?` (or decodeIfPresent with an explicit "
+                 "init(from:)). Every case file already on a device predates "
+                 "this field and will fail to decode -- the build stays green "
+                 "while real case data becomes unopenable.")
+
+
 # ---------------------------------------------------------------- reporting
 def main():
     args = sys.argv[1:]
@@ -317,6 +379,7 @@ def main():
     if not whole_tree:
         check_commit_size(files)
         check_docs_owed(files)
+        check_persisted_model_optionality(files)
 
     for check, msg, remedy in warnings:
         print(f"warn  [{check}] {msg}\n      -> {remedy}")
