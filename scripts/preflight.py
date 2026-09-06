@@ -1093,14 +1093,56 @@ def check_persisted_model(files):
 
 
 # ---------------------------------------------------------------- reporting
+_PRE_COMMIT_HOOK = r"""#!/bin/sh
+# Installed by scripts/preflight.py --install-hook. Do not edit by hand;
+# re-run --install-hook instead.
+#
+# This hook runs origin/main's preflight.py, NOT the worktree copy.
+#
+# Compass found why that matters. The old hook was `exec python3
+# scripts/preflight.py` -- path-relative and version-pinned to nothing. Install
+# it once on main, check out a feature branch to build, and every commit from
+# then on runs THAT BRANCH's script. On cross-section-exclude the branch script
+# is 836 lines and predates decoder-completeness, cited-doc and the argv guard:
+# an undecoded field injected into PaintAnalysis on that very tree reports
+# `clear`, exit 0, while main's script reports 1 blocking and names the field.
+# The branch whose whole purpose was fixing a decoder hazard shipped with a
+# script that cannot see it.
+#
+# That is the day's failure shape in its most convincing costume -- not a tool
+# that ran and found nothing, but the WRONG TOOL running and finding nothing,
+# printing a clean line that looks exactly like the right one.
+#
+# So: resolve the script from origin/main and refuse if it cannot be resolved.
+# Falling back to the worktree copy is precisely the silent substitution this
+# exists to prevent, and a hook that declines to run is recoverable while a
+# hook that runs the wrong checks is not.
+set -e
+SCRIPT="$(git rev-parse --git-dir)/preflight-from-origin-main.py"
+if ! git cat-file -e origin/main:scripts/preflight.py 2>/dev/null; then
+    echo "preflight hook: cannot resolve origin/main:scripts/preflight.py" >&2
+    echo "  Your remote-tracking refs may be missing or stale -- run:" >&2
+    echo "    git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune" >&2
+    echo "  Refusing to run the worktree copy instead: a feature branch's" >&2
+    echo "  script may be missing checks that main has, and would print a" >&2
+    echo "  clean line anyway. Commit blocked." >&2
+    exit 1
+fi
+git show origin/main:scripts/preflight.py > "$SCRIPT"
+exec python3 "$SCRIPT"
+"""
+
+
 def main():
     args = sys.argv[1:]
     if "--install-hook" in args:
         hook = os.path.join(REPO, ".git", "hooks", "pre-commit")
         with open(hook, "w") as fh:
-            fh.write("#!/bin/sh\nexec python3 scripts/preflight.py\n")
+            fh.write(_PRE_COMMIT_HOOK)
         os.chmod(hook, 0o755)
         print(f"installed {hook}")
+        print("The hook runs origin/main's preflight.py, not the worktree "
+              "copy, and refuses if it cannot resolve that ref.")
         return 0
 
     global DIFF_BASE
