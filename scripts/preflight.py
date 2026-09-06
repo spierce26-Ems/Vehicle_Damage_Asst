@@ -136,8 +136,13 @@ def check_pbxproj_registration():
         fail("pbxproj",
              "pbxproj references file(s) that are not in the tree: "
              + ", ".join(ghosts),
-             "regenerate the pbxproj, or restore the file if the deletion "
-             "was accidental")
+             "restore the file if the deletion was accidental. If the "
+             "deletion is intended, DELETE the stale PBXBuildFile and "
+             "PBXFileReference entries by hand: build_pbxproj.py only ADDS "
+             "missing sources and never removes an entry, so running it "
+             "leaves this failure standing. \"Regenerate the pbxproj\" "
+             "named a capability nothing here has -- measured, the script "
+             "reports a clean no-op run while the ghost reference survives")
 
 
 # ---------------------------------------------------------------- check 2

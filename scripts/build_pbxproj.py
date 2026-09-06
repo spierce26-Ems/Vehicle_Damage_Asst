@@ -12,14 +12,47 @@ already referenced).
 """
 import os
 import sys
+import subprocess
 
 from pbxproj import XcodeProject
 from pbxproj.pbxextensions.ProjectFiles import FileOptions
 from pbxproj.PBXKey import PBXKey
 
+# Resolved from the repo root rather than the cwd. These were bare relative
+# paths, so the script only worked when run from ios/ -- and preflight's
+# pbxproj remedy says "regenerate the pbxproj" without saying from where, so
+# following it from the repo root (the obvious place, and where every other
+# script here runs) died on a FileNotFoundError traceback. Same class as the
+# remedies themselves: the instruction was performable and the tool did not
+# say so, and the failure named a path instead of the cause.
+def _repo_root():
+    out = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        sys.exit("build_pbxproj: not inside a git repository")
+    return out.stdout.strip()
+
+
+# chdir to ios/ rather than absolutising the paths. That distinction is
+# load-bearing: the paths below are written INTO the pbxproj, and an absolute
+# path there is a worse defect than the traceback -- it produces a project
+# file that builds only on the machine that generated it. Measured: joining
+# the repo root onto SOURCE_DIR wrote /home/... into three Sources entries.
+# So the cwd assumption is satisfied instead of removed.
+_ROOT = _repo_root()
+_IOS = os.path.join(_ROOT, "ios")
+if not os.path.isdir(_IOS):
+    sys.exit("build_pbxproj: no ios/ directory at the repo root")
+os.chdir(_IOS)
+
 PROJECT_PATH = "VehicleDamageForensics.xcodeproj/project.pbxproj"
 SOURCE_DIR = "VehicleDamageForensics"
 TARGET_NAME = "VehicleDamageForensics"
+
+if not os.path.exists(PROJECT_PATH):
+    sys.exit(f"build_pbxproj: ios/{PROJECT_PATH} not found -- this script "
+             f"fills in the pbxproj's Sources list and cannot create the "
+             f"project file itself. Restore it from git; do not regenerate")
 
 
 def main():
