@@ -1164,9 +1164,30 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   sets a hard floor on the smallest p-value the test can express — and therefore the resolution of
   every p-value printed in a report. At `nullModelTrialCount = 120` that floor was 1/121 = 0.0083,
   only ~6 grid steps below the 0.05 significance level. Nothing was broken (the verdict was
-  reachable, unlike the Bonferroni case where the corrected alpha fell *below* the floor), but 6
-  steps is the same marginal zone that made the critical-value table unshippable, and it meant
-  p-values were quantised far more coarsely than their three printed decimals imply.
+  reachable, unlike the Bonferroni case where the corrected alpha of 0.0017 fell *below* the
+  0.0083 floor and so could not be expressed at all), but 6 steps is the same marginal zone that
+  made the critical-value table unshippable, and it meant p-values were quantised far more coarsely
+  than their three printed decimals imply.
+
+  **This audit removed that Bonferroni blocker, and the removal has not been written down where it
+  is asserted.** At 1000 trials the floor is 1/1001 = 0.000999, which is *below* alpha = 0.0017, so
+  the corrected threshold is now expressible. The comment at `ToolMarkAnalysis.swift:748-751` still
+  states the old direction as a live fact about current behaviour — found by Compass, owned by
+  Prism, and flagged here because this is the entry whose change inverted it. Note carefully what
+  this does and does not mean: **the conclusion is unchanged and Bonferroni is not thereby
+  unblocked.** The other two reasons stand on their own — the shopping-aware critical value still
+  needs a calibration table that does not exist, and emitting `significant` at the unadjusted
+  threshold would state a conclusion measured wrong more than half the time. What is stale is the
+  *arithmetic* argument, which is the half a reader recomputes. A reader who checks 1/121 against a
+  constant reading 1000 cannot tell which part of that paragraph to trust, and that is the
+  true-conclusion-false-reason defect this team documented today, sitting in the engine instead of
+  in a document.
+
+  The general form, and the reason it belongs in this entry rather than only in a code comment:
+  **a change that removes an obstacle owes an edit everywhere the obstacle is cited as current.**
+  Raising a constant is a one-line diff whose blast radius is every argument that rested on the old
+  value. Lines 836-837 and 1195 also name 120 and are correct — they are historical and deprecation
+  context, explicitly framed as what v1.1.0 did. Only the live claim needed changing.
 
   Measured: on 10-element rhythms, **3.0% of unrelated pairs and 4.0% of true matches flip
   significance verdict purely on trial count** between 120 and 2000 trials. A modest but real
