@@ -345,7 +345,7 @@ caption permanently absent for no reason; the risk with "add it when #5 lands"
 is that nobody owns the sentence in between, and this section is that owner.
 
 **A confirmation-screen string asserted a consequence a scheduled change
-removes — fixed at `3c262e2`, not deferred.** It read "one of the two
+removes — fixed at `78a9c8a`, not deferred.** It read "one of the two
 conditions that can rule a vehicle out": true of the engine as shipped, false
 once task #14's provenance gate makes a LiDAR height inconclusive. My first
 call was to correct it alongside #14. That was wrong, because the provenance
