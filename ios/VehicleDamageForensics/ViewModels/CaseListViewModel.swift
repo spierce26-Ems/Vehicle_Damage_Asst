@@ -73,7 +73,8 @@ final class CaseListViewModel: ObservableObject {
         incidentDate: Date? = nil,
         location: IncidentLocation? = nil,
         victimVehicle: Vehicle = Vehicle(role: .victim),
-        notes: String = ""
+        notes: String = "",
+        examiner: ExaminerIdentity? = nil
     ) async -> ForensicCase {
         let newCase = ForensicCase(
             caseNumber: nextCaseNumber(),
@@ -84,7 +85,13 @@ final class CaseListViewModel: ObservableObject {
             incidentDate: incidentDate,
             location: (location?.isEmpty ?? true) ? nil : location,
             notes: notes,
-            victimVehicle: victimVehicle
+            victimVehicle: victimVehicle,
+            // Task #11: passed into the initializer rather than assigned
+            // afterwards, so the `.created` audit entry that
+            // `ForensicCase.init` appends is itself attributed. Setting
+            // it after construction would leave the very first entry in
+            // every case's chain of custody unattributed.
+            examiner: examiner
         )
         await storage.save(newCase)
         return newCase

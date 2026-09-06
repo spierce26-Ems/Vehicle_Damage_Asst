@@ -96,6 +96,19 @@ struct PDFReportGenerator {
         // set of victim-vehicle photographs. If this fact only lived in
         // the audit-log page it could be separated from the score it
         // qualifies.
+        // NOTE(AI Developer), added 2026-09 for task #11. The examiner
+        // on the cover, where the case number and generation date
+        // already are -- a reader must not have to reach the custody
+        // page to learn who documented the case. Omitted entirely when
+        // unrecorded rather than printing an empty label: the explicit
+        // "no attestation" statement lives in the Attestation block, so
+        // stating it twice would read as an accusation rather than a
+        // fact.
+        if let attestation = c.attestationSummary {
+            ("Documented by: " + attestation)
+                .drawCenter(in: rect, y: 268, font: .systemFont(ofSize: 12))
+        }
+
         if c.sourceCaseID != nil {
             "Note: the victim-vehicle photographs in this case were duplicated from another case documenting the same incident against a different suspect vehicle. Results across those cases are not independent — see the Chain of Custody page."
                 .draw(at: CGPoint(x: 50, y: 574), font: .italicSystemFont(ofSize: 10),
@@ -667,6 +680,74 @@ struct PDFReportGenerator {
                 + (entry.detail.map { ": \($0)" } ?? "")
             line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100)
             y += 15
+            // NOTE(AI Developer), added 2026-09 for task #11 per the
+            // Tech Lead: "an audit trail that records what happened but
+            // not who did it is barely an audit trail." Printed for
+            // EVERY entry, including the unattributed ones -- an
+            // omitted attribution line would let a reader assume the
+            // examiner named at the top of the page recorded every
+            // event, which is precisely the inference this field exists
+            // to stop being guesswork.
+            ("      Recorded by: " + entry.attributionSummary)
+                .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 9),
+                      maxWidth: rect.width - 100, color: .darkGray)
+            y += 13
+        }
+
+        drawAttestationBlock(ctx: ctx, rect: rect, case: c, y: &y)
+    }
+
+    // NOTE(AI Developer), added 2026-09 for task #11. The attestation
+    // block, per the Tech Lead's ruling that it be built for the same
+    // reason as the examiner identity fields: Ledger's evidence appendix
+    // already renders capture notes as "the examiner attested", and an
+    // unattributed attestation is weaker than none.
+    //
+    // Renders an explicit statement in BOTH directions. Per the
+    // Designer's rule (adopted as general): specify omission rather
+    // than leaving blank lines, because a blank examiner line reads as
+    // an unsigned report -- a worse artefact than an obviously
+    // incomplete one. So an unrecorded examiner prints a sentence
+    // saying so, never an empty signature rule.
+    private func drawAttestationBlock(
+        ctx: UIGraphicsPDFRendererContext,
+        rect: CGRect,
+        case c: ForensicCase,
+        y: inout CGFloat
+    ) {
+        if y > rect.height - 200 {
+            ctx.beginPage()
+            y = 50
+        }
+        y += 20
+        "Attestation".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14))
+        y += 22
+
+        if let examiner = c.examiner, examiner.hasAnyDetail {
+            "The person named below documented this case using this application and attested to the capture conditions recorded in it."
+                .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+            y += 32
+            // Only the fields that exist are printed. A placeholder in
+            // an attestation is a statement the app cannot support.
+            if let name = examiner.name {
+                ("Examiner: " + name).draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 12))
+                y += 18
+            }
+            if let agency = examiner.agency {
+                ("Agency: " + agency).draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11))
+                y += 16
+            }
+            if let badge = examiner.badgeNumber {
+                ("Badge / ID: " + badge).draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11))
+                y += 16
+            }
+        } else {
+            // The omission is stated outright rather than left as a
+            // blank line -- see this method's header note.
+            "No examiner identity was recorded for this case, so this report carries no attestation. The capture conditions recorded in it cannot be attributed to a named person."
+                .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 11),
+                      maxWidth: rect.width - 100, color: .darkGray)
+            y += 34
         }
     }
 

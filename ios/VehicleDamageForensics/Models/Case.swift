@@ -87,6 +87,18 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     /// valid or silently dropped.
     var sourceCaseID: UUID?
 
+    /// NOTE(AI Developer), added 2026-09 for task #11. Who is
+    /// documenting this case -- see `ExaminerIdentity` for why every
+    /// part of it is optional and why it must never gate a capture.
+    ///
+    /// Recorded per-case rather than as a global app setting on
+    /// purpose: the same device can legitimately be used by different
+    /// examiners, and a global value would retroactively re-attribute
+    /// cases documented by someone else. Same reasoning as the copied
+    /// `AuditEntry.examinerName` -- attribution is a fact about a
+    /// moment, not a current setting.
+    var examiner: ExaminerIdentity?
+
     // MARK: Init
 
     init(
@@ -106,7 +118,8 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         metadata: CaseMetadata = CaseMetadata(),
         auditLog: [AuditEntry] = [],
         isUnlocked: Bool = false,
-        sourceCaseID: UUID? = nil
+        sourceCaseID: UUID? = nil,
+        examiner: ExaminerIdentity? = nil
     ) {
         self.id = id
         self.caseNumber = caseNumber
@@ -124,9 +137,20 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         self.metadata = metadata
         // A freshly-created case always gets a `.created` entry so the
         // audit trail's first line is never missing.
-        self.auditLog = auditLog.isEmpty ? [AuditEntry(action: .created)] : auditLog
+        //
+        // NOTE(AI Developer), task #11: this entry is constructed
+        // directly rather than via `recordAudit`, so it needs the
+        // examiner passed explicitly -- otherwise the FIRST line of
+        // every case's chain of custody would be the one unattributed
+        // entry, which is the line a reader looks at first. `examiner`
+        // is read from the parameter, not `self.examiner`, because the
+        // stored property is not assigned until below.
+        self.auditLog = auditLog.isEmpty
+            ? [AuditEntry(action: .created, examinerName: examiner?.name)]
+            : auditLog
         self.isUnlocked = isUnlocked
         self.sourceCaseID = sourceCaseID
+        self.examiner = examiner
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -168,6 +192,7 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         // duplication existed, which is exactly right: those cases were
         // created from scratch.
         sourceCaseID = try c.decodeIfPresent(UUID.self, forKey: .sourceCaseID)
+        examiner = try c.decodeIfPresent(ExaminerIdentity.self, forKey: .examiner)
     }
 
     // MARK: Computed Properties
@@ -412,18 +437,148 @@ struct AuditEntry: Codable, Equatable, Identifiable {
     let deviceID: String
     let detail: String?
 
+    /// NOTE(AI Developer), added 2026-09 for task #11 per the Tech
+    /// Lead's ruling on the chain-of-custody page: "an audit trail that
+    /// records what happened but not who did it is barely an audit
+    /// trail."
+    ///
+    /// The examiner's display name at the moment this entry was
+    /// recorded. It matters most for the entries that record a
+    /// JUDGEMENT rather than a data event -- `.striationProbeExcluded`
+    /// above all, where a probe being set aside is a decision someone
+    /// made and the decision is only assessable if attributable.
+    ///
+    /// Deliberately a COPIED STRING, not a reference into
+    /// `ForensicCase.examiner`. An audit entry is immutable history: if
+    /// the examiner later corrects their name or another examiner picks
+    /// the case up, entries already written must keep naming whoever
+    /// actually recorded them. Resolving live would silently rewrite the
+    /// past.
+    ///
+    /// Optional per the persisted-model rule (PROCESS.md sec.1 and
+    /// preflight): every entry written before this field existed decodes
+    /// as `nil`, and `nil` is a real third state -- "not recorded",
+    /// which is distinct from an examiner having been recorded as
+    /// anonymous. `attributionSummary` renders it as such and never as
+    /// a blank.
+    let examinerName: String?
+
     init(
         id: UUID = UUID(),
         timestamp: Date = Date(),
         action: AuditAction,
         deviceID: String = UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
-        detail: String? = nil
+        detail: String? = nil,
+        examinerName: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
         self.action = action
         self.deviceID = deviceID
         self.detail = detail
+        self.examinerName = examinerName
+    }
+
+    /// NOTE(AI Developer), added 2026-09 for task #11. Custom
+    /// `init(from:)` is REQUIRED here even though `examinerName` is
+    /// optional: `id`, `timestamp`, `action` and `deviceID` are all
+    /// non-optional `let`s, so this type has always depended on the
+    /// synthesized decoder, and adding a member to it means writing the
+    /// whole thing. Optional `examinerName` decodes via
+    /// `decodeIfPresent` exactly as the synthesized code would.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        action = try c.decode(AuditAction.self, forKey: .action)
+        deviceID = try c.decode(String.self, forKey: .deviceID)
+        detail = try c.decodeIfPresent(String.self, forKey: .detail)
+        examinerName = try c.decodeIfPresent(String.self, forKey: .examinerName)
+    }
+
+    /// Chain-of-custody rendering of who recorded this entry. Three
+    /// states, never two -- the house rule this board has now converged
+    /// on repeatedly: an absence must not assert anything. `nil` means
+    /// no examiner was recorded, which is NOT the same claim as an
+    /// examiner having been recorded anonymously, and neither may
+    /// render as a blank (a blank attribution line reads as an unsigned
+    /// entry).
+    var attributionSummary: String {
+        guard let examinerName, !examinerName.isEmpty else {
+            return "Examiner not recorded"
+        }
+        return examinerName
+    }
+}
+
+// MARK: - Examiner Identity
+
+/// Who is documenting this case.
+///
+/// NOTE(AI Developer), added 2026-09 for task #11 per the UI/UX
+/// Designer's argument, accepted by the Tech Lead: `frameConfirmedClear`
+/// (and the striation exclusions) are ATTESTATIONS, and Ledger's
+/// evidence appendix already renders them as "the examiner attested".
+/// An unattributed attestation is weaker than none -- it asserts that
+/// somebody vouched for something without recording who, which is a
+/// claim the report cannot support.
+///
+/// All three fields are optional, and the whole struct is optional on
+/// `ForensicCase`, for two independent reasons:
+///
+/// 1. The persisted-model rule (PROCESS.md sec.1): a non-optional field
+///    on a Codable model throws `keyNotFound` for every case saved
+///    before it existed.
+/// 2. It must NEVER block a roadside capture. A consumer documenting
+///    their own hit-and-run has no agency and no badge number, and a
+///    required field here would either lock them out or train everyone
+///    to type junk into it -- which is worse than an honest blank,
+///    because junk is indistinguishable from a real entry.
+struct ExaminerIdentity: Codable, Equatable {
+    /// Examiner or documenting party's name.
+    var name: String?
+    /// Agency, department, or firm. Absent for a private individual
+    /// documenting their own incident, which is a supported and common
+    /// case -- not a deficiency.
+    var agency: String?
+    /// Badge, licence, or employee number.
+    var badgeNumber: String?
+
+    init(name: String? = nil, agency: String? = nil, badgeNumber: String? = nil) {
+        self.name = Self.normalized(name)
+        self.agency = Self.normalized(agency)
+        self.badgeNumber = Self.normalized(badgeNumber)
+    }
+
+    /// Trims whitespace and collapses an empty string to `nil`, so
+    /// "recorded as empty" and "not recorded" cannot diverge in the
+    /// data. Without this, a user who types a space into the name field
+    /// produces a record that is non-nil but renders blank -- exactly
+    /// the "absence asserting something" failure the three-state rule
+    /// exists to prevent.
+    private static func normalized(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    /// True when at least one field carries something. `false` is
+    /// reported honestly rather than hidden -- see
+    /// `ForensicCase.attestationSummary`.
+    var hasAnyDetail: Bool {
+        name != nil || agency != nil || badgeNumber != nil
+    }
+
+    /// Single-line rendering for the report cover and audit entries.
+    /// Only the fields that exist appear; nothing is padded with
+    /// placeholders, since a placeholder in an attestation is a
+    /// statement the app cannot support.
+    var displayLine: String? {
+        var parts: [String] = []
+        if let name { parts.append(name) }
+        if let badgeNumber { parts.append("Badge \(badgeNumber)") }
+        if let agency { parts.append(agency) }
+        return parts.isEmpty ? nil : parts.joined(separator: " — ")
     }
 }
 
@@ -543,8 +698,39 @@ extension ForensicCase {
     /// Appends an immutable audit entry to this case's chain-of-custody log.
     /// Call this at every mutation point (capture, analysis, report, etc.)
     /// rather than mutating `auditLog` directly, so entries stay consistent.
+    /// NOTE(AI Developer), 2026-09 for task #11: the examiner name is
+    /// captured HERE, at the single choke point every mutation already
+    /// goes through, rather than at each of the ~15 call sites. That is
+    /// the whole reason this function exists (see its original doc
+    /// comment above), and it means attribution cannot be forgotten by
+    /// a future call site the way it would be if each caller passed it.
+    ///
+    /// The value is copied from `examiner` at the instant of the event,
+    /// so later edits to the examiner's details never rewrite entries
+    /// already recorded -- see `AuditEntry.examinerName`.
     mutating func recordAudit(_ action: AuditAction, detail: String? = nil) {
-        auditLog.append(AuditEntry(action: action, detail: detail))
+        auditLog.append(AuditEntry(
+            action: action,
+            detail: detail,
+            examinerName: examiner?.name
+        ))
+    }
+
+    // MARK: Attestation (task #11)
+
+    /// NOTE(AI Developer), added 2026-09 for task #11. The report's
+    /// attestation block, or `nil` when there is nothing to attest
+    /// with.
+    ///
+    /// Returning `nil` rather than a partially-filled block is
+    /// deliberate: per the Designer's rule the Tech Lead adopted as
+    /// general ("specifying omission rather than blank lines"), a
+    /// report with a blank examiner line reads as an UNSIGNED report,
+    /// which is a worse artefact than an obviously incomplete one. The
+    /// PDF renders an explicit "not recorded" statement in this case --
+    /// see `PDFReportGenerator.drawAttestationBlock`.
+    var attestationSummary: String? {
+        examiner?.displayLine
     }
 
     // MARK: Duplication for another suspect (item #5)
@@ -620,7 +806,18 @@ extension ForensicCase {
             metadata: CaseMetadata(createdBy: metadata.createdBy),
             auditLog: [],
             isUnlocked: false,
-            sourceCaseID: id
+            sourceCaseID: id,
+            // NOTE(AI Developer), task #11 interacting with item #5:
+            // the examiner IS carried over. It belongs with the
+            // "facts about the incident" group, not the "conclusions
+            // about a suspect" group -- the same person is documenting
+            // the same incident against a different suspect, and making
+            // them retype their badge number for each suspect would
+            // train them to skip it. Note this differs from
+            // `isUnlocked`, which is cleared: an unlock is a purchase
+            // against one case's report, whereas identity is a fact
+            // about who is doing the work.
+            examiner: examiner
         )
         clone.recordAudit(
             .caseDuplicated,

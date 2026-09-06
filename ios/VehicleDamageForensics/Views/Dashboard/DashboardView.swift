@@ -95,7 +95,8 @@ struct DashboardView: View {
                             incidentDate: draft.incidentDate,
                             location: draft.location,
                             victimVehicle: draft.victimVehicle,
-                            notes: draft.notes
+                            notes: draft.notes,
+                            examiner: draft.examiner
                         )
                         newCaseRoute = new
                     }
@@ -166,6 +167,12 @@ struct DashboardView: View {
                 Section("Copied from \(source.displayTitle)") {
                     Label("Victim vehicle details and all its photos, scans, and markings", systemImage: "checkmark.circle")
                     Label("Incident type, date, location, and notes", systemImage: "checkmark.circle")
+                    // Task #11 interacting with item #5: identity is a
+                    // fact about who is doing the work, so it carries
+                    // over. Listed explicitly rather than silently,
+                    // since the user should know their name will be
+                    // attached to the new case's audit entries.
+                    Label("Examiner name, agency, and badge number", systemImage: "checkmark.circle")
                 }
 
                 Section {
@@ -424,6 +431,10 @@ struct NewCaseDraft {
     var location: IncidentLocation?
     var victimVehicle: Vehicle
     var notes: String
+    /// NOTE(AI Developer), added 2026-09 for task #11. `nil` when the
+    /// creator left the "Documented by" section blank, which is a
+    /// supported outcome -- see `ExaminerIdentity`.
+    var examiner: ExaminerIdentity?
 }
 
 /// Case-creation form per Sean's decision (2026-07): lets the investigator
@@ -457,6 +468,11 @@ struct NewCaseSheet: View {
     @State private var licensePlate: String = ""
     @State private var vin: String = ""
 
+    // Examiner identity (task #11)
+    @State private var examinerName: String = ""
+    @State private var examinerAgency: String = ""
+    @State private var examinerBadge: String = ""
+
     var onCreate: (NewCaseDraft) -> Void
 
     var body: some View {
@@ -469,6 +485,21 @@ struct NewCaseSheet: View {
                             Text(t.displayName).tag(t)
                         }
                     }
+                }
+
+                // Task #11. Same copy as EditCaseSheet -- one source
+                // of wording for one concept, so the two screens
+                // cannot drift.
+                Section {
+                    TextField("Examiner name", text: $examinerName)
+                        .textContentType(.name)
+                    TextField("Agency or department", text: $examinerAgency)
+                        .textContentType(.organizationName)
+                    TextField("Badge or ID number", text: $examinerBadge)
+                } header: {
+                    Text("Documented by")
+                } footer: {
+                    Text("Optional — leave blank if you're documenting your own incident. If provided, this name is attached to each recorded event in the chain-of-custody log and to the report's attestation. Without it the report states that its capture conditions cannot be attributed to a named person.")
                 }
 
                 Section("Incident Details") {
@@ -545,13 +576,21 @@ struct NewCaseSheet: View {
             licensePlate: licensePlate.isEmpty ? nil : licensePlate,
             vin: vin.isEmpty ? nil : vin
         )
+        // See EditCaseSheet.save() -- normalization plus hasAnyDetail so
+        // an all-blank section persists nil rather than an empty shell.
+        let examiner = ExaminerIdentity(
+            name: examinerName,
+            agency: examinerAgency,
+            badgeNumber: examinerBadge
+        )
         return NewCaseDraft(
             caseName: caseName,
             caseType: caseType,
             incidentDate: recordIncidentDate ? incidentDate : nil,
             location: location.isEmpty ? nil : location,
             victimVehicle: vehicle,
-            notes: notes
+            notes: notes,
+            examiner: examiner.hasAnyDetail ? examiner : nil
         )
     }
 }
