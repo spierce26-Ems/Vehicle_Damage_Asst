@@ -151,29 +151,37 @@ Under `docs/PROCESS.md`:
 - The full string inventory lives with the changelog, not only in a spec
   attachment, so it survives the spec being superseded.
 
-### 4.1 Copy change ledger — every surface, not just commits
+### 4.1 Copy change ledger
 
-**The obligation is on the string, not on the artefact it appears in.** Any
-change to a locked string is recorded here, oldest first, whatever carried it.
-Named explicitly, because this lock has already been outrun twice by scoping it
-to a mechanism instead of to the words:
+**The rule: any surface that reproduces a locked string is bound by this lock.**
 
-| Surface | Obligation |
-|---|---|
-| A commit | `Copy: changed` in the message body plus the affected keys; before/after quoted in the changelog entry |
-| A spec revision | ledger entry at revision time — do not wait for an implementing commit |
-| **A mock, wireframe, or prototype** | ledger entry, **or** an explicit placeholder marking on the artefact naming this document as the authority |
-| Anything else that shows a user-visible string to a human who might type it into the product | ledger entry |
+One rule, deliberately not a list of surfaces. The lock was first scoped to
+commits, then extended to spec revisions, then to mocks — three times, each time
+because a string escaped through a channel the enumeration had not named. An
+enumerated list is a list of the ways drift has already happened; the rule has
+to cover the ways it has not happened yet.
 
-Mocks are the most dangerous of the three and the easiest to miss. A spec
+So: **if an artefact shows a locked string to a human who might type it into
+the product, changing that string requires a ledger entry here.** Commit,
+spec revision, wireframe, mock, prototype, slide, screenshot in a message —
+the carrier is irrelevant. The obligation is on the string.
+
+Additional obligations by carrier, on top of the ledger entry:
+
+- **A commit** — `Copy: changed` in the message body plus the affected keys,
+  and the changelog entry quotes before and after.
+- **A layout artefact** (mock, wireframe, prototype) — either a ledger entry,
+  or an explicit placeholder marking on the artefact naming this document as
+  the authority.
+
+Layout artefacts are the most dangerous carrier and the easiest to miss. A spec
 revision at least announces itself as text somebody has to read; an implementer
 working from a picture has no signal that the words in it are placeholder. They
-build the screen, type what they see, and a trimmed string is in the product
-with no diff anywhere that looks like a copy change. Strings in a layout
-artefact are **layout placeholders with no authority** — the inventory in the
-Item 2 spec §4 and §2.2 of this document are the only sources. Where a frame
-cannot fit the real string, that is a layout finding to raise, never a licence
-to shorten the copy.
+build the screen, type what they see, and a paraphrase is in the product with no
+diff anywhere that looks like a copy change. **Strings in a layout artefact are
+layout placeholders with no authority** — the Item 2 spec §4 inventory and §2.2
+of this document are the only sources. Where a frame cannot fit the real string,
+that is a layout finding to raise, never a licence to shorten the copy.
 
 A banner on the artefact is good practice and does not discharge the
 obligation: a banner depends on its author remembering to write it every time,
@@ -193,7 +201,9 @@ did not confirm the frame was clear"**, and the §2.2 note wording for
 Known outstanding: the eight-screen wireframe set reproduces four locked
 strings, two of them shortened to fit a phone frame (screen 4's analysis band,
 screen 7's legend). Those are placeholders, flagged as such on the artefact.
-Neither shortened form is a copy change and neither may be implemented.
+Neither shortened form is a copy change and neither may be implemented. The
+design set is tracked as task #12; report page mocks arriving there come under
+this lock on the same terms.
 
 ### 4.2 The override wording is a condition of the gate, not a courtesy
 
