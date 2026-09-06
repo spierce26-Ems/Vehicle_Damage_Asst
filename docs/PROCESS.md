@@ -513,21 +513,46 @@ told.** *"The condition persists after the remedy"* is the signature of a
 **correct reminder** and of a **broken drift-check remedy** at once: one
 observation, two opposite verdicts, which is this document's own
 predicate-one-short shape aimed at the fix for it. The class is not marginal —
-`preflight.py` carries **38 remedy call sites (26 `warn()` + 12 `fail()`)**
-against **7** uses of `diff_args()`, so 18% of the surface is
-diff-keyed and every one of those correctly refuses to clear. A harness that
-guessed would manufacture seven false positives inside the tool built to end
-false remedies, and train the bypass habit the grading rules exist to prevent.
+`preflight.py` carries **38 remedy call sites (26 `warn()` + 12 `fail()`)**, of
+which **2** are reminders — both in `check_docs_owed`. A harness that guessed
+would manufacture false positives inside the tool built to end false remedies,
+and train the bypass habit the grading rules exist to prevent.
 **Declare the kind at the call site; do not derive it from behaviour.**
 (Count the calls, not the greps: a bare `warn(`/`fail(` grep also matches the
 two function definitions, which is how 37, 38 and 40 were all quoted for the
-same file within one hour.)
+same file within one hour. The same applies to `diff_args` — see below.)
+
+**The reminder count is 2, not 7, and `diff_args()` was never the predicate.**
+`diff_args` appears on **7** lines, but two are its own `def` and a comment
+naming it: there are **5** call sites — `changed_files()`,
+`check_commit_size`, `check_docs_owed`, `types_added_in_diff`,
+`check_persisted_model` — and `changed_files()` is the shared file selector
+every commit-shaped check goes through, not a check of its own. Those three
+checks hold **8** remedy sites between them, of which 2 are reminders:
+`check_commit_size` and `check_persisted_model` are diff-keyed and still name
+state their remedies genuinely change. So *"7 reminders, matching the
+`diff_args()` count exactly"* was **two independent grep miscounts landing on
+the same wrong number — and the agreement is what made it look verified.** It
+is the grep error this section warns about, committed inside the warning.
+
+**The measured predicate is narrower, and it is the one to declare against.** A
+reminder is keyed to the *presence* of a change in the diff — a file added or
+removed, a commit's shape — which no remedy can retract, because performing it
+does not un-make the change. Being diff-keyed is necessary and not sufficient:
+a diff-keyed check whose finding is about the *content* the diff introduced (a
+non-optional field, a 700-line file) clears when that content is fixed. **Only
+the presence-keyed subset cannot clear, and it is 2 of 38.** That sharpens the
+argument rather than weakening it: the class is far too small for any
+heuristic to have found it, and small is not marginal — those 2 are the sites
+where a reader who performed all three steps correctly is told the work did
+not take.
 
 **Built, as `scripts/check_remedies.py`.** It walks `preflight.py`'s AST and
 fails the run when any `warn()`/`fail()` site lacks a
 `# remedy: <fixes|reminder|external|state>` declaration, and additionally fails
 a `reminder` whose remedy text never says it will not clear. All 38 sites are
-declared; 7 are reminders, matching the `diff_args()` count exactly. `fixes` =
+declared; **2 are reminders** — the paragraph above corrects the 7, which was
+a grep of `diff_args` counting its own definition. `fixes` =
 following it removes the finding, and name the thing that does. `reminder` =
 keyed to the diff, so **no correct work clears it in this run** — say so, and
 name the checks that verify the result. `external` = needs a device, Xcode, a
