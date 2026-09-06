@@ -629,27 +629,68 @@ def check_conflict_markers():
              "and every other clean line in this report was measured on it")
 
 
+# Searched in order. The /tmp entries are last and deliberately flagged as
+# ephemeral: /tmp does not survive a sandbox rebuild, so a toolchain unpacked
+# there gives a check that works today and silently reverts to the advisory
+# later -- and a reader who saw it working yesterday will not reread the
+# report. Found by Compass, who hit exactly that and moved to ~/toolchains.
+# The advisory is honest about not parsing; it cannot be honest about a
+# location the user thought was permanent, so the check says so up front.
+SWIFT_PARSER_PATHS = (
+    ("$SWIFT_FRONTEND", None, False),
+    ("swift-frontend", "which", False),
+    ("swiftc", "which", False),
+    ("~/toolchains/swift/usr/bin/swift-frontend", "home", False),
+    ("/usr/local/swift/usr/bin/swift-frontend", None, False),
+    ("/tmp/swift/usr/bin/swift-frontend", None, True),
+)
+
+
 def _swift_parser():
     """Locate a Swift frontend able to PARSE (not compile) a source file.
 
-    Order: SWIFT_FRONTEND from the environment, then `swiftc`/`swift-frontend`
-    on PATH, then a toolchain unpacked under /tmp. No iOS SDK is needed --
-    parsing is syntax only, which is exactly the question this check asks and
-    the reason it can run without Xcode.
+    No iOS SDK is needed -- parsing is syntax only, which is the whole
+    question this check asks and the reason it runs without Xcode. A
+    swift.org Linux tarball (~600 MB) is sufficient; two environments on this
+    team installed one within the hour after "we need Xcode" turned out to be
+    the wrong shape of the problem.
+
+    Returns (path, version, ephemeral). `ephemeral` marks a location that does
+    not survive a sandbox rebuild, so the caller can warn while still running
+    the check -- see SWIFT_PARSER_PATHS.
     """
-    cand = []
-    env = os.environ.get("SWIFT_FRONTEND")
-    if env:
-        cand.append(env)
-    for name in ("swift-frontend", "swiftc"):
-        found = shutil.which(name)
-        if found:
-            cand.append(found)
-    cand.append("/tmp/swift/usr/bin/swift-frontend")
-    for c in cand:
-        if c and os.path.exists(c):
-            return c
-    return None
+    for spec, kind, ephemeral in SWIFT_PARSER_PATHS:
+        if spec == "$SWIFT_FRONTEND":
+            path = os.environ.get("SWIFT_FRONTEND") or None
+        elif kind == "which":
+            path = shutil.which(spec)
+        elif kind == "home":
+            path = os.path.expanduser(spec)
+        else:
+            path = spec
+        if path and os.path.exists(path):
+            return path, _swift_version(path), ephemeral
+    return None, None, False
+
+
+def _swift_version(path):
+    """The frontend's own version string, for the report.
+
+    Named rather than assumed, per Compass: "42 files parse" is a claim whose
+    instrument cannot be audited. He had tree_sitter_swift sweeping all 42
+    files and it flagged StorageService.swift on an empty tuple `()` that the
+    real frontend accepts -- 41 of 42 correct, which is what a working tool
+    looks like, and it had detected the historical marker breakage too, so it
+    looked authoritative in the direction being tested. A grammar
+    approximation standing in for a compiler is this repo's own
+    unvalidated-instrument failure, so the report names which binary answered.
+    """
+    out = subprocess.run([path, "--version"], capture_output=True, text=True)
+    for line in (out.stdout + out.stderr).splitlines():
+        m = re.search(r"[Ss]wift version (\S+)", line)
+        if m:
+            return m.group(1)
+    return "unknown version"
 
 
 def check_swift_parses():
@@ -693,7 +734,7 @@ def check_swift_parses():
              if f.endswith(".swift")]
     if not swift:
         return
-    parser = _swift_parser()
+    parser, version, ephemeral = _swift_parser()
     if parser is None:
         warn("swift-parse",
              f"no Swift frontend found -- {len(swift)} tracked Swift file(s) "
@@ -704,6 +745,16 @@ def check_swift_parses():
              "until then a clear report says nothing about whether this tree "
              "parses")
         return
+
+    if ephemeral:
+        warn("swift-parse",
+             f"the Swift frontend in use ({parser}) is under a path that "
+             "does not survive a sandbox rebuild -- the parse ran, but it "
+             "will revert to 'NOT parsed' later without anything changing "
+             "in the repo",
+             "move the toolchain somewhere durable (~/toolchains/swift) and "
+             "export SWIFT_FRONTEND from your shell profile; a check that "
+             "worked yesterday is one nobody rereads")
 
     args = ([parser, "-frontend", "-parse"] if parser.endswith("swift-frontend")
             else [parser, "-parse", "-"])
@@ -724,7 +775,7 @@ def check_swift_parses():
         more = f" (+{len(bad) - 3} more)" if len(bad) > 3 else ""
         fail("swift-parse",
              f"{len(bad)} of {len(swift)} tracked Swift file(s) do not "
-             f"parse: {shown}{more}",
+             f"parse (swift {version}): {shown}{more}",
              "open the named file at the reported location -- a file that "
              "does not parse cannot compile, so every other clean line in "
              "this report was measured on a tree that is not valid Swift")
