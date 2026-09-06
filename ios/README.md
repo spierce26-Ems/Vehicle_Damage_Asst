@@ -997,8 +997,41 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   in 0-100 with no invented constants. The factor note now shows both measurements and each axis
   percentage instead of bare deltas.
 
-  **Not yet compiled** — brace/paren balance checked; the divergence table above is from a Python
-  port of both forms.
+  **Files touched**: `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift`
+
+  **Commit(s)**: `64d3c95`, merged in `dc069a1`
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
+  checked; the divergence table above is from a Python port of both forms. `preflight --all` clear
+  at zero advisories, which means "worth compiling" and nothing more. This tree is structurally
+  consistent and was last parsed by Vector at `aec3a2f`.
+
+  **Why the wrong comment was deleted rather than corrected.** The old code carried a comment
+  claiming a "50mm tolerance on each axis" that it never implemented — at 1mm per point the real
+  distance to zero was 100mm. Correcting the number would have preserved a comment describing an
+  approach being replaced, which is the §4d hazard: a reader auditing this factor from the comment
+  rather than the implementation would have audited a scoring form that no longer exists.
+
+  **On-device test checklist**:
+  - [ ] A case with victim damage 300mm wide and suspect damage 400mm wide scores the Damage
+    Dimensions factor around **67**, not **0**. Under the old form nearly-similar damage read as a
+    total mismatch.
+  - [ ] **The row that motivated the change**: victim 40mm against suspect 60mm scores around
+    **67**, not **85**. A 50%-larger chip must not read as a good match — this one was wrong in
+    the direction of implicating someone.
+  - [ ] A 1200mm vs 1250mm pair scores around **96**. A 4% difference on a long gouge is a good
+    match, and the old form called it poor.
+  - [ ] The factor note on the results screen reads both measurements and a percentage per axis —
+    e.g. "width 300 vs 400mm (75%), height ..." — and no longer shows bare `Δw`/`Δh` deltas.
+  - [ ] The same note text appears in the PDF factor breakdown.
+  - [ ] **Negative case**: a case with dimension data on only one side, or a zero measurement,
+    produces no Damage Dimensions score at all rather than a 0 — an absent measurement is
+    unmeasured, not a mismatch (`docs/PROCESS.md` §5). Confirm the factor is omitted or marked
+    unavailable, never scored.
+  - [ ] Determinism: re-run the same case twice and get identical axis percentages.
+  - [ ] Sanity check the scale-invariance property directly: two pairs with the same *ratio* but
+    different absolute sizes (40 vs 60mm, and 400 vs 600mm) score the **same**. That is the
+    property the change exists to give, and it is the one a future "improvement" would break.
 - **Trust the number — algorithm version stamp + no bare match percentages (P1b).** Two related
   problems, both about a score being shown without the context that makes it mean anything.
 
