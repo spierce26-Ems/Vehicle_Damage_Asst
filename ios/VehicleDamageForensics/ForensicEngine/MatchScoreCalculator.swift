@@ -526,14 +526,53 @@ struct MatchScoreCalculator {
             return FactorScore(factor: .damageDimensions, rawScore: 0, dataQuality: .unavailable,
                                notes: "Damage zones not measured")
         }
-        let widthDiff = abs(v.widthMM - s.widthMM)
-        let heightDiff = abs(v.heightMM - s.heightMM)
-        // 50mm tolerance on each axis is generous but defensible.
-        let wScore = max(0, 100 - widthDiff)
-        let hScore = max(0, 100 - heightDiff)
+        // NOTE(AI Developer), rewritten 2026-09 (task #10b). The previous
+        // implementation was:
+        //
+        //     let wScore = max(0, 100 - widthDiff)   // 1mm = 1 point
+        //     let hScore = max(0, 100 - heightDiff)
+        //
+        // with a comment claiming "50mm tolerance on each axis" that the
+        // code did not implement -- at 1mm per point the effective
+        // tolerance was 100mm to reach zero, and the comment was simply
+        // wrong. It is deleted rather than corrected, because the whole
+        // absolute-difference approach is being replaced.
+        //
+        // The real defect is that absolute millimetres are SCALE-BLIND,
+        // and blind in both directions at once:
+        //
+        //   victim/suspect      absolute form   ratio form
+        //   300 vs 400mm wide        0            67    <- nearly-similar damage scored as total mismatch
+        //   1200 vs 1250mm          65            96    <- a 4% difference on a long gouge scored as poor
+        //   40 vs 60mm              85            67    <- a 50%-larger chip scored as a good match
+        //
+        // A 50mm discrepancy means something completely different on a
+        // 40mm chip than on a 1200mm gouge, and the old form treated them
+        // identically. The last row is the dangerous one: it inflates a
+        // factor score for two marks that are plainly not the same mark.
+        //
+        // Replaced with the smaller/larger ratio form used by
+        // `_analyze_dimensions` in `ios/reference/forensic_analyzer.py`.
+        // Python is not automatically authoritative here (it is an
+        // earlier, simpler design and elsewhere it is the weaker
+        // implementation), but on this specific factor it is right: a
+        // ratio is scale-relative, which is the property this comparison
+        // needs, and it lands in 0-100 with no invented constants.
+        //
+        // `hasDimensionData` already guarantees both values are > 0, so
+        // the division cannot be by zero; the `max(_, 0.0001)` is belt
+        // and braces against a future caller relaxing that guard.
+        func ratioScore(_ a: Double, _ b: Double) -> Double {
+            let smaller = min(a, b), larger = max(a, b)
+            return (smaller / max(larger, 0.0001)) * 100
+        }
+        let wScore = ratioScore(v.widthMM, s.widthMM)
+        let hScore = ratioScore(v.heightMM, s.heightMM)
         let raw = (wScore + hScore) / 2
         return FactorScore(factor: .damageDimensions, rawScore: raw, dataQuality: .full,
-                           notes: String(format: "Δw=%.0fmm, Δh=%.0fmm", widthDiff, heightDiff))
+                           notes: String(format: "width %.0f vs %.0fmm (%.0f%%), height %.0f vs %.0fmm (%.0f%%)",
+                                         v.widthMM, s.widthMM, wScore,
+                                         v.heightMM, s.heightMM, hScore))
     }
 
     /// NOTE(AI Developer), fixed 2026-07 alongside `scoreDamageDimensions`

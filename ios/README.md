@@ -828,6 +828,31 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   on the results screen and in the PDF, and that a 3" mismatch does NOT (poor score, plausible
   collision).
 
+- **Damage Dimensions: replace absolute-mm scoring with the smaller/larger ratio form (task #10b).**
+  `MatchScoreCalculator.scoreDamageDimensions` scored `max(0, 100 - abs(diff))` — 1mm = 1 point —
+  under a comment claiming a "50mm tolerance on each axis" that the code never implemented (at 1mm
+  per point the effective tolerance to reach zero was 100mm). The comment is deleted rather than
+  corrected, because the approach itself is the defect: absolute millimetres are scale-blind, and
+  blind in both directions at once.
+
+  | victim vs suspect | absolute form | ratio form |
+  |---|---|---|
+  | 300 vs 400mm wide | 0 | 67 |
+  | 1200 vs 1250mm | 65 | 96 |
+  | 40 vs 60mm | 85 | 67 |
+
+  A 50mm discrepancy means something completely different on a 40mm chip than on a 1200mm gouge,
+  and the old form treated them identically. The last row is the dangerous one — it inflated the
+  factor for two marks that are plainly not the same mark. Now uses the smaller/larger ratio form
+  from `_analyze_dimensions` in the Python reference. Python is not automatically authoritative
+  (it is an earlier, simpler design and is the weaker implementation elsewhere), but on this factor
+  it is right: a ratio is scale-relative, which is the property this comparison needs, and it lands
+  in 0-100 with no invented constants. The factor note now shows both measurements and each axis
+  percentage instead of bare deltas.
+
+  **Not yet compiled** — brace/paren balance checked; the divergence table above is from a Python
+  port of both forms.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
