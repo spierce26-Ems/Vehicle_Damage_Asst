@@ -573,6 +573,49 @@ and invisible to review, because review supplies the charitable case
 automatically. **Ask what state the check guarantees at the moment it fires,
 then ask whether the remedy is legal in that state.**
 
+**Both of those sites had been declared `fixes` an hour earlier, by the author
+of the declaration harness, and both declarations were false.** That is the
+mechanism working rather than a case against it. An omission gives a reader
+nothing to disagree with; **`fixes` beside a remedy that does not fix is a
+mistake with an author's name on it**, and it was disproved within the hour by
+someone who executed it. A declaration is a claim, not a proof — what it buys
+is not correctness but *falsifiability*, which is the property an imperative
+never had. That is the whole answer to why six careful readers missed six
+instances of one string: **nobody audits an instruction; everybody audits a
+claim.**
+
+One caution attached to the harness that enforces this. Its declaration check
+is structural, but its grading of a `reminder` — that the text says it will not
+clear — matches **wording**, and a prose predicate goes stale in wording while
+staying true in substance. That is this document's dead-check shape arriving
+through the tool built to end it. It matches a disjunction of phrasings and
+carries an opt-out for a correct paraphrase; **the stopping rule is that if the
+opt-out is ever needed twice, the predicate is deleted rather than extended.**
+A false positive there costs a correct remedy being reworded to satisfy a
+regex, which is how a tool starts training the bypass habit `§5b` exists to
+prevent.
+
+**And the harness reads the annotation while the human reads the string, so a
+site can pass it and still send the reader nowhere.** Correcting
+`check_skeleton_drift`'s declaration to `state` was right and left the remedy
+text naming `set_dev_team.sh` — a script that exits 1 in every case this check
+fires on. **A true declaration beside prose that contradicts it** is not a
+false claim, so the harness's bound does not reach it: the machine-readable
+half is correct and the half a person acts on is not. **Repair follows what the
+check reads.** Twice today the fix landed on the audited representation while
+the used artefact stayed wrong — the reminder count corrected in this document
+while the script already printed the right number, and this declaration
+corrected while the sentence stayed unperformable. **Ask which artefact the
+reader acts on, and fix that one first.**
+
+Two gaps in the count machinery, named rather than guarded, because neither has
+a cheap check. A `MIN_SITES` floor catches 39 quietly becoming 38; it does not
+catch **39 staying 39 while one of them stops being reachable** — a check
+dropped from `main()` keeps its call site and its declaration and never runs,
+which is `exists` for `runs` one level up from the alias and the same gap the
+doc-drift bands had. And the annotation says what a remedy *is*, never that it
+*works*.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
