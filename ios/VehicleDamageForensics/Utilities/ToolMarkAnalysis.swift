@@ -854,8 +854,19 @@ struct ToolMarkComparison: Codable, Equatable {
 
     /// How many null-model trials actually produced a scoreable
     /// alignment and therefore back `permutationPValue`. Reported
-    /// because it bounds the p-value's resolution: 120 trials cannot
-    /// demonstrate anything smaller than p < 1/121.
+    /// because it bounds the p-value's resolution: `t` trials cannot
+    /// demonstrate anything smaller than p = 1/(1+t), so at the current
+    /// `nullModelTrialCount` of 1000 the floor is 1/1001 = 0.000999.
+    ///
+    /// Stated as the FORMULA rather than an example, deliberately. This
+    /// comment illustrated the bound with "120 trials ... p < 1/121"
+    /// until 2026-09-06 -- correct arithmetic about a trial count that
+    /// stopped being the constant in v1.2.0, and the reason the field is
+    /// stored at all is that this number is NOT always the constant: a
+    /// run where fewer trials produced a scoreable alignment has a
+    /// coarser floor than the constant implies. An example pinned to any
+    /// single value is the thing that goes stale here (PROCESS.md sec.2:
+    /// when you change a constant, grep for the number).
     var nullTrialCount: Int?
 
     // NOTE(AI Developer), added 2026-09 for item #4 (per-cross-section

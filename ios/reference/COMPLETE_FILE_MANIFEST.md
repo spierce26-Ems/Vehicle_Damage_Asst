@@ -87,7 +87,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | `ios/VehicleDamageForensics/Utilities/ModelExtensions.swift` | 53 |
 | `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 584 |
 | `ios/VehicleDamageForensics/Utilities/ScarLineSuggester.swift` | 153 |
-| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 1498 |
+| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 1509 |
 
 ## ForensicEngine — scoring/matching orchestration
 
