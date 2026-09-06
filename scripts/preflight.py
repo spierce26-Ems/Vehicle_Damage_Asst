@@ -1599,7 +1599,24 @@ exec python3 "$SCRIPT"
 def main():
     args = sys.argv[1:]
     if "--install-hook" in args:
-        hook = os.path.join(REPO, ".git", "hooks", "pre-commit")
+        # `git rev-parse --git-common-dir`, NOT REPO/.git. In a linked
+        # worktree .git is a FILE pointing at .git/worktrees/<name>, so the
+        # hardcoded path raised NotADirectoryError and the hook was never
+        # installed -- and hooks are shared across worktrees, so the common
+        # dir is also the right place. Found by running --install-hook in a
+        # worktree, which is where all of today's patches were built: the
+        # guard that resolves the script from origin/main could not be
+        # installed by the trees doing the work.
+        common = sh("git", "rev-parse", "--git-common-dir").strip()
+        if not common:
+            print("cannot locate the git directory -- is this a repository?",
+                  file=sys.stderr)
+            return 1
+        hooks = os.path.join(REPO, common) if not os.path.isabs(common) \
+            else common
+        hooks = os.path.join(hooks, "hooks")
+        os.makedirs(hooks, exist_ok=True)
+        hook = os.path.join(hooks, "pre-commit")
         with open(hook, "w") as fh:
             fh.write(_PRE_COMMIT_HOOK)
         os.chmod(hook, 0o755)
