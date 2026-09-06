@@ -486,7 +486,10 @@ Two design rules govern it, and they are the reason to trust its output:
   test appeared to block; the blocking line was a missing `project.pbxproj` in
   the synthetic repo built for the test, and the guard under test had correctly
   warned. An exit code is a verdict on the run, not on the thing you are
-  probing — one more way a correct probe gets read off the wrong surface.
+  probing — one more way a correct probe gets read off the wrong surface. Two
+  people hit it within twenty minutes on the same verification, which is what
+  makes it a clause rather than an anecdote: an exit code is a *representation*
+  of a verdict, so this is the assert-on-behaviour rule below, one level down.
 - **Assert on behaviour, not on a representation of it.** Both halves of this
   cost real time today at different scales, and they are one mistake:
   - *Source text is a representation of emitted copy.* Verifying a locked
@@ -546,15 +549,23 @@ Two design rules govern it, and they are the reason to trust its output:
   `scripts/preflight.py` cleanly with `main`'s version winning, so the landing
   order is unaffected.
 
-  **Decided and implemented: the script refuses to run when it is older than
-  `origin/main`'s copy** (`check_script_currency`). Pinning the hook to
-  `main`'s copy was the rejected option, and the reason is worth keeping — it
-  silently executes a script that is not in the tree being committed, trading
-  one "which tree is in force" trap for another, and it protects only people
-  who reinstall the hook. The guard travels *in* the script instead, so any
-  copy old enough to lack a check is also old enough to be refused by the copy
-  that has it. Refusal is loud, which is the property this whole family of
-  defects lacks.
+  **Decided and implemented, and it took two mechanisms because either alone
+  leaves a hole.** `--install-hook` now writes a hook that resolves the script
+  from `origin/main` and **refuses rather than falling back** to the worktree
+  copy when that ref cannot be resolved (`e60604c`) — falling back is exactly
+  the silent substitution it exists to prevent, and a hook that declines to run
+  is recoverable where a hook running the wrong checks is not. And the script
+  itself refuses to run when it is older than `origin/main`'s copy
+  (`ad9e3c0`, `check_script_currency`), which covers every invocation that is
+  not the hook.
+
+  Pinning *alone* was the rejected option, and the reason is worth keeping — a
+  pin protects only people who reinstall the hook, and on its own it executes a
+  script that is not in the tree being committed, trading one "which tree is in
+  force" trap for another. The self-check travels *in* the script, so any copy
+  old enough to lack a check is also old enough to be refused by the copy that
+  has it. Refusal is loud, which is the property this whole family of defects
+  lacks.
 
   Three design details, each of which would have made it useless:
 
@@ -573,6 +584,10 @@ Two design rules govern it, and they are the reason to trust its output:
     fetch — a fresh clone or an offline machine has nothing to compare
     against, and blocking work it cannot judge is the over-eager-blocker
     failure above. It has no "probably fine" path, per the no-subject clause.
+  - **The refusal names a runnable command and every missing check, not a
+    count.** Per the no-subject clause a refusal states the gap and the next
+    action; per §5b's scope rule a reader needs to know *which* checks were
+    absent to judge what the clean line was worth.
 
   One residual, stated rather than hidden: the comparison is against the local
   `origin/main` ref, so the guard inherits the staleness failure above — a
