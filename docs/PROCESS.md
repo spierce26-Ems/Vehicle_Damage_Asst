@@ -28,6 +28,18 @@ An attachment is a delivery mechanism, not storage: it cannot be fetched,
 diffed, or rebased, and the version that landed can only be identified by
 diffing afterwards. Push the branch, then point at it.
 
+**Say "I'm writing X" before you write it, not when you deliver it.** Three
+people independently wrote the same regenerator and three wrote the same header
+check in one hour; two of each were thrown away. Nobody was careless — the
+board each of them read was **accurate when they read it**, which is the
+partial-landing shape seen from the reader's side: an all-clear describes a
+moment, and a claim in flight is invisible until it lands. A one-line claim
+costs nothing and is the only thing that makes concurrent work visible; the
+alternative is discovering the duplicate at delivery, when the work is already
+done and someone has to discard it. **When you find you were second, drop
+yours and send only the delta** — that is what kept this cheap the three times
+it happened.
+
 Two things to know if you produce patches:
 
 - `git am` strips a `[docs]`-style bracketed prefix from the subject line,
@@ -49,7 +61,12 @@ Two things to know if you produce patches:
   one** — the same substitution as a probe reporting `exists` where it means
   `runs`, aimed at a patch. This is how a Bonferroni rewrite vanished while the
   changelog entry citing it recorded it as done. Resolve a conflict in place;
-  if you must abort, re-apply the whole stack.
+  if you must abort, re-apply the whole stack. **Note what this rule has not
+  achieved:** Compass read it, wrote about it, endorsed it, and reached for
+  `--abort` under a conflict an hour later. It is correct and it is not
+  sufficient — which is the argument for the manifest regenerator over any
+  amount of care, since the conflict that triggers the reflex is the one place
+  a stack collides mechanically here.
 - **Never hand-pick a side when the conflict is in
   `COMPLETE_FILE_MANIFEST.md` — regenerate every row either side touched, and
   run `preflight --all` immediately after the resolution rather than after the
