@@ -164,6 +164,14 @@ rationale without leaving the file.
 | Scoring behaviour or thresholds change | `ios/reference/ALGORITHM_EXPLAINER.md` | the committer |
 | Any user-visible or report string changes | changelog entry must quote before/after, commit body must carry `Copy: changed` + the affected keys | the committer; Ledger reviews |
 
+**When a sequencing or ownership decision changes, the record keeper is told
+first, not last.** A record that accurately reflects a superseded decision is
+worse than a visibly missing one, because it looks current and carries
+authority — and the people acting on it are precisely those who were not in the
+conversation where it changed. Telling the implementers and not the record
+keeper leaves the written order contradicting the real one, with nothing
+flagging the difference.
+
 Nobody writes changelog prose except Ledger: hand over what changed, why, and
 which files, and the entry plus the on-device checklist come back written.
 Ledger also owns locked copy — the report's evidence-appendix wording and the
@@ -213,6 +221,36 @@ Nothing is described as working in a status report until clauses 4 and 5 hold,
 whatever the task's status says.
 
 ---
+
+## 4c. The other recurring failure: correct where it was made, wrong where it went
+
+Distinct from §5 and just as common. An artefact is written, it is accurate at
+that moment in that place, and it is then used somewhere else — later, or
+downstream — where it has quietly stopped being true. Nothing about reading it
+reveals this. Four instances in a single day, all different surfaces:
+
+| Artefact | Correct when made | Wrong at the destination |
+|---|---|---|
+| An enumerated list guarding against drift (watched build settings; the copy lock's surfaces) | matched every known case at the time | silent about the case that appeared next — and it does not decay visibly |
+| A rule's prose description of a tool's behaviour (§1's skeleton wording) | described the intent accurately | had stopped matching what the generator actually does |
+| A remedy line naming a fix script | the script existed, as an attachment | named a path nobody had, for the reader least able to work out why |
+| "This patch is not on `main`" | true of the tree that had been fetched | the gap had closed minutes earlier |
+
+The last one was a report *about* staleness that was itself stale, which is the
+clearest available demonstration that this is structural rather than
+carelessness.
+
+Two habits catch all four, and they are cheap:
+
+- **Verify against the destination, not the origin.** `git apply --check`
+  against `origin/main` takes seconds. So does re-reading the code a rule
+  describes, rather than the rule.
+- **Fetch, then claim.** Any statement about the state of `main` — especially
+  an absence — is made against a freshly fetched ref or not made at all.
+
+And when a guard is a list, ask whether it can be a rule instead: a list covers
+the ways something has already gone wrong, a rule covers the ways it has not
+gone wrong yet.
 
 ## 5. House rule: never let an absence assert something
 
