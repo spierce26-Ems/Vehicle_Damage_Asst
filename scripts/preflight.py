@@ -1107,9 +1107,22 @@ def check_manifest_drift():
                  f"{rel} asserts {claimed_total} tracked files "
                  f"({claimed_swift} Swift); the tree has {len(tracked)} "
                  f"({len(swift)})",
-                 "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md from "
-                 "git ls-files (regenerate, never hand-edit)")
+                 f"edit the `Totals:` sentence by hand to say "
+                 f"{len(tracked)} tracked files, of which {len(swift)} "
+                 "Swift sources -- this line is PROSE and "
+                 "scripts/regen_manifest.py deliberately does not touch it "
+                 "(rows mechanical, header editorial). Running the "
+                 "regenerator will NOT clear this")
 
+        # Both numbers above live in the SAME prose sentence as the line
+        # total below, so both take the hand-edit remedy. 521e341 fixed the
+        # line total's remedy and left this one pointing at the regenerator
+        # -- verified still unperformable on that commit: set the file count
+        # to 99, the check fires, run regen_manifest.py as instructed, re-run
+        # --all, identical failure. The fix was applied to the number that
+        # was reported rather than to the sentence that was wrong, which is
+        # how one half of a two-number claim keeps a defect the other half
+        # just lost.
         # The LINE TOTAL in the same sentence, which nothing compared until
         # 309f25b was found to claim 19887 against a tree of 19890. Three
         # layers validate this document -- per-file rows
