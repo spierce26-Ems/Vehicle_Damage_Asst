@@ -1511,7 +1511,9 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] **The gate check, and it is the one that matters**: with the bar showing items still
     missing, confirm Continue-to-Suspect and Run-Analysis are still disabled *exactly* as before
     this build — and that completing the items enables them. The bar must not have become a second
-    gate, and must not have loosened the existing one.
+    gate, and must not have loosened the existing one. **Verify this by diffing the gate conditions
+    in the source, not by walking the UI**: a bar that became a second gate looks identical on
+    screen to one that did not, so the screen cannot answer the question.
   - [ ] Aim the reticle at good mesh and set the ground point, then the damage point. A height is
     produced without tapping a precise pixel.
   - [ ] **The miss-recovery case, which needs the two-step sequence**: set the ground point
@@ -1531,6 +1533,117 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] **Negative case**: a case with nothing captured shows the bar with everything missing and
     no crash, and the analysis gate stays closed.
   - [ ] VoiceOver reads the coverage arc's proportion-only qualification, not just a percentage.
+
+- **Duplicate Case for Another Suspect, plus examiner identity and attestation (item 5/5, tasks #7
+  and #11).** `f7921d8`. The last of the five plan items, and the change that gives the audit trail
+  a person.
+
+  **Why (#7)**: an investigator with two candidate vehicles had to re-photograph the victim vehicle
+  from scratch for the second case. **Why (#11)**: per the Tech Lead — *"an audit trail that records
+  what happened but not who did it is barely an audit trail."* The evidence appendix already renders
+  `frameConfirmedClear` and the striation exclusions as *"the examiner attested"*, and **an
+  unattributed attestation is weaker than none**: it asserts that somebody vouched for something
+  without recording who, which is a claim the report cannot support.
+
+  **What changed (#7)**. `ForensicCase.duplicatedForNewSuspect(caseNumber:caseName:)` clones a case
+  for a different suspect. **Option B, decided by Sean** — a clone action rather than refactoring
+  `suspectVehicle` from `Vehicle?` into an array, which touches ~88 references across 15 files for
+  the same investigator-visible outcome. What carries over and what is cleared is the whole design:
+
+  - **Carried over** — facts about the incident and the victim vehicle, identical no matter who is
+    suspected: the victim vehicle with all photos, scans and markings, case type, incident date,
+    location, notes. And the **examiner**, which belongs with the incident facts rather than the
+    suspect conclusions — the same person is documenting the second case.
+  - **Cleared** — every statement about a suspect or conclusion about one. `suspectVehicle`,
+    `reportURL`, `status` back to `.inProgress`, fresh `id`/`caseNumber`/`dateCreated`, and a fresh
+    `auditLog` because a chain of custody belongs to one case.
+  - **`matchResult` cleared, and this is the one that would have been the worst bug in the
+    feature**: a score computed against suspect A is meaningless in a case about suspect B.
+    Carrying it over would show a 78% correlation against a vehicle the case was never compared to.
+  - **`isUnlocked` cleared deliberately**, at the cost of convenience: an unlock is a purchase
+    against one case's report, and inheriting it would let one payment unlock unlimited cases.
+  - **The clone discloses that it is a clone.** Its audit log opens with `.created` plus a
+    `.caseDuplicated` entry naming the source, and `sourceCaseID` records the link. That disclosure
+    is what stops *"suspect A: 74%, suspect B: 71%"* from being read as two independent
+    investigations when they share one set of victim evidence.
+
+  **What changed (#11)**. New optional `ForensicCase.examiner`, a new `AuditEntry.examinerName`,
+  and `attestationSummary` for the report's attestation block.
+
+  **`AuditEntry.examinerName` is a copied string, not a reference into `ForensicCase.examiner`, and
+  the reason is the point of the whole task.** An audit entry is immutable history: if an examiner
+  corrects their name or another picks the case up, entries already written must keep naming
+  whoever actually recorded them. **Resolving the name live would silently rewrite the chain of
+  custody** — the record would change its account of who did what, with nothing indicating it had. The general form, which this project has now hit pointed at a commit and pointed at
+  a person: **a field that looks like a record and is actually a query.** The manifest header naming
+  a hash it could not know was the same defect — an artefact that reads as provenance and resolves
+  to whatever is true when it is read, rather than to what was true when it was written. Copy-at-
+  write is the implementation; that is the reason.
+  It matters most for entries recording a *judgement* rather than a data event, `.striationProbeExcluded`
+  above all: a probe set aside is a decision someone made, and the decision is only assessable if
+  it is attributable. `ForensicCase.init` builds the `.created` entry directly rather than through
+  `recordAudit`, so the examiner is passed explicitly — otherwise the first line of every chain of
+  custody would be the one unattributed entry, and it is the line a reader looks at first.
+
+  **Three states, never two, in both new renderings.** `examinerName == nil` means *not recorded*,
+  which is **not** the same claim as an examiner having been recorded anonymously, and neither may
+  render as a blank — a blank attribution line reads as an *unsigned* entry.
+  `attributionSummary` returns *"Examiner not recorded"*. Likewise `attestationSummary` returns
+  `nil` rather than a partially-filled block, and the PDF prints an explicit not-recorded
+  statement: a report with a blank examiner line reads as an unsigned report, which is a worse
+  artefact than an obviously incomplete one (`docs/PROCESS.md` §5).
+
+  **Files touched**: `ios/VehicleDamageForensics/Models/Case.swift`,
+  `ios/VehicleDamageForensics/Models/Vehicle.swift`,
+  `ios/VehicleDamageForensics/Models/CapturedPhoto.swift`,
+  `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift`,
+  `ios/VehicleDamageForensics/ViewModels/CaseListViewModel.swift`,
+  `ios/VehicleDamageForensics/ViewModels/AnalysisViewModel.swift`,
+  `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift`,
+  `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift`,
+  `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift`,
+  `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift`,
+  `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift`
+
+  **Commit(s)**: `f7921d8` (merge); branch `duplicate-case`
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. `preflight --all` clear
+  at zero advisories, `swift-parse` clean; syntax under one frontend version, and not evidence
+  about the build (`docs/PROCESS.md` §5b). This merge landed last in the recorded order because it
+  touches `Case.swift` and `AuditEntry`, which #6 also modifies. Both its conflicts were additive
+  rather than competing and both sides were kept: `StriationProfile` gains `excluding(_:)` from #6
+  **and** `duplicatedWithFreshIDs()` from #7; `MatchResultsView` gains the version-stamp card
+  **and** `sharedEvidenceCard`. A conflict is only a choice when both sides make the same claim.
+  Two further conflict hunks in `Case.swift` were committed **unresolved** in this merge and fixed
+  at `aec3a2f` — see that commit and `swift-parse`, which exists because of it.
+
+  **On-device test checklist**:
+  - [ ] Duplicate a completed case. The new case opens with the victim vehicle's photos, scans and
+    markings present, and the incident details filled in.
+  - [ ] **The item that would be the worst bug**: the new case shows **no match result** — not a
+    stale score, not a zero, nothing. Confirm the results screen offers to run an analysis rather
+    than displaying one.
+  - [ ] No suspect vehicle, no report PDF, and status reads in-progress.
+  - [ ] **Purchase check**: duplicate an **unlocked** case. The clone is **locked**. One payment
+    must not unlock unlimited cases.
+  - [ ] The clone's audit log opens with the created entry **and** a duplicated-from entry naming
+    the source case. Both are visible on the chain-of-custody page of the exported PDF.
+  - [ ] Case-list rows are distinguishable after duplicating — confirm the prefilled name is not
+    byte-identical to the source's.
+  - [ ] Enter an examiner, exclude a striation probe, then export. The exclusion's audit entry
+    names that examiner, and the attestation block on the report shows them.
+  - [ ] **The rewrite check, and it is the reason `examinerName` is a copy**: after recording some
+    entries, **change the examiner's name**, then export. The older entries still name the
+    **original** examiner. If they all update, the chain of custody has been silently rewritten.
+  - [ ] The `.created` entry — the first line of the chain of custody — is attributed, not blank.
+  - [ ] **Negative case**: a case with **no** examiner recorded. Audit entries read *"Examiner not
+    recorded"*, never a blank line, and the PDF prints an explicit not-recorded statement rather
+    than an empty signature line. An unsigned-looking report is worse than an obviously incomplete
+    one.
+  - [ ] **Negative case**: open a case saved **before** this build. It loads, and its existing
+    audit entries read *"Examiner not recorded"* rather than crashing or showing a name.
+  - [ ] Duplicate a case that has **no** examiner. The clone also has none, and nothing is
+    fabricated.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
