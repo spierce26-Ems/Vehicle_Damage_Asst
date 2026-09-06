@@ -898,12 +898,41 @@ def check_decoder_completeness(files):
                 # No stored properties found. Rather than report clean --
                 # which is indistinguishable from a check that ran and
                 # found nothing wrong -- say the subject was absent.
+                #
+                # The remedy states what is unknown and what to do, and
+                # deliberately does NOT estimate how likely it is to be
+                # nothing. The previous wording said "probably a parsing gap
+                # rather than a real finding", and that sentence was covering
+                # a blocking-severity hole for as long as it stood: the
+                # nested-type misattribution fixed at 515e731 produced this
+                # exact advisory for `SurfaceCondition` while `PaintAnalysis`
+                # -- nine stored properties, hand-written decoder -- silently
+                # left the checked set. Both readers who saw it shrugged,
+                # because the text told them to.
+                #
+                # Reporting the gap is this check's competence; guessing its
+                # significance is not, and the one message whose whole job is
+                # "I do not know what I looked at" is the worst possible
+                # place to append a confidence estimate. Rule per Vector,
+                # after his own remedy text hid his own defect; PROCESS.md
+                # sec.5b now forbids the string. Prism's extension is why it
+                # is a rule and not a style note: a check that cannot
+                # identify its subject has, by construction, no information
+                # about what it missed, so any likelihood it offers is
+                # manufactured by the apparatus and inherits the check's
+                # authority anyway.
+                #
+                # Remedy copy is Ledger's locked replacement, taken verbatim
+                # -- ios/reference/ and the locked strings are his.
                 warn("decoder-completeness",
                      f"{f}: `{name}` has a hand-written init(from:) but no "
-                     "stored properties were found to check",
-                     "probably a parsing gap in this check rather than a "
-                     "real finding -- worth a look, since a check with no "
-                     "subject cannot fail.")
+                     "stored properties were found -- this decoder was NOT "
+                     "checked",
+                     "a check with no subject cannot fail -- this reports "
+                     "the gap, not a finding. Either this type genuinely "
+                     "has no stored properties, or the parser missed them "
+                     "and a field could be dropped on load with no "
+                     "warning. Confirm which before trusting a clear run.")
                 continue
 
             # The decoder may live in an extension outside the span, so
@@ -1089,6 +1118,22 @@ def main():
                           cwd=REPO, capture_output=True).returncode != 0:
             print(f"preflight: unknown git ref '{DIFF_BASE}'")
             return 1
+
+    # Reject an argument we do not recognise, rather than ignoring it and
+    # falling through to staged mode. `--sinse origin/main` (or `--al`)
+    # otherwise prints "nothing staged" and exits 0 -- a clean run over
+    # nothing at all, wearing the same face as a clean run over everything.
+    # That is the day's recurring shape one level up from the checks: an
+    # unknown ref already fails loudly here, so an unknown FLAG must too.
+    known = {"--all", "--since", "--install-hook"}
+    unknown = [a for i, a in enumerate(args)
+               if a.startswith("-") and a not in known
+               and not (i > 0 and args[i - 1] == "--since")]
+    if unknown:
+        print("preflight: unknown option(s) "
+              + ", ".join(f"'{a}'" for a in unknown)
+              + f"; known: {' '.join(sorted(known))}")
+        return 1
 
     whole_tree = "--all" in args
     files = tracked_swift() if whole_tree else changed_files()
