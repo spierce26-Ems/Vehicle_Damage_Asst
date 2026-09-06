@@ -20,6 +20,7 @@ compares the resolved tree against where it is going.
 
 Exit codes: 0 = clear, 1 = blocking failure, 0 with warnings = proceed.
 """
+import glob
 import os
 import re
 import shutil
@@ -641,7 +642,13 @@ SWIFT_PARSER_PATHS = (
     ("swift-frontend", "which", False),
     ("swiftc", "which", False),
     ("~/toolchains/swift/usr/bin/swift-frontend", "home", False),
+    # glob: the swift.org tarball extracts to a VERSION-PINNED directory
+    # (~/toolchains/swift-5.10.1), which is also how you keep more than one.
+    # Two of us installed that way and the table above missed both -- an
+    # honest advisory, but a false negative on capability. Compass found it.
+    ("~/toolchains/swift*/usr/bin/swift-frontend", "glob", False),
     ("/usr/local/swift/usr/bin/swift-frontend", None, False),
+    ("/usr/local/swift*/usr/bin/swift-frontend", "glob", False),
     ("/tmp/swift/usr/bin/swift-frontend", None, True),
 )
 
@@ -666,6 +673,11 @@ def _swift_parser():
             path = shutil.which(spec)
         elif kind == "home":
             path = os.path.expanduser(spec)
+        elif kind == "glob":
+            # Newest version first, so a pinned install is deterministic
+            # rather than whichever the filesystem lists first.
+            hits = sorted(glob.glob(os.path.expanduser(spec)), reverse=True)
+            path = hits[0] if hits else None
         else:
             path = spec
         if path and os.path.exists(path):
