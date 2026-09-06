@@ -974,13 +974,17 @@ def check_cited_commits():
         shown = "; ".join(f"{d}: {h}" for d, h in dangling[:4])
         more = f" (+{len(dangling) - 4} more)" if len(dangling) > 4 else ""
         fail("cited-commits",
-             f"{len(dangling)} cited commit sha(s) do not resolve: {shown}"
+             f"{len(dangling)} cited commit sha(s) are not citable: {shown}"
              f"{more}",
-             "the commit was rebased away or never landed -- replace it with "
-             "the sha actually in history, or drop it. A dead sha reads as "
-             "provenance and resolves to nothing, which is worse than "
-             "citing none. If the citation is deliberate, add it to "
-             "CITED_SHA_EXEMPT with the reason")
+             "no ref leads to the commit -- it was rebased away or never "
+             "landed. Note the wording: the sha may still RESOLVE in your "
+             "clone via `git cat-file -t` and be dead for every reader, "
+             "which is how all of today's instances survived, so do not "
+             "check it that way -- use `git for-each-ref --contains <sha>`. "
+             "Replace it with the sha actually in history, or drop it: a "
+             "dead sha reads as provenance and resolves to nothing, which "
+             "is worse than citing none. If the citation is deliberate, "
+             "add it to CITED_SHA_EXEMPT with the reason")
 
 
 def check_manifest_drift():

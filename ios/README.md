@@ -1177,9 +1177,15 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 
   **This audit removed that Bonferroni blocker, and the removal has not been written down where it
   is asserted.** At 1000 trials the floor is 1/1001 = 0.000999, which is *below* alpha = 0.0017, so
-  the corrected threshold is now expressible. The comment at `ToolMarkAnalysis.swift:748-751` still
-  states the old direction as a live fact about current behaviour — found by Compass, owned by
-  Prism, and flagged here because this is the entry whose change inverted it. Note carefully what
+  the corrected threshold is now expressible. The `ToolMarkFilteredOutcome` note explaining why the
+  textbook Bonferroni correction is unshippable stated the old direction as a live fact about
+  current behaviour — found by Compass, owned by Prism, and flagged here because this is the entry
+  whose change inverted it. **Corrected in `364d3b0`**, and the past tense is load-bearing: that
+  note now derives the boundary from the current constant and tells the next reader to re-derive
+  rather than trust the paragraph. Cited by symbol rather than by line per the rule below, but the
+  tense is the other half of the same rule — *"the comment at X **still** says Y"* is a live claim
+  about the present, so it goes stale the moment someone fixes Y, and it goes stale silently,
+  reading as an open defect long after it closed. Note carefully what
   this does and does not mean: **the conclusion is unchanged and Bonferroni is not thereby
   unblocked.** The other two reasons stand on their own — the shopping-aware critical value still
   needs a calibration table that does not exist, and emitting `significant` at the unadjusted
