@@ -229,10 +229,20 @@ struct MatchScoreCalculator {
         //      `MeasurementHelpers.heightsAlign` boolean check
         //      `HeightAlignmentAnalyzer` itself uses (2.0" default
         //      tolerance), applied to whichever height inputs are
-        //      actually available (LiDAR-measured bumper height is the
-        //      most reliable signal we have, so it's checked first;
-        //      falls back to zone center height only if bumper height
-        //      wasn't captured for either vehicle). If NEITHER height
+        //      actually available (a LiDAR-measured bumper height is
+        //      preferred as the better estimate of WHERE the damage is,
+        //      so it's checked first; falls back to zone center height
+        //      only if bumper height wasn't captured for either
+        //      vehicle). Preference is not precision, and the two come
+        //      apart here: the raycast pair locates the damage point
+        //      better than a tape reading of a nominal bumper line and
+        //      is the WORSE basis for a binary threshold crossing,
+        //      because its difference carries sigma ~1.7" (see
+        //      `Vehicle.HeightSource`). That is why the standalone
+        //      rule-out below consults `ruleOutCapable` instead of just
+        //      using this value, and why anyone "simplifying" the
+        //      ordering reintroduces the false-exclusion path -- it
+        //      would look like cleanup. If NEITHER height
         //      input is available for this pair, the height condition
         //      cannot be evaluated at all, so the exclusion rule does
         //      not fire (a missing measurement must never be treated as
