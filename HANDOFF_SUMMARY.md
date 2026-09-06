@@ -89,7 +89,7 @@ suspicious Swift score.
 | Min iOS | 17.0 |
 | Swift | 5.0 language mode (not Swift 6 strict concurrency) |
 | Bundle ID | `com.spearitnow.vehicledamageforensics` |
-| Signing | Automatic; development team **not yet selected** — see §5.1 |
+| Signing | Automatic; development team `U83TBM24XZ` set at `802e739` — see §5.1 |
 
 The one acknowledged technical-debt area is the hand-rolled pixel and
 statistics math in the matching engine. It is being hardened incrementally with
@@ -160,29 +160,34 @@ Headlines:
 
 The foundation work (signing, first green build, first end-to-end device run,
 documentation process, and the "trust the number" version stamp / p-value
-display) is tracked in the same table. Documentation process is done. The one
-remaining hard input is the Apple Developer Team ID (§5.1) — it blocks every
-device run and nothing else can substitute for it.
+display) is tracked in the same table. Documentation process is done, and
+**signing is done** — Team ID `U83TBM24XZ` landed at `802e739` in both the
+project and the generator skeleton (§5.1). The one remaining hard input is now
+**the first clean build**: Xcode, `Cmd+Shift+K`, `Cmd+B`, and the error list.
+Nothing else can substitute for it, because no one on this team can compile.
 
 ---
 
 ## 5. Known issues and standing context
 
-### 5.1 No Apple Developer team configured for signing — root-caused
-`DEVELOPMENT_TEAM` is absent from **both** the Debug and Release configurations
-in `project.pbxproj`; it appears nowhere in the project. `CODE_SIGN_STYLE =
-Automatic` and the bundle id are already correct in both configs, so nothing
-else needs touching. **One 10-character Apple Developer Team ID closes it** — a
-public identifier, not a secret.
+### 5.1 Signing — RESOLVED at `802e739`
+**`DEVELOPMENT_TEAM = U83TBM24XZ`**, supplied by Sean, set in both the Debug and
+Release configurations of `project.pbxproj` *and* in
+`scripts/pbxproj_skeleton.txt`. `CODE_SIGN_STYLE = Automatic` and the bundle id
+were already correct. Device builds and TestFlight are unblocked.
+
+Kept here rather than deleted because the *reason* it needed two files is a
+standing trap, not a closed ticket — see the rest of this section and §5.5. The
+history below describes the state before `802e739`.
 
 Setting it in the live pbxproj alone is not enough: `scripts/pbxproj_skeleton.txt`
 carries the same two config blocks, and the generator would silently drop the
 Team ID the next time anyone registered a new Swift file (§5.5). Both files.
 
-Xcode reports "Signing for 'VehicleDamageForensics' requires a development
-team" (Team: None). A team must be selected in Signing & Capabilities before
-anyone can build to a device or ship to TestFlight. Sean holds an active Apple
-Developer Program account. This blocks the device run in §4.2.
+Before `802e739`, Xcode reported "Signing for 'VehicleDamageForensics' requires
+a development team" (Team: None), which blocked every device run and TestFlight
+build. It never blocked a Simulator build, and the earlier
+P0-1-gates-P0-2 ordering was wrong for that reason.
 
 ### 5.2 A large multi-file commit previously crashed Xcode
 Adding the "Scar Focus Region" UI stage across six files caused Xcode itself to
@@ -281,10 +286,10 @@ Still open:
    per-cross-section exclusion work. Only the printing is a product question.
    Recommended: print it, in the neutral three-state wording.
 
-The **Apple Developer Team ID** is on that list too, but it is not a decision —
-it is a ten-character identifier that blocks every device run. See §4.
+The **Apple Developer Team ID** was on that list too, and is now closed
+(`U83TBM24XZ`, `802e739`) — it was never a decision, only an identifier.
 
-**Three items, and it stays three.** Work blocked on an *event* rather than an
+**Two items, since the Team ID closed at `802e739`.** Work blocked on an *event* rather than an
 answer is listed separately under "Queued behind the green build, not behind
 Sean" in `ios/README.md` — the offline null run for the critical-value table and
 the per-branch changelog entries both live there. Mixing them into this list

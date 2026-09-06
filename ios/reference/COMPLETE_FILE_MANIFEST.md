@@ -108,9 +108,9 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `HANDOFF_SUMMARY.md` | 268 |
+| `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
-| `ios/README.md` | 660 |
+| `ios/README.md` | 822 |
 
 ## Reference material (`ios/reference/`)
 

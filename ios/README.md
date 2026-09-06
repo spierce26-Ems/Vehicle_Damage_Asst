@@ -49,7 +49,7 @@ should wait on Apple Developer team setup to start finding compiler errors.
 
 | Priority | Item | Status | Depends on |
 |---|---|---|---|
-| P0-1 | Apple Developer team in Signing & Capabilities | In progress — needs one Team ID | Sean |
+| P0-1 | Apple Developer team in Signing & Capabilities | **Done** — `802e739`, Team ID `U83TBM24XZ` in both the project and the skeleton | Sean |
 | P0-2 | First green clean build — nothing in this repo has ever been compiled | In progress | repo access only; **not** signing |
 | P0-3 | End-to-end run on a LiDAR device: capture → analysis → PDF, logged in this changelog | In progress | P0-1 (signing) + P0-2 |
 | P0-4 | Docs + process discipline (this block, `HANDOFF_SUMMARY.md`, file manifest, `docs/PROCESS.md`, `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md`) | Done — landed `7966c5f`…`0f657db` | — |
@@ -114,8 +114,10 @@ decision list stop being read.
   lands, in the recorded order, each with `COMPLETE_FILE_MANIFEST.md`
   regenerated in the same patch.
 
-Sean's list is three items and stays three items: the Team ID, the first-build
-error list, and the distribution target.
+Sean's list is now **two** items: the first-build error list, and the
+distribution target. The Team ID closed at `802e739`. It shrinks when something
+is genuinely answered and never grows with work that is merely ours — that
+constraint is the only reason a list like this stays worth reading.
 
 ### Open decisions
 
@@ -133,7 +135,7 @@ so the question can be closed.
 - [ ] **Distribution target: TestFlight or direct-to-device Xcode installs?** Recommended: **stay on direct installs for now**. This decides how urgent App Store Connect / IAP product setup becomes.
 - [ ] **Paywall / monetization configuration** (design decision #1). Design work is proceeding on the stated assumption rather than holding; exposure is confined to one screen and marked on the design artefact.
 - [ ] **Does the report show *when* an exclusion was recorded?** New, from `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §6. The app captures whether each excluded cross-section was excluded before or after a similarity figure had been displayed — that capture is not a decision and is not waiting on anyone, because the ordering exists only at the moment it happens and is unrecoverable afterwards. What is open is whether the evidence appendix *prints* it for an insurer or a court. Recommended: **print it**, in the neutral three-state wording §6.3 locks (before / after / not recorded), with no colour, ranking, or adjudication. The argument for printing is that a reader assessing a filtered comparison cannot weigh it without knowing whether the filter preceded the number; the argument against is that "recorded after" invites an inference of bad faith the app cannot support, and §6.4 bans the nine words that would make that inference explicit but cannot stop a reader drawing it. Either answer is implementable at any time and no work is blocked on it — the data is recorded regardless.
-- [ ] **Apple Developer Team ID** — `DEVELOPMENT_TEAM` is absent from both Debug and Release in `project.pbxproj` *and* from `scripts/pbxproj_skeleton.txt`. One 10-character Team ID (a public identifier, not a secret) closes it; the patch is written and waiting. `CODE_SIGN_STYLE = Automatic` and the bundle id are already correct. This blocks every device run.
+- [x] **Apple Developer Team ID** → **`U83TBM24XZ`**, supplied by Sean and set at `802e739`. Not a decision, an identifier — recorded here because this list is where it was tracked. Applied to **both** `project.pbxproj` and `scripts/pbxproj_skeleton.txt`, which is the part that matters: the generator would have silently dropped it from the live project the next time anyone registered a new Swift file, and signing would have "broken itself" weeks later inside an unrelated commit. `preflight.py`'s signing advisory is now clear.
 
 ### Conventions
 
@@ -784,6 +786,36 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   exact same percentage/verdict every time (determinism check), and (4) the "not enough distinct
   striation detail to compare" / "no consistent overlapping rhythm found" cases (no score at all)
   are unaffected and still show their original wording with no baseline/significance text appended.
+
+- **Code signing configured: `DEVELOPMENT_TEAM = U83TBM24XZ` (P0-1).** `802e739`. Sean supplied the
+  Team ID from Xcode's Signing & Capabilities pane (Apple Development: Sean Pierce); a Team ID is a
+  public identifier, unlike the certificate itself. Applied with `scripts/set_dev_team.sh` to **both**
+  the live `project.pbxproj` and `scripts/pbxproj_skeleton.txt`.
+
+  **Both files is the whole point of this entry.** `project.pbxproj` is *generated* from the
+  skeleton by `build_pbxproj.py`. A Team ID set only in the generated file survives until the next
+  time anyone registers a new Swift file, at which point the generator rewrites the build-setting
+  blocks from the skeleton and the Team ID silently disappears. That failure would have surfaced
+  weeks later as "signing broke itself", inside a commit that appeared to be about something else
+  entirely — and the person debugging it would have had no reason to look at a file registration.
+  `preflight.py` check 2 compares all 73 build-setting keys between the two files precisely so this
+  class of drift cannot land again; its signing advisory is now clear.
+
+  This unblocks device builds and TestFlight. It does **not** unblock anything else: a Simulator
+  build never needed a team, so P0-2 was never gated on this and the earlier P0-1-then-P0-2 ordering
+  was wrong (see the foundation table above).
+
+  **On-device checklist:**
+
+  - [ ] Xcode → project → Signing & Capabilities shows Team "Sean Pierce" with no "requires a
+    development team" error, in **both** Debug and Release.
+  - [ ] A build to a real device succeeds and the app launches.
+  - [ ] Re-run `python3 scripts/build_pbxproj.py`, then confirm `DEVELOPMENT_TEAM` is **still
+    present in both configurations** of the regenerated `project.pbxproj`. This is the regression
+    this commit exists to prevent, and it is the one check that would catch its return.
+  - [ ] `python3 scripts/preflight.py --all` reports no signing warning.
+  - [ ] Nothing else in `project.pbxproj` changed as a side effect — `git diff` after the
+    regeneration above should be empty.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
