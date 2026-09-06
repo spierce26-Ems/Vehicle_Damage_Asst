@@ -128,7 +128,8 @@ def check_skeleton_drift():
             fail("skeleton-drift",
                  f"{key} differs: project.pbxproj has {lv or 'nothing'}, "
                  f"skeleton has {sv or 'nothing'}",
-                 f"set {key} in BOTH {PBXPROJ} and {SKELETON}")
+                 f"set {key} in BOTH {PBXPROJ} and {SKELETON} "
+                 f"(for DEVELOPMENT_TEAM: ./scripts/set_dev_team.sh <team-id>)")
 
 
 # ---------------------------------------------------------------- check 3
@@ -148,7 +149,7 @@ def check_signing_configured():
         warn("signing",
              "DEVELOPMENT_TEAM is not set -- Simulator builds are fine, "
              "device builds and TestFlight will fail to sign",
-             "./set_dev_team.sh <10-char Apple Team ID>")
+             "./scripts/set_dev_team.sh <10-char Apple Team ID>")
     elif len(teams) < n_cfg:
         fail("signing",
              f"DEVELOPMENT_TEAM set in {len(teams)} of {n_cfg} build "
