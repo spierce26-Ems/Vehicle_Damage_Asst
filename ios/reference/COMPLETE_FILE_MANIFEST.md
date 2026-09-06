@@ -154,10 +154,10 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/build_pbxproj.py` | 143 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 312 |
-| `scripts/preflight.py` | 2215 |
+| `scripts/preflight.py` | 2260 |
 | `scripts/check_doc_drift.py` | 519 |
 | `scripts/regen_manifest.py` | 110 |
-| `scripts/check_remedies.py` | 267 |
+| `scripts/check_remedies.py` | 311 |
 | `scripts/set_dev_team.sh` | 44 |
 
 ## Repo root

@@ -598,6 +598,50 @@ def check_doc_drift():
              "doc-drift means the numbers genuinely disagree")
 
 
+def check_remedy_declarations():
+    """Run scripts/check_remedies.py, so the harness is a gate and not a file.
+
+    It was submitted standalone -- and a gate nobody invokes is the dead-check
+    shape this whole section exists for. `preflight --all` reported CLEAR on a
+    tree where check_remedies.py exited 1, which is the wrong all-clear with
+    the tooling itself as the subject.
+
+    # remedy: fixes
+    Advisory, not blocking, per sec.5b's test: what else would catch it, and
+    at what cost? A missing declaration misleads a future reader of the
+    script; it does not break a build or corrupt a case file, and blocking
+    here would refuse every commit between adding a check and annotating it --
+    which is how a check teaches people to reach for --no-verify.
+
+    It reports its subprocess's own output rather than paraphrasing it, and an
+    ABSENT script is reported as unchecked rather than passed, because a
+    silently missing gate reads exactly like a clean one.
+    """
+    script = os.path.join(REPO, "scripts", "check_remedies.py")
+    if not os.path.exists(script):
+        # remedy: state
+        warn("remedy-decl",
+             "scripts/check_remedies.py not found -- the remedy declarations "
+             "were NOT checked",
+             "restore the script from git history, or drop this call; a clear "
+             "preflight currently says nothing about whether preflight's own "
+             "remedies declare what following them achieves")
+        return
+    proc = subprocess.run([sys.executable, script], cwd=REPO,
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        detail = (proc.stdout or proc.stderr or "").strip().split("\n")
+        head = detail[0] if detail else "no output"
+        more = f" (+{len(detail) - 1} more line(s))" if len(detail) > 1 else ""
+        # remedy: fixes
+        warn("remedy-decl",
+             f"scripts/check_remedies.py exited {proc.returncode}: "
+             f"{head}{more}",
+             "run python3 scripts/check_remedies.py for the full list and "
+             "add the missing `# remedy: <fixes|reminder|external|state>` "
+             "declaration(s); it names the line and the function")
+
+
 def check_manifest_line_counts():
     """The manifest's per-file line counts must match the tree.
 
@@ -2171,6 +2215,7 @@ def main():
     check_cited_commits()
     check_swift_parses()
     check_manifest_line_counts()
+    check_remedy_declarations()
     # NOT commit-shaped, despite reading like one. The defect it exists for
     # arrived in f7921d8 -- a MERGE, which stages nothing, so the staged-diff
     # gate below never ran it on the one commit shape most likely to produce

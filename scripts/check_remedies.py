@@ -74,7 +74,7 @@ KINDS = ("fixes", "reminder", "external", "state")
 
 # Floor on the site count. Bump only in the commit that adds or removes a
 # check -- never to make a run pass.
-MIN_SITES = 39
+MIN_SITES = 41
 DECL = re.compile(r"#\s*remedy:\s*(\w+)")
 
 # A reminder's remedy must SAY it will not clear, or the reader does the work
@@ -189,6 +189,38 @@ def remedy_text(node):
     return val if isinstance(val, str) else None
 
 
+def check_fns(src):
+    """Top-level check_* functions -- the denominator for reachability."""
+    return {n.name for n in ast.parse(src).body
+            if isinstance(n, ast.FunctionDef) and n.name.startswith("check_")}
+
+
+def unreachable_checks(src):
+    """Top-level check_* functions that main() never calls.
+
+    Prism named this gap and declined to guard it. MIN_SITES catches 39
+    quietly becoming 38; neither it nor the anchor assertion catches 39
+    STAYING 39 while one of them stops being REACHED -- a check dropped from
+    main() keeps its call site, keeps its declaration, and never runs. That is
+    `exists` for `runs` one level above the alias, and the same gap the
+    doc-drift bands had before they were executed.
+
+    Top-level only, so nested helpers (check_script_currency's local
+    `check_names`) are excluded by construction rather than by a name
+    exception -- an exception list is the enumerated-list failure this repo has
+    already hit twice.
+    """
+    tree = ast.parse(src)
+    top = check_fns(src)
+    mains = [n for n in tree.body
+             if isinstance(n, ast.FunctionDef) and n.name == "main"]
+    if not mains:
+        return None            # no main(): report it, never pass silently
+    called = {n.func.id for n in ast.walk(mains[0])
+              if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    return sorted(top - called)
+
+
 def main():
     src = open(TARGET, encoding="utf-8").read()
     lines = src.split("\n")
@@ -253,12 +285,24 @@ def main():
               "line rather than rewording a correct remedy to satisfy a "
               "regex")
 
-    total = len(undeclared) + len(bad_kind) + len(silent_reminder)
+    orphans = unreachable_checks(src)
+    if orphans is None:
+        print(f"{TARGET}: no main() found -- the reachability of its checks "
+              "was NOT verified. Re-point this script.")
+        return 1
+    for name in orphans:
+        print(f"{TARGET}: {name}() is defined and declares remedies but "
+              "main() never calls it -- a check that does not run is a clean "
+              "line about nothing, and its declared remedies are unreachable")
+
+    total = (len(undeclared) + len(bad_kind) + len(silent_reminder)
+             + len(orphans))
     if total:
         print(f"\n{total} remedy site(s) need attention of "
               f"{len(found)} checked.")
         return 1
-    print(f"all {len(found)} remedy sites in {TARGET} declare their kind "
+    print(f"all {len(found)} remedy sites in {TARGET} declare their kind, "
+          f"and all {len(check_fns(src))} checks are reached from main() "
           "(this records the author's claim; it does not prove it)")
     return 0
 
