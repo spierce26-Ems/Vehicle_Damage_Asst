@@ -71,6 +71,10 @@ import sys
 
 TARGET = "scripts/preflight.py"
 KINDS = ("fixes", "reminder", "external", "state")
+
+# Floor on the site count. Bump only in the commit that adds or removes a
+# check -- never to make a run pass.
+MIN_SITES = 39
 DECL = re.compile(r"#\s*remedy:\s*(\w+)")
 
 # A reminder's remedy must SAY it will not clear, or the reader does the work
@@ -108,19 +112,51 @@ def sites(src):
         def __init__(self):
             self.fn = None
 
+        aliases = set()
+
         def visit_FunctionDef(self, node):
             prev, self.fn = self.fn, node.name
             self.generic_visit(node)
             self.fn = prev
 
+        def visit_Assign(self, node):
+            # `report = fail if key in critical else warn` -- an ALIAS. The
+            # call site is then `report(...)`, which a name check against
+            # warn/fail cannot see. That remedy was undeclared while this
+            # script printed "all 38 sites declare their kind", and the site
+            # it hides is check_skeleton_drift's -- the home of the eighth
+            # unperformable remedy.
+            #
+            # The predicate-one-short shape inside the tool built to end it:
+            # the walk asked "is this call NAMED warn or fail" where the
+            # question is "does this call REACH warn or fail".
+            for t in node.targets:
+                if isinstance(t, ast.Name) and _binds_reporter(node.value):
+                    self.aliases.add(t.id)
+            self.generic_visit(node)
+
         def visit_Call(self, node):
             if isinstance(node.func, ast.Name) and \
-                    node.func.id in ("warn", "fail"):
+                    (node.func.id in ("warn", "fail")
+                     or node.func.id in self.aliases):
                 out.append((node.lineno, node.func.id, self.fn, node))
             self.generic_visit(node)
 
     V().visit(ast.parse(src))
     return sorted(out)
+
+
+def _binds_reporter(value):
+    """True when an assignment's value can evaluate to warn or fail.
+
+    Covers the bare name and the conditional form actually used
+    (`fail if ... else warn`). Conservative by design: it proves nothing
+    about shapes it cannot see, which is why the site-count floor below
+    exists -- an alias bound as `{True: fail}[cond]` drops out of the walk
+    silently, and the floor is what turns that into a failure.
+    """
+    return any(isinstance(n, ast.Name) and n.id in ("warn", "fail")
+               for n in ast.walk(value))
 
 
 def declared_kind(lines, lineno):
@@ -167,6 +203,27 @@ def main():
         print(f"no warn()/fail() call sites found in {TARGET} -- this check "
               "read nothing. The reporting helpers were probably renamed; "
               "re-point this script.")
+        return 1
+
+    # The anchor above catches ZERO sites. It does not catch a DROP, and a
+    # drop is the reachable failure: an alias bound in a shape
+    # _binds_reporter cannot prove -- `report = {True: fail}[cond]` --
+    # removes its site from the walk silently and the run still prints clear
+    # with a smaller denominator. Measured: rewriting the conditional alias
+    # as a dict lookup took this from 39 sites to 38 with no warning. That is
+    # the wrong all-clear with the count itself as the subject, which is the
+    # defect PROCESS sec.4c exists to record.
+    #
+    # Pinned deliberately as a number a human edits: adding a check is a
+    # reviewed one-line bump, and any other movement is the tool losing sight
+    # of its subject.
+    if len(found) < MIN_SITES:
+        print(f"{TARGET}: found {len(found)} remedy sites, expected at least "
+              f"{MIN_SITES}. Sites do not vanish when checks are added -- a "
+              "reporting alias was probably bound in a shape the walk cannot "
+              "follow (see _binds_reporter), so its remedy is now unchecked. "
+              "Fix the walk; lower MIN_SITES only in the same commit that "
+              "removes a check.")
         return 1
 
     for lineno, kind_fn, fn, node in found:

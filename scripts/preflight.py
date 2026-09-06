@@ -224,6 +224,12 @@ def check_skeleton_drift():
                        "but ONLY when DEVELOPMENT_TEAM is absent from both "
                        "files; it refuses rather than overwrite an existing "
                        "value, so for a MISMATCH edit both files by hand")
+        # remedy: state
+        # `state`, not `fixes`. set_dev_team.sh refuses when the key is
+        # already present -- true for every mismatch that reaches here -- so
+        # no tool reconciles these two files; both are edited by hand. The
+        # other keys are the same shape: two files that must agree, with
+        # nothing that makes them agree.
         report("skeleton-drift",
                f"{key} differs: project.pbxproj has {lv or 'nothing'}, "
                f"skeleton has {sv or 'nothing'}",
