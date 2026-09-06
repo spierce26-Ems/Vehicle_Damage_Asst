@@ -17,7 +17,7 @@
 <!-- BEGIN: Improvement plan + work status (maintained by Ledger) -->
 ## Improvement Plan & Work Status
 
-Last updated: 2026-09-06 · latest commit on `main`: `0f657db`
+Last updated: 2026-09-06 · latest commit on `main`: `ba0ca73`
 
 Status values: Not started / In progress / Blocked / In review / Done.
 `In review` means the author has finished everything in their control. `Done`
@@ -33,11 +33,11 @@ See `HANDOFF_SUMMARY.md` §5.3.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 1 | ROI / focus-region crop (tape measure mistaken for damage) | In progress — 3 of 4 sub-commits landed; now sequenced FIRST on `ScarCaptureView.swift` | Model field `CapturedPhoto.scarFocusRegion` (`6cc8629`), extractor hard boundary (`caac5a8`), view-model threading (`89f5165`) are on `main`. The 4th sub-commit — the `ScarCaptureView` UI to draw the box — was reverted at `9b6a67e`; content preserved at `3f6d7f4`. Reapply as one isolated commit and open in Xcode immediately. Gated on a green build. |
-| 2 | Per-shot capture guidance + close-focus quality gate | Spec accepted, code not written | Prioritised ahead of item 1's UI: cheaper root fix for the same tape-measure problem. **Recorded so it is not re-derived: this is NOT a blanket "no rulers" rule.** `CaptureProtocolStep.fullProtocol` id 4 is literally a ruler/tape-measure height-reference shot — wanted evidence. The bug is only that rulers land in the shots whose *pixels* feed the engine, where printed ticks read as striations and the ruler's colour reads as paint transfer. Guidance is per-shot, keyed on `PhotoType.isAnalysisShot`. A literal blanket ban would cost the height reference and with it all scale. Implementation gate: commit 3 touches `ScarCaptureView.swift`, so **item 1's reapply (task #5) lands first, alone, verified in Xcode** — two large diffs racing on that file is how the crash repeats. |
-| 3 | Null-model / statistical-significance scoring for tool-mark match | Done (code) — never compiled | `7391b73`. Adds `nullModelMeanPercent`, `nullModelStdDevPercent`, `zScore`, `isStatisticallySignificant` to `ToolMarkComparison`, all additive/optional. Seeded SplitMix64 PRNG so re-analysis is deterministic. Still needs the on-device checklist in the changelog entry walked before this is called Done. |
-| 4 | Per-cross-section exclude in the results UI | Not started | Requirement: an exclusion must be recorded in the audit log, and exports must show both the full and the filtered score. An investigator must not be able to silently drop the sections that disagree. |
-| 5 | "Duplicate Case for Another Suspect" | Not started — **Option B decided by Sean** | **Option B**: a clone action creating a new case pre-filled with victim data (`sourceCaseID`, regenerated ids, suspect vehicle and match results cleared). **Why A is not recommended**: refactoring `ForensicCase.suspectVehicle` from an optional into an array touches ~88 references across 15 files, on a codebase that has never been compiled, and the file most likely to be dragged in is the one already blamed for an Xcode crash — the highest-risk change available, for no user-visible benefit today. A returns to the roadmap only if a single combined multi-suspect report is genuinely required. |
+| 1 | ROI / focus-region crop (tape measure mistaken for damage) | Task #5 — 3 of 4 sub-commits on `main`; 4th written as `f395440`, held out of the tree; sequenced FIRST on `ScarCaptureView.swift` | Model field `CapturedPhoto.scarFocusRegion` (`6cc8629`), extractor hard boundary (`caac5a8`), view-model threading (`89f5165`) are on `main`. The 4th sub-commit — the `ScarCaptureView` UI to draw the box — was reverted at `9b6a67e`; content preserved at `3f6d7f4`. Reapply as one isolated commit and open in Xcode immediately. Gated on a green build. |
+| 2 | Per-shot capture guidance + close-focus quality gate | Task #4 — spec accepted at v3, code not written | Prioritised ahead of item 1's UI: cheaper root fix for the same tape-measure problem. **Recorded so it is not re-derived: this is NOT a blanket "no rulers" rule.** `CaptureProtocolStep.fullProtocol` id 4 is literally a ruler/tape-measure height-reference shot — wanted evidence. The bug is only that rulers land in the shots whose *pixels* feed the engine, where printed ticks read as striations and the ruler's colour reads as paint transfer. Guidance is per-shot, keyed on `PhotoType.isAnalysisShot`. A literal blanket ban would cost the height reference and with it all scale. Implementation gate: commit 3 touches `ScarCaptureView.swift`, so **item 1's reapply (task #5) lands first, alone, verified in Xcode** — two large diffs racing on that file is how the crash repeats. |
+| 3 | Null-model / statistical-significance scoring for tool-mark match | Code on `main`, never compiled — **not Done** | `7391b73`. Adds `nullModelMeanPercent`, `nullModelStdDevPercent`, `zScore`, `isStatisticallySignificant` to `ToolMarkComparison`, all additive/optional. Seeded SplitMix64 PRNG so re-analysis is deterministic. Still needs the on-device checklist in the changelog entry walked before this is called Done. |
+| 4 | Per-cross-section exclude in the results UI | Task #6 — patch written, in review, held out of the tree | Rebases onto task #8 once that lands: #8 changes what a headline is, so the filtered outcome routes through `headlineDisplay` and carries a p-value on the same terms as the full score. Excluded probes stay in the exported report — a report that silently drops set-aside data misleads the reader, and PDF length is a cosmetic cost against an evidentiary one. Exclusion reasons are mandatory (enforced in the view model, not the UI), restores are audited too, the full score stays the headline, and an exclusion that *raised* the score is called out — that asymmetry is deliberate. Demonstrated risk: two exclusions moved a comparison from not-significant to significant, which with 7 probes per photo is a few taps. The filtered null model is recomputed, not inherited: a shorter sequence is easier to align by chance, so reusing the full run's baseline would systematically overstate significance. |
+| 5 | "Duplicate Case for Another Suspect" | Task #7 — not started; **Option B decided by Sean** | **Option B**: a clone action creating a new case pre-filled with victim data (`sourceCaseID`, regenerated ids, suspect vehicle and match results cleared). **Why A is not recommended**: refactoring `ForensicCase.suspectVehicle` from an optional into an array touches ~88 references across 15 files, on a codebase that has never been compiled, and the file most likely to be dragged in is the one already blamed for an Xcode crash — the highest-risk change available, for no user-visible benefit today. A returns to the roadmap only if a single combined multi-suspect report is genuinely required. |
 
 ### Foundation work (must land before feature work is trustworthy)
 
@@ -53,7 +53,29 @@ should wait on Apple Developer team setup to start finding compiler errors.
 | P0-2 | First green clean build — nothing in this repo has ever been compiled | In progress | repo access only; **not** signing |
 | P0-3 | End-to-end run on a LiDAR device: capture → analysis → PDF, logged in this changelog | In progress | P0-1 (signing) + P0-2 |
 | P0-4 | Docs + process discipline (this block, `HANDOFF_SUMMARY.md`, file manifest, `docs/PROCESS.md`, `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md`) | Done — landed `7966c5f`…`0f657db` | — |
-| P1b | "Trust the number": algorithm version stamp in results and exports; no bare match % in the UI — always similarity plus the null-model p-value from `7391b73` | Not started | P0-2 |
+| P1b | "Trust the number": algorithm version stamp in results and exports; no bare match % in the UI — always similarity plus the null-model p-value from `7391b73` | Task #8 — patch written, in review, held out of the tree | P0-2 |
+
+### Other open tasks
+
+| # | Item | Owner | Status |
+|---|---|---|---|
+| #10 | Three scoring divergences against the Python reference, incl. the 6-inch height rule-out | Prism | Open — highest-value work outstanding. A height mismatch that should exclude a suspect currently scores 39/100: quietly wrong in the direction of implicating someone. |
+| #11 | Examiner identity — plus the `AuditEntry` actor field and the report attestation block, folded in | Vector | Open. Blocks the cover examiner line, the custody actor column and the attestation. All three omit cleanly until it lands (§5). |
+| #12 | UI/UX design set: wireframes, report mocks, implementation specs | UI/UX Designer | Standing track, in review. Report page mocks reviewed; new strings on all four pages are under the copy lock. |
+| #13 | Readiness bar + LiDAR set-point reticle | Vector | Open — touches no `ScarCaptureView.swift` and adds no new Swift files, so it is the one implementation item queuing behind signing alone. |
+
+### Held out of the tree deliberately
+
+Three patches are written, reviewed, and **not** applied, waiting on Sean's
+first clean build so the first compiler run is not hunting through layered
+changes:
+
+- `f395440` — task #5, the `ScarCaptureView` focus-region UI reapply.
+- Task #8 — the version stamp and headline rework (9 files).
+- Task #6 — per-cross-section exclude (5 files), which rebases onto #8.
+
+Landing order after the build is green: **#8, then #6 rebased on top of it,
+then #5, then item 2's commits, then #11 and #13.**
 
 ### Open decisions
 
@@ -69,6 +91,7 @@ so the question can be closed.
 - [x] **Capture quality gate: hard-block or warn only?** → **hard-block**, decided by Sean, with the manual shutter as the documented override. The override is what makes hard-block safe — a forced shot is saved and recorded (`gateOverridden`) rather than being indistinguishable from a clean one. The warn-only variant is not being built.
 - [x] **The leftover Vite/Cloudflare web scaffold** → **deleted** at `34754e2`, approved by Sean, after verifying nothing in `ios/` referenced it.
 - [ ] **Distribution target: TestFlight or direct-to-device Xcode installs?** Recommended: **stay on direct installs for now**. This decides how urgent App Store Connect / IAP product setup becomes.
+- [ ] **Paywall / monetization configuration** (design decision #1). Design work is proceeding on the stated assumption rather than holding; exposure is confined to one screen and marked on the design artefact.
 - [ ] **Apple Developer Team ID** — `DEVELOPMENT_TEAM` is absent from both Debug and Release in `project.pbxproj` *and* from `scripts/pbxproj_skeleton.txt`. One 10-character Team ID (a public identifier, not a secret) closes it; the patch is written and waiting. `CODE_SIGN_STYLE = Automatic` and the bundle id are already correct. This blocks every device run.
 
 ### Conventions
