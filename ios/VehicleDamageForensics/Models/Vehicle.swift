@@ -254,13 +254,91 @@ struct Vehicle: Identifiable, Codable, Equatable {
     /// mesh-coverage pass and skipped the tap-to-measure step.
     var hasLiDARMeasurement: Bool { lidarMeasuredHeightInches != nil }
 
-    /// The damage height `HeightAlignmentAnalyzer` should actually use:
-    /// the LiDAR-measured value when available (real 3D-scan data, more
-    /// precise and harder to get wrong than a manual guess), falling back
-    /// to the manually-entered `bumperHeightInches` otherwise. See
-    /// `MatchScoreCalculator.evaluate()`'s call site.
+    /// How a height figure was obtained. Governs how much weight the
+    /// figure can carry, which is NOT the same question as how precise
+    /// it looks.
+    ///
+    /// NOTE(AI Developer), added 2026-09-06 (task #14). This exists
+    /// because `effectiveBumperHeightInches` used to collapse two very
+    /// different measurements into one `Double`, and the doc comment
+    /// there asserted the LiDAR value was "more precise and harder to
+    /// get wrong than a manual guess". That is wrong, and the error
+    /// budget says so:
+    ///
+    /// A `lidarMeasuredHeightInches` is the difference of two
+    /// independent `.estimatedPlane` raycast hits against the
+    /// reconstructed mesh (`LiDARService.worldY`), which returns a bare
+    /// `Float` with no accuracy estimate. Per-point error combines LiDAR
+    /// depth ranging (~1% of range), mesh/voxel quantisation (1-2cm),
+    /// plane-fit error through mesh noise (~1cm), world-tracking
+    /// vertical drift between the two taps (0.5-2cm), and -- dominant --
+    /// which pixel the examiner judges to be "the damage" (1-3cm). Two
+    /// independent points combine as sqrt(2) x per-point, giving a
+    /// difference sigma of roughly 1.7 inches.
+    ///
+    /// A tape measure against a bumper is good to well under an inch.
+    ///
+    /// So the digital measurement is roughly an order of magnitude
+    /// less certain than the manual one, despite arriving with more
+    /// decimal places and feeling more authoritative. Precision of
+    /// presentation is not accuracy.
+    enum HeightSource: String, Codable, Equatable {
+        /// Manually entered from a physical measurement (`bumperHeightInches`).
+        case manualMeasurement
+        /// Derived from two LiDAR raycasts (`lidarMeasuredHeightInches`).
+        case lidarRaycast
+
+        /// Whether a figure from this source is precise enough to
+        /// support a standalone physical exclusion on its own.
+        ///
+        /// `false` for `lidarRaycast` is a deliberate, temporary
+        /// position, NOT a claim that LiDAR heights are useless: they
+        /// still feed the graded Height Alignment factor, where a
+        /// roughly 1.7-inch uncertainty is proportionate. What they
+        /// cannot yet do is drive a binary rule-out, because at that
+        /// sigma a genuinely 5-inch mismatch clears a 6-inch threshold
+        /// about 28% of the time -- a FALSE EXCLUSION, i.e. exonerating
+        /// a vehicle that could have caused the damage.
+        ///
+        /// This flips back to `true` once a measured sigma exists (see
+        /// the LiDAR height calibration in the device-run protocol) and
+        /// the rule-out requires the measured difference's 95% lower
+        /// bound to clear 6 inches. Deliberately not implemented from
+        /// the budget figure above: a budget assembled from published
+        /// sensor characteristics is not a calibration, and hard-coding
+        /// an effective threshold from one would put an uncalibrated
+        /// constant in charge of whether a person is excluded.
+        var canSupportStandaloneRuleOut: Bool {
+            switch self {
+            case .manualMeasurement: return true
+            case .lidarRaycast: return false
+            }
+        }
+    }
+
+    /// The damage height `HeightAlignmentAnalyzer` should actually use,
+    /// together with how it was obtained.
+    ///
+    /// NOTE(AI Developer), 2026-09-06: LiDAR is still PREFERRED when
+    /// present -- it is a real measurement of the actual damage point,
+    /// whereas `bumperHeightInches` is a nominal bumper height that
+    /// nothing in the app has ever populated. The preference order is
+    /// unchanged; what changed is that callers can now tell which one
+    /// they received, so a caller making a binary exclusion decision can
+    /// require a source that supports it. See
+    /// `MatchScoreCalculator.evaluateExclusionRule`.
+    var effectiveHeight: (inches: Double, source: HeightSource)? {
+        if let lidar = lidarMeasuredHeightInches { return (lidar, .lidarRaycast) }
+        if let manual = bumperHeightInches { return (manual, .manualMeasurement) }
+        return nil
+    }
+
+    /// Unchanged in behaviour, retained for the graded Height Alignment
+    /// factor and any caller that legitimately does not care about
+    /// provenance. Prefer `effectiveHeight` when the decision depends on
+    /// how good the number is.
     var effectiveBumperHeightInches: Double? {
-        lidarMeasuredHeightInches ?? bumperHeightInches
+        effectiveHeight?.inches
     }
 
     var photosByType: [PhotoType: [CapturedPhoto]] {

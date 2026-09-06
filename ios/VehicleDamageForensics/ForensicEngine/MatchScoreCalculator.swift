@@ -429,13 +429,27 @@ struct MatchScoreCalculator {
         // Resolve the best available height pair once, for both rules
         // below. Preference order and the never-treat-missing-as-mismatch
         // principle are unchanged from the original implementation.
-        let heights: (v: Double, s: Double, note: String)?
-        if let vb = victim.effectiveBumperHeightInches, let sb = suspect.effectiveBumperHeightInches {
-            heights = (vb, sb, String(format: "bumper heights %.1f\" vs %.1f\"", vb, sb))
+        // NOTE(AI Developer), 2026-09-06 (task #14): now carries the
+        // measurement's provenance alongside the value, because the
+        // standalone rule-out below is only defensible on a source
+        // precise enough to support it. `ruleOutCapable` is false for a
+        // LiDAR-derived pair (difference sigma ~1.7"), true for a manual
+        // measurement (well under 1"). See `Vehicle.HeightSource`.
+        let heights: (v: Double, s: Double, note: String, ruleOutCapable: Bool)?
+        if let vh = victim.effectiveHeight, let sh = suspect.effectiveHeight {
+            heights = (vh.inches, sh.inches,
+                       String(format: "bumper heights %.1f\" vs %.1f\"", vh.inches, sh.inches),
+                       // Both sides must support a rule-out; the weaker
+                       // measurement governs, since a comparison is only
+                       // as good as its worse input.
+                       vh.source.canSupportStandaloneRuleOut && sh.source.canSupportStandaloneRuleOut)
         } else if let vz = victim.primaryDamageZone, let sz = suspect.primaryDamageZone,
                   vz.hasZoneHeightData, sz.hasZoneHeightData {
+            // Damage-zone heights are manually recorded zone geometry,
+            // not raycasts, so they carry manual-measurement precision.
             heights = (vz.centerHeightInches, sz.centerHeightInches,
-                       String(format: "damage-zone heights %.1f\" vs %.1f\"", vz.centerHeightInches, sz.centerHeightInches))
+                       String(format: "damage-zone heights %.1f\" vs %.1f\"", vz.centerHeightInches, sz.centerHeightInches),
+                       true)
         } else {
             heights = nil
         }
@@ -460,7 +474,16 @@ struct MatchScoreCalculator {
         // mismatch's much stricter cousin: a 3-inch difference is a poor
         // score but a plausible collision, while a 7-inch difference is
         // not a collision at all.
-        if let heights, MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
+        // NOTE(AI Developer), 2026-09-06 (task #14): gated on
+        // `ruleOutCapable`. Before this gate, a LiDAR-measured pair
+        // could trigger a standalone exclusion at a measurement
+        // uncertainty of roughly +/-3.3" (95%), so a genuinely 5-inch
+        // mismatch -- a plausible collision -- was excluded about 28% of
+        // the time. A false exclusion exonerates a vehicle that could
+        // have caused the damage, which is the mirror image of the
+        // 39/100 defect the rule-out was introduced to fix, and no less
+        // serious for pointing the other way.
+        if let heights, heights.ruleOutCapable, MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
             let diff = abs(heights.v - heights.s)
             // NOTE(AI Developer), 2026-09-06: this string deliberately
             // does NOT cite "ALGORITHM_EXPLAINER §2", though an earlier
@@ -481,6 +504,35 @@ struct MatchScoreCalculator {
                 + "On height evidence alone this suspect vehicle should be ruled out, independently of every "
                 + "other factor below. The full factor breakdown is still shown for reference — this is a "
                 + "strong negative finding layered on top of it, not a reason to hide the evidence.",
+                heights.note, diff, MeasurementHelpers.heightRuleOutInches)
+        }
+
+        // NOTE(AI Developer), added 2026-09-06 (task #14). When the
+        // measured difference WOULD have ruled out but the measurement
+        // is not precise enough to support it, say so explicitly.
+        //
+        // Silence here would be the exact failure this project has now
+        // hit from several directions: an absent verdict asserting the
+        // clean case. An investigator who sees no exclusion assumes the
+        // heights were compatible, when in fact they differed by more
+        // than the physical limit and the app declined to act on a
+        // measurement it could not stand behind. Those are opposite
+        // findings and must not render identically.
+        //
+        // Deliberately worded as inconclusive rather than as an
+        // exclusion: with a difference sigma of roughly 1.7", a measured
+        // 7" difference genuinely does not distinguish "impossible
+        // collision" from "plausible collision, measured imprecisely".
+        if let heights, heights.ruleOutCapable == false,
+           MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
+            let diff = abs(heights.v - heights.s)
+            return String(format:
+                "Height Alignment inconclusive: %@ differ by %.1f\", which exceeds the %.0f\" physical limit "
+                + "— but this height came from a LiDAR scan measurement, whose uncertainty is too large to "
+                + "support ruling a vehicle out on its own. A difference this size may be a genuine "
+                + "impossibility or a measurement artefact, and these photographs cannot tell them apart. "
+                + "Re-measure both heights with a tape measure to resolve it; a manual measurement is precise "
+                + "enough to support an exclusion. The full factor breakdown below is unaffected.",
                 heights.note, diff, MeasurementHelpers.heightRuleOutInches)
         }
 

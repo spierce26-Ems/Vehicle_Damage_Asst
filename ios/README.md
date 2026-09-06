@@ -1,6 +1,56 @@
 # Vehicle Damage Investigation Assistant (iOS)
 
 ## Project Overview
+- **Height rule-out gated on measurement provenance (task #14, part 1 of 2).** The standalone >6"
+  height rule-out shipped in #10a was unsafe on LiDAR-measured input, and this closes the
+  false-exclusion path. Found by @Vector asking whether a defensible ± exists for a two-raycast
+  height rather than inventing one; working the budget out found the defect.
+
+  `LiDARService.worldY` raycasts the reconstructed mesh with `.estimatedPlane` and returns a bare
+  `Float` with no accuracy estimate; `heightFromWorldPositions` subtracts two of them. Per-point
+  error: LiDAR depth ranging (~1% of range), mesh/voxel quantisation (1-2cm), plane fit through mesh
+  noise (~1cm), world-tracking vertical drift between the two taps (0.5-2cm), and — dominant —
+  which pixel the examiner judges to be "the damage" (1-3cm). Two independent points combine as
+  √2 × per-point, giving a difference **σ ≈ 1.7"**. At that spread a genuinely **5.0" mismatch is
+  ruled out 27.8% of the time** — a false exclusion, exonerating a vehicle that could have caused
+  the damage. That is the mirror image of the 39/100 defect the rule-out was introduced to fix, and
+  no less serious for pointing the other way.
+
+  `Vehicle.effectiveBumperHeightInches` collapsed a raycast and a tape measurement into one
+  `Double`, and its doc comment asserted the LiDAR value was "more precise and harder to get wrong
+  than a manual guess". That is backwards by roughly an order of magnitude: a tape measure against a
+  bumper is good to well under an inch. **Precision of presentation is not accuracy.**
+
+  New `Vehicle.HeightSource` (`manualMeasurement` / `lidarRaycast`) with
+  `canSupportStandaloneRuleOut`, and `Vehicle.effectiveHeight` returning value plus provenance.
+  Preference order is unchanged — LiDAR still wins when present, because it measures the actual
+  damage point whereas `bumperHeightInches` is a nominal height nothing populates — but callers can
+  now tell what they received. The standalone rule-out requires both sides to be rule-out capable,
+  the weaker measurement governing, since a comparison is only as good as its worse input.
+  `effectiveBumperHeightInches` is retained unchanged for the graded factor, where a 1.7"
+  uncertainty is proportionate.
+
+  **The suppression is disclosed, never silent.** A >6" difference from LiDAR input now reports
+  *Height Alignment inconclusive*, stating that the difference exceeds the physical limit, that the
+  measurement's uncertainty cannot support an exclusion, that these photographs cannot distinguish a
+  genuine impossibility from an artefact, and that a tape measure resolves it. Silence would be the
+  failure this project has now hit from several directions — an absent verdict asserting the clean
+  case, when an investigator seeing no exclusion would assume the heights were compatible.
+
+  **Part 2 is device-blocked and deliberately not implemented:** restoring LiDAR heights to
+  rule-out-capable requires a *measured* σ and a 95%-lower-bound rule, not the budget figure above.
+  A budget assembled from published sensor characteristics is not a calibration, and hard-coding an
+  effective threshold from one would put an uncalibrated constant in charge of whether a person is
+  excluded — the same error refused twice already (the sharpness threshold, the shopping
+  critical-value table). The 6" threshold itself does not move; it is a real geometric claim.
+  Calibration procedure is in the device-run protocol: 90 measurements, three known separations ×
+  three ranges × two mesh maturities × five repeats, re-tapping every repeat because aim is the
+  dominant term and repeats are the only way to measure it.
+
+  **Not compiled** — brace/paren balance checked; branch logic verified exhaustively (a >6" LiDAR
+  difference is never silent; a ≤6" difference from either source falls through unchanged, so no
+  regression). On-device: confirm a >6" LiDAR-measured pair shows the inconclusive text and not an
+  exclusion, and that a manually-entered >6" pair still shows the exclusion.
 - **Name**: Vehicle Damage Investigation Assistant
 - **Owner**: Sean Pierce
 - **Bundle ID**: `com.spearitnow.vehicledamageforensics`
