@@ -814,8 +814,14 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     present in both configurations** of the regenerated `project.pbxproj`. This is the regression
     this commit exists to prevent, and it is the one check that would catch its return.
   - [ ] `python3 scripts/preflight.py --all` reports no signing warning.
-  - [ ] Nothing else in `project.pbxproj` changed as a side effect — `git diff` after the
-    regeneration above should be empty.
+  - [ ] Nothing else in `project.pbxproj` changed *semantically* after that regeneration. Do **not**
+    expect an empty `git diff`: `build_pbxproj.py` is **not deterministic** — consecutive runs on an
+    unchanged tree mint fresh object ids, so id churn is expected and is not a signal. Check the
+    build-setting blocks are unchanged apart from ids, and that `preflight.py`'s setting-drift check
+    is clear.
+  - [ ] Before that step: `pip install pbxproj`. `scripts/build_pbxproj.py` needs that PyPI package,
+    it is undocumented, and it is absent from a clean checkout — unnoticed, the failure reads as a
+    project problem rather than a missing dependency.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
