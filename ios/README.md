@@ -77,21 +77,38 @@ in a chat attachment:
 | Branch | Task | Notes |
 |---|---|---|
 | `reapply-focus-ui` | #5 | The `ScarCaptureView` focus-region UI reapply. Lands first and alone: it is the file blamed for the Xcode crash. |
-| `prism-task10-p1b` | #10a, #10b, #8 | Scoring divergences plus the version stamp and headline rework. |
-| `cross-section-exclude` | #6 | Conflicts with `prism-task10-p1b` on `ToolMarkAnalysis.swift`, so it rebases rather than applying. |
-| `duplicate-case` | #7 | Applies cleanly on top. |
+| `prism-task10-p1b` | #10a, #10b, #8 | Scoring divergences, version stamp, headline rework, and the v1.2.0 resolution audit. Head `e92ea8c`. |
+| `cross-section-exclude` | #6 | Per-cross-section exclude plus verdict suppression and the ordering record. Rebased clean onto `9f3d487` at `aa7b695` — but see the note below: that result does **not** survive `prism-task10-p1b` landing. |
+| `readiness-setpoint` | #13 | Readiness bar and LiDAR set-point reticle. Head `8a24640`. No new Swift files, so nothing to register in the pbxproj. |
+| `duplicate-case` | #7 | Applies cleanly on top. Head `522587e`. |
 
 **Landing order, verified by testing the applications rather than assuming
 independence:**
 
 1. `reapply-focus-ui` (#5)
-2. `prism-task10-p1b` (#10a, #10b, #8)
-3. rebase `cross-section-exclude` (#6) — #8 changes what a headline is, so the
-   filtered outcome must route through `headlineDisplay` and carry a p-value on
-   the same terms as the full score
-4. `duplicate-case` (#7)
+2. `prism-task10-p1b` (#10a, #10b, #8) — `e92ea8c`
+3. **`cross-section-exclude` (#6), re-rebased onto the resolved tree** — not
+   the `aa7b695` rebase above
+4. `readiness-setpoint` (#13) — `8a24640`
+5. `duplicate-case` (#7) — `522587e`
 
-Then item 2's commits, then #11 and #13. Changelog entries assume this order;
+**Why #6 has to be re-rebased, and why a clean result at step 3 above is not
+transferable.** `cross-section-exclude` rebased onto `9f3d487` with zero
+conflicts and zero blocking checks. That is evidence about the tree it was
+rebased onto and nothing else: cherry-picking #6 onto `prism-task10-p1b`
+conflicts in one region of `ToolMarkAnalysis.swift`, roughly lines 720-845,
+because `prism-task10-p1b` is not on `main` yet and that file had no competing
+edit. The conflict was reproduced and then **aborted rather than resolved** —
+resolving it by hand and trusting a green check afterwards is the exact failure
+this project ruled out this morning, and `ToolMarkAnalysis.swift` is where a
+persisted field can silently change shape, which makes it the worst possible
+file to hand-merge.
+
+So: after step 2 lands, #6 is re-rebased by its author onto the resolved
+`main`, and `preflight.py --since` is re-run **there**. A pre-rebase result,
+however clean, says nothing about the resolution — see `docs/PROCESS.md` §1.
+
+Then item 2's commits, then #11. Changelog entries assume this order;
 any change to it will be stated explicitly rather than left to be inferred from
 the commit stream.
 

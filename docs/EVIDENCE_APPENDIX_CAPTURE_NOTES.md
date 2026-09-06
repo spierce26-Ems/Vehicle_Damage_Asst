@@ -174,6 +174,112 @@ document's framing changes, grep for cited reference documents rather than
 assuming the lock's inventory covers them — the inventory lists strings, and a
 citation's payload is not a string.
 
+**Sweep for references mechanically, not by rereading what you just wrote.**
+Prism applied this rule to his own code and found two breaches with a keyword
+sweep over string literals on non-comment lines — one being the citation he
+had added deliberately, the other a string he had read that same day while
+rewriting the function around it. Aimed review found nothing; a sweep asking a
+different question found both immediately. The sweep looks for person names,
+section references, filenames, and commit identifiers. I ran the same sweep
+across every user-facing string in the app afterwards and it is clean, with
+two false positives that are the word "Compass" meaning the hardware sensor.
+
+**A single-line literal sweep does not see `disclaimerText`, and that is the
+string that matters most.** It is the app's only Swift multiline literal, so
+any pattern excluding newlines skips it — and it is the legally load-bearing
+text in the PDF's boxed cover callout, which makes it the string most likely to
+attract a citation, because "see X for scoring detail" is a natural thing to
+add to a disclaimer. A reference sweep covering every report string except the
+disclaimer has exactly one hole, in exactly the wrong place.
+
+I ran the single-line sweep across every user-facing string in the app and it
+reported clean, with two false positives that are the word "Compass" meaning
+the hardware sensor. That result was **narrower than it looked**: a citation
+planted inside `disclaimerText` passes it silently, which I verified rather
+than assumed once Prism found the same gap in the mechanical check. Any sweep
+run against this rule must match multiline spans first and exclude them from
+the single-line pass, or its clean result is partly luck.
+
+This also assumes string literals live in source. If localisation ever lands,
+the sweep has to follow the strings out of the file — otherwise it reports
+clean on a codebase where none of the report copy is in the code at all.
+
+### 4.0.1 The report attributes findings to evidence, never to a person
+
+A named individual must not appear in any string a user reads, and
+specifically not as the authority for a finding. The combined exclusion rule's
+callout read *"both conditions of Sean's hard exclusion rule are met"* — a
+person presented, in a prominent PDF exclusion callout, as the reason a
+suspect vehicle should be ruled out. It now reads "the combined exclusion
+rule".
+
+Whose rule it is carries nothing an investigator can act on, and attributing
+an exclusion to a person rather than to the measurements invites exactly the
+question the report must not raise: whether this finding reflects the evidence
+or somebody's preference. Design attribution belongs in the doc comment, where
+it records intent for maintainers and reaches no reader of the report.
+
+The general form, which also disposed of the `ALGORITHM_EXPLAINER` citation:
+**a reference in report copy has to be something the reader can act on.** A
+section number and a person's name are both unactionable, so both cost
+everything a citation commits us to and return nothing. Provenance goes in
+code comments and on the Analysis Provenance page, both of which are
+reviewable and neither of which is the report's argument.
+
+### 4.0.2 Copy owed on the readiness bar and the set-point reticle (task #13)
+
+`Copy: changed` on three of four commits on `readiness-setpoint`. New and
+reworded strings: the readiness header and five segment labels with details,
+the limitations line in singular and plural, next-step titles, the scar reason
+line, `Set ground point` / `Set damage point`, two missed-surface banner
+variants, both aiming banners reworded from "tap" to aiming the circle, the
+coverage caption with its proportion-only line, and the confirmation screen's
+heading, why-it-matters line and two buttons. Reviewed: no verdict or
+probabilistic drift, and the coverage caption's "proportion only — not which
+part of the vehicle" is the strongest form available given the input.
+
+Two items that are decisions rather than transcription.
+
+**The parking-space example is currently nowhere in the app.** Replacing the
+capture footer removed the caption reading "even when the vehicle was reversing
+(e.g. backing out of a parking space)", which is the clearest statement of why
+a scar reading beats a compass heading. `ScarCaptureView`'s own why-note
+explains the paint-taper mechanism but not the reversing case, and the
+mechanism is the *how* while the parking space is the *why*. **Decision: it
+belongs in `ScarCaptureView` when task #5 lands**, not re-added now — that file
+is under rewrite, and re-adding a caption to it guarantees a conflict for one
+sentence. Tracked here so a caption removed for a good reason does not become a
+caption permanently absent for no reason; the risk with "add it when #5 lands"
+is that nobody owns the sentence in between, and this section is that owner.
+
+**A confirmation-screen string asserted a consequence a scheduled change
+removes — fixed at `3c262e2`, not deferred.** It read "one of the two
+conditions that can rule a vehicle out": true of the engine as shipped, false
+once task #14's provenance gate makes a LiDAR height inconclusive. My first
+call was to correct it alongside #14. That was wrong, because the provenance
+half of #14 needs no calibration and can land without waiting on a device — so
+the string would have been false from that moment, not from some later
+threshold decision. It now reads:
+
+> This is compared against the other vehicle's damage height. Getting it right
+> here matters — a measurement taken at the scene cannot be re-taken from the
+> report.
+
+**Two rules come out of this, and the second is the reusable one.**
+
+*UI copy must not assert an engine behaviour that is already scheduled to
+change.* Not "must be updated when it changes" — must not assert it at all.
+Copy that lags reality is a defect with a known fix; copy that was accurate
+when written and is invalidated by a change already on the board is the §4c
+failure with a countdown attached, and the interval belongs to nobody.
+
+*Overstating consequence is how a measurement gets defended rather than
+re-taken.* An examiner told their number can exclude a suspect acquires a stake
+in it being right. An examiner told the number cannot be re-taken later has a
+reason to check it now. Same information, opposite effect on behaviour — and
+the replacement wording survives any future threshold decision, because
+irreversibility is a property of being at the scene rather than of the engine.
+
 ### 4.1 Copy change ledger
 
 **The rule: any surface that reproduces a locked string is bound by this lock.**
