@@ -1,6 +1,8 @@
 # Complete File Manifest — Vehicle_Damage_Asst
 
-Generated from the actual tracked tree at commit `566d1de` (2026-09-06). Line counts are exact at that commit.
+Generated from the tracked tree as of the commit that last modified this file (2026-09-06); regenerated in the same patch as the change that moved the counts, per `docs/PROCESS.md` §3. Line counts are exact for that tree, with the one exception this file's own row documents below.
+
+No commit hash is named here on purpose. A regenerated file cannot state the hash of the commit that carries it — the hash does not exist until the commit is written, and a rebase or amend invalidates whatever was written. A named-but-wrong hash is worse than none: it reads as provenance and resolves to nothing.
 
 This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
@@ -128,7 +130,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 180 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 182 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
