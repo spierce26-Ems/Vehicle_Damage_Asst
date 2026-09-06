@@ -328,20 +328,48 @@ def check_manifest_drift():
     Ledger's.
     """
     rel = "ios/reference/COMPLETE_FILE_MANIFEST.md"
+    tracked_paths = sh("git", "ls-files").splitlines()
     try:
         with open(os.path.join(REPO, rel), encoding="utf-8") as fh:
             text = fh.read()
     except OSError:
+        # Say so rather than returning. A missing manifest is a bigger
+        # problem than a stale one, and a check that goes silent when its
+        # subject is absent is the failure this repo hit three times in one
+        # day -- here it would be self-inflicted, in the check written to
+        # notice exactly this class of falsehood.
+        if rel in tracked_paths:
+            warn("manifest",
+                 f"{rel} is tracked but could not be read -- manifest NOT "
+                 "checked",
+                 "restore the file, or remove it from the tree if it is "
+                 "genuinely gone")
+        else:
+            warn("manifest",
+                 f"{rel} is absent -- manifest NOT checked",
+                 "the file manifest is the map a reader starts from; "
+                 "regenerate it from git ls-files")
         return
 
-    tracked = [f for f in sh("git", "ls-files").splitlines() if f]
+    tracked = [f for f in tracked_paths if f]
     if not tracked:
         return
     swift = [f for f in tracked if f.endswith(".swift")]
 
-    m = re.search(r"Totals:\s*(\d+)\s*tracked files.*?(\d+)\s*Swift sources",
+    m = re.search(r"(\d+)\s*tracked files.*?(\d+)\s*Swift sources",
                   text, re.S)
-    if m:
+    if not m:
+        # The totals sentence is the half of this check that is verifiable
+        # against the document's own claim. If a regeneration rewords it,
+        # this signal disappears -- and a silently absent signal reads as a
+        # pass. Report that the assertion could not be found instead.
+        warn("manifest",
+             f"{rel} states no machine-readable file/Swift totals -- that "
+             "half of the manifest check could not run",
+             "keep a totals sentence of the form "
+             "'N tracked files, of which M Swift sources', or update this "
+             "check's pattern alongside the wording")
+    else:
         claimed_total, claimed_swift = int(m.group(1)), int(m.group(2))
         if claimed_total != len(tracked) or claimed_swift != len(swift):
             warn("manifest",
