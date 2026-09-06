@@ -50,6 +50,22 @@ Two things to know if you produce patches:
   `runs`, aimed at a patch. This is how a Bonferroni rewrite vanished while the
   changelog entry citing it recorded it as done. Resolve a conflict in place;
   if you must abort, re-apply the whole stack.
+- **Never hand-pick a side when the conflict is in
+  `COMPLETE_FILE_MANIFEST.md` — regenerate every row either side touched, and
+  run `preflight --all` immediately after the resolution rather than after the
+  stack.** Every patch that grows a file conflicts with every other patch that
+  grows it on that one manifest row, so this conflict is the *normal* case for
+  a stack, not an exception. Taking `--theirs` is correct for the row in
+  dispute and silently reverts the rows the other side updated — **and review
+  cannot tell the difference, because a line count is a plausible integer on
+  both sides**, so no reading of the diff distinguishes a correct resolution
+  from a reverting one. Only `check_manifest_line_counts` does, and only if you
+  run it before the next patch buries the revert. Regenerating just the
+  conflicted row is not enough.
+- **Do not amend someone else's commit to carry your fix, even when the fix is
+  right.** A rebased stack that needs a correction gets a new commit of your
+  own; amending rewrites another author's commit to say something they did not
+  write, and the change is invisible in the subject line everyone checks.
 - **A changelog entry that cites a code change is not evidence the change
   landed, and it is the artefact most likely to be mistaken for one** —
   recording completion is its whole job, so a reader sees the entry, sees a
@@ -233,6 +249,18 @@ clearing is the worse half — **a wrong all-clear is more durable than no audit
 at all**, because a site an audit has passed is a site nobody re-checks. Name
 the symbol, and say what was checked so a later reader can redo it rather than
 trust it.
+
+**A changelog entry is written in the past tense, including about defects it
+does not fix.** *"`compare`'s comment **still** states the old direction as
+live fact"* was true when written and false three commits later, and it goes
+stale in the direction nobody checks: it reports an **open** defect long after
+someone closed it, so the next reader either re-fixes a fixed thing or loses
+trust in the entry. This is the wrong-all-clear with its sign reversed — that
+one vouches for a defect nobody re-checks, this one reports a defect nobody
+re-checks. An entry records what was true at its commit; a **present-tense
+claim about code outside that commit is a promise the entry cannot keep**. Say
+what the state was, name the symbol, and when it is later fixed, name the sha
+that fixed it.
 
 **A requirement is not a checklist item.** If a property must hold for the
 change to be worth anything, it belongs in the spec the implementation is
