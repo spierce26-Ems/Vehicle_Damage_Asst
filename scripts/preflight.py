@@ -1518,14 +1518,21 @@ def check_persisted_model(files):
     for a type change that will throw typeMismatch on every saved case.
 
     Moving it tree-wide is therefore not the fix -- there is nothing tree-wide
-    to test. The fix is to give it a base: `--since origin/main` after a merge
-    resolution catches it, and that is what the hook cannot do on its own.
-    Verified: `examinerName` String? -> Int? committed rather than staged is
-    silent under `--all` and blocking under `--since HEAD~1`.
+    to test. The remedy is a diff base, not a scope change, which is the test
+    for whether a check belongs in the commit-shaped group: ask whether its
+    subject could be true of a tree with no history. Decoder completeness
+    could; this cannot.
 
-    So the gap is real but the remedy is a diff base, not a scope change --
-    which is the test for whether a check belongs in the commit-shaped group:
-    ask whether its subject is a property of the tree or of a transition.
+    CLOSED as of the MERGE_HEAD base derivation below: when a merge is in
+    progress the base is derived automatically and announced on stdout, so
+    this no longer depends on anyone remembering `--since`. That matters
+    because a merge is exactly when nobody remembers, and it is also the
+    commit shape that produced this repo's two worst defects.
+
+    Verified on a real merge rather than a fixture: `examinerName` String? ->
+    Int? on a side branch, an unrelated commit on the base, `git merge
+    --no-commit` -> 1 blocking, commit refused. `--all` on the merged tree is
+    still silent, which is correct and is why the derivation exists.
 
     - A new NON-OPTIONAL field -> keyNotFound on every existing case file.
       Swift's synthesized init(from:) never consults the property's default
