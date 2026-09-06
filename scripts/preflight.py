@@ -10,7 +10,13 @@ device. This only catches the things that waste a build round-trip.
 Usage:
     python3 scripts/preflight.py              # check staged changes
     python3 scripts/preflight.py --all        # check the whole tree
+    python3 scripts/preflight.py --since REF  # check commits since REF
     python3 scripts/preflight.py --install-hook
+
+--since exists for the case PROCESS.md sec.1 names as highest-risk: after a
+rebase or conflict resolution the changes are COMMITTED, so a staged-diff run
+sees nothing and --all cannot judge a diff at all. `--since origin/main`
+compares the resolved tree against where it is going.
 
 Exit codes: 0 = clear, 1 = blocking failure, 0 with warnings = proceed.
 """
@@ -48,9 +54,25 @@ def sh(*args):
                           cwd=REPO).stdout
 
 
-def staged_files():
-    out = sh("git", "diff", "--cached", "--name-only", "--diff-filter=ACMR")
+# Set by main() when --since REF is used, so the commit-shaped checks compare
+# against REF instead of the index. A rebase's product is committed, not
+# staged; without this the checks that matter most at a conflict resolution
+# are the ones that go silent.
+DIFF_BASE = None
+
+
+def diff_args():
+    """The `git diff` selector the commit-shaped checks should use."""
+    return ["--cached"] if DIFF_BASE is None else [f"{DIFF_BASE}...HEAD"]
+
+
+def changed_files():
+    out = sh("git", "diff", *diff_args(), "--name-only", "--diff-filter=ACMR")
     return [f for f in out.splitlines() if f]
+
+
+def staged_files():
+    return changed_files()
 
 
 def tracked_swift():
@@ -232,7 +254,7 @@ def check_commit_size(files):
     PROCESS.md sec.1, from the ScarCaptureView incident. Advisory: the point is
     that a large diff should be a decision, not an accident.
     """
-    out = sh("git", "diff", "--cached", "--numstat")
+    out = sh("git", "diff", *diff_args(), "--numstat")
     for line in out.splitlines():
         parts = line.split("\t")
         if len(parts) != 3:
@@ -273,7 +295,7 @@ def check_docs_owed(files):
              "send Ledger what changed / why / which files -- the entry and "
              "the on-device checklist come back written")
 
-    added_removed = sh("git", "diff", "--cached", "--name-only",
+    added_removed = sh("git", "diff", *diff_args(), "--name-only",
                        "--diff-filter=AD")
     if any(f.endswith(".swift") for f in added_removed.splitlines()):
         warn("docs",
@@ -347,7 +369,7 @@ def check_persisted_model(files):
     model_files = [f for f in files
                    if f.startswith(MODELS_DIR) and f.endswith(".swift")]
     for f in model_files:
-        diff = sh("git", "diff", "--cached", "-U0", "--", f)
+        diff = sh("git", "diff", *diff_args(), "-U0", "--", f)
         if not diff:
             continue
 
@@ -406,10 +428,27 @@ def main():
         print(f"installed {hook}")
         return 0
 
+    global DIFF_BASE
+    if "--since" in args:
+        i = args.index("--since")
+        if i + 1 >= len(args):
+            print("preflight: --since needs a git ref, e.g. --since origin/main")
+            return 1
+        DIFF_BASE = args[i + 1]
+        # Fail loudly on an unknown ref: silently diffing against nothing
+        # would report a clean run, which is the dead-check failure this
+        # whole flag exists to avoid.
+        if subprocess.run(["git", "rev-parse", "--verify", "--quiet",
+                           f"{DIFF_BASE}^{{commit}}"],
+                          cwd=REPO, capture_output=True).returncode != 0:
+            print(f"preflight: unknown git ref '{DIFF_BASE}'")
+            return 1
+
     whole_tree = "--all" in args
-    files = tracked_swift() if whole_tree else staged_files()
+    files = tracked_swift() if whole_tree else changed_files()
     if not files and not whole_tree:
-        print("preflight: nothing staged")
+        where = "staged" if DIFF_BASE is None else f"changed since {DIFF_BASE}"
+        print(f"preflight: nothing {where}")
         return 0
 
     # Tree-wide checks: valid whether or not anything is staged.
@@ -432,11 +471,17 @@ def main():
         print(f"FAIL  [{check}] {msg}\n      -> {remedy}")
 
     if failures:
+        scope = ("whole tree" if whole_tree
+                 else "staged changes" if DIFF_BASE is None
+                 else f"changes since {DIFF_BASE}")
         print(f"\npreflight: {len(failures)} blocking, "
-              f"{len(warnings)} advisory. Commit refused.")
+              f"{len(warnings)} advisory -- {scope}. Commit refused.")
         print("Override with --no-verify only if you know why.")
         return 1
-    print(f"\npreflight: clear ({len(warnings)} advisory).")
+    scope = ("whole tree" if whole_tree
+             else "staged changes" if DIFF_BASE is None
+             else f"changes since {DIFF_BASE}")
+    print(f"\npreflight: clear ({len(warnings)} advisory) -- {scope}.")
     print("This means 'worth compiling'. It does not mean it compiles -- "
           "PROCESS.md sec.4 clauses 4-6 still need Xcode and a device.")
     return 0
