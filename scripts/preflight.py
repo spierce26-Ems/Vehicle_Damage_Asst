@@ -513,6 +513,60 @@ def check_doc_drift():
              "three-class diagnosis: doc-format means the comparison did "
              "not run, doc-anchor means it lost its subject in the Swift, "
              "doc-drift means the numbers genuinely disagree")
+
+
+def check_manifest_line_counts():
+    """The manifest's per-file line counts must match the tree.
+
+    check_manifest_drift compares tracked PATHS and the file/Swift COUNTS.
+    It never reads the line numbers, and the manifest states one per file
+    plus a Swift total. On 4122028 that total was 17338 against a tree of
+    19837 -- 2,499 lines that do not exist, wrong across 25 rows -- while
+    --all reported zero advisories all afternoon.
+
+    Same shape as everything else today: the check examined part of a
+    document and its clean line was read as covering the whole of it. A
+    generated file is only as trustworthy as the widest assertion anyone
+    validates, so the counts are now validated rather than described.
+
+    Advisory, not blocking. A stale count misleads a reader; it does not
+    break a build, and blocking here would refuse every commit between
+    editing a file and regenerating the manifest -- which is how a check
+    trains people to pass --no-verify.
+    """
+    man = os.path.join(REPO, "ios/reference/COMPLETE_FILE_MANIFEST.md")
+    if not os.path.exists(man):
+        return
+    with open(man, encoding="utf-8") as fh:
+        text = fh.read()
+    rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*(\d+)\s*\|", text, re.M)
+    if not rows:
+        warn("manifest-lines",
+             "no `path | lines` rows parsed from COMPLETE_FILE_MANIFEST.md "
+             "-- the per-file line counts were NOT checked",
+             "the manifest's table format changed; re-point this check or "
+             "regenerate the document. This says nothing about the tree.")
+        return
+    wrong = []
+    for rel, claimed in rows:
+        path = os.path.join(REPO, rel)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                actual = sum(1 for _ in fh)
+        except OSError:
+            continue          # path drift is check_manifest_drift's job
+        if actual != int(claimed):
+            wrong.append(f"{rel} says {claimed}, has {actual}")
+    if wrong:
+        shown = "; ".join(wrong[:3])
+        more = f" (+{len(wrong) - 3} more)" if len(wrong) > 3 else ""
+        warn("manifest-lines",
+             f"{len(wrong)} manifest line count(s) disagree with the tree: "
+             f"{shown}{more}",
+             "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md from "
+             "git ls-files (regenerate, never hand-edit)")
+
+
 def check_conflict_markers():
     """No tracked text file may contain a source-control conflict marker.
 
@@ -1441,6 +1495,7 @@ def main():
     check_cited_doc_copy()
     check_doc_drift()
     check_conflict_markers()
+    check_manifest_line_counts()
 
     # Commit-shaped checks: only meaningful against a staged diff. In --all
     # mode there is no commit to judge, and firing them anyway trains people
