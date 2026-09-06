@@ -1004,7 +1004,9 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
   checked; the divergence table above is from a Python port of both forms. `preflight --all` clear
   at zero advisories, which means "worth compiling" and nothing more. This tree is structurally
-  consistent and was last parsed by Vector at `aec3a2f`.
+  consistent, and parses: 42 tracked Swift files, 0 failures, at `d9f7c4a` -- the tree this
+  entry describes. `preflight`'s own `swift-parse` check now answers this against whatever
+  commit it runs on, so later entries need not name a parser by hand.
 
   **Why the wrong comment was deleted rather than corrected.** The old code carried a comment
   claiming a "50mm tolerance on each axis" that it never implemented — at 1mm per point the real
