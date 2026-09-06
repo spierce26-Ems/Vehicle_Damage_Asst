@@ -631,6 +631,16 @@ exit code and never `preflight`'s** — the tool built to end `exists`-for-`runs
 became its own last instance, and the habit that caught a `RecursionError` in
 the same file an hour earlier was the habit nobody applied to the gate.
 
+**The layer that failure sits at is one above `exists` for `runs`: REPORTED for
+EXISTS.** The wiring was described in enough detail to be checkable — a
+function name, `rc=1` and `rc=0` in both directions, a negative test — and the
+described artefact was in no commit in `git rev-list --all`. Every rule in this
+section keys off a hazard in the artefact; **none of them covers the report
+about the artefact**, and reading the report is the one step everyone always
+does. The cheap defence is the one that caught it: `git log -S <identifier>`
+against the claim, and re-verification from a fresh clone of the pushed sha
+rather than the tree the work was done in.
+
 **One number for the shape of this round, because it is the only measurement of
 the duplicate rule anyone has — counted rather than estimated, since "roughly
 fourteen" was the first version of this sentence.** 22 distinct patch
