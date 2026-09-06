@@ -358,6 +358,26 @@ never the artefact it was aimed at.** When a fix lands on one symptom of a
 shared cause, name the cause's whole surface and test each part of it
 separately.
 
+**The whole surface, swept: six remedies, and the tool's actual remit stated
+once so the next one can be checked without a measurement.**
+`scripts/regen_manifest.py` **fills integers into rows that already exist.** It
+does not write prose, it does not add or remove rows, and it cannot recreate
+the document. Every remedy that said *"regenerate the manifest"* for anything
+outside that remit was unperformable: the line total, the file/Swift counts one
+clause away, the missing-rows warning, the `docs_owed` reminder that fires on
+exactly the add/delete patches needing the hand work, and the absent-manifest
+warning — which named a capability that has never existed anywhere in this
+repo. Each was verified by *following* it, and following the last one found a
+defect in the script itself: it raised `FileNotFoundError` and exited on a
+traceback while its docstring claimed it exits cleanly, the same shape as the
+`ls-files` traceback fixed in `c9e2099`.
+
+**Both sides of a generator/prose seam must state it.** The checks name the
+hand-edit and the value; the generator prints on every run what it did not
+touch. A bare *"fixed point after 1 pass(es)"* reads as *"the manifest is now
+correct"*, and a silent generator reporting success is how a reader following
+the old remedy concluded it had worked.
+
 **When a sequencing or ownership decision changes, the record keeper is told
 first, not last.** A record that accurately reflects a superseded decision is
 worse than a visibly missing one, because it looks current and carries

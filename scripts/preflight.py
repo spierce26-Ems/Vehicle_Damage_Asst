@@ -313,10 +313,20 @@ def check_docs_owed(files):
     added_removed = sh("git", "diff", *diff_args(), "--name-only",
                        "--diff-filter=AD")
     if any(f.endswith(".swift") for f in added_removed.splitlines()):
+        # "Regenerate" is the wrong VERB for an add or a delete, and this is
+        # the reminder that fires on exactly those patches. regen_manifest.py
+        # maintains rows and never adds or removes one -- the fifth instance
+        # of the unperformable remedy, found by finishing the sweep a65e612
+        # started rather than waiting to be hit. The missing-rows warning
+        # already says this; the reminder that PRECEDES it did not.
         warn("docs",
              "a Swift file was added or removed",
-             "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md "
-             "(regenerate, never hand-edit)")
+             "add or delete its row in "
+             "ios/reference/COMPLETE_FILE_MANIFEST.md by hand, hand-edit the "
+             "Totals: sentence, then run scripts/regen_manifest.py for the "
+             "counts -- the regenerator maintains rows and never adds or "
+             "removes one, so running it alone will NOT clear the manifest "
+             "findings this change is about to produce")
 
     scoring_dirs = ("/Utilities/", "/ForensicEngine/")
     if any(d in f for f in swift for d in scoring_dirs):
@@ -1076,10 +1086,16 @@ def check_manifest_drift():
                  "restore the file, or remove it from the tree if it is "
                  "genuinely gone")
         else:
+            # Sixth instance, and the starkest: there is no generator for
+            # the whole document. regen_manifest.py exits when the file is
+            # missing, so "regenerate it from git ls-files" names a
+            # capability that has never existed anywhere in this repo.
             warn("manifest",
                  f"{rel} is absent -- manifest NOT checked",
-                 "the file manifest is the map a reader starts from; "
-                 "regenerate it from git ls-files")
+                 "the file manifest is the map a reader starts from: restore "
+                 "it from git history. No script regenerates the document -- "
+                 "regen_manifest.py fills counts into rows that already "
+                 "exist and exits when the file is gone")
         return
 
     tracked = [f for f in tracked_paths if f]

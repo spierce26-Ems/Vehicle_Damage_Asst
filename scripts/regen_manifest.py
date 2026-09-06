@@ -55,6 +55,16 @@ except (OSError,subprocess.CalledProcessError):
     # 0 with a traceback -- a gate that crashes while reporting success, the
     # dead-check shape inside the tool written to end a day of them.
     sys.exit("not inside a git repository, or git ls-files failed")
+if not os.path.exists(mp):
+    # Found by FOLLOWING the absent-manifest remedy rather than reading it:
+    # open() raised FileNotFoundError and this exited on a traceback while
+    # its own docstring claimed it exits cleanly. The ls-files traceback
+    # Compass fixed in c9e2099, one open() further down -- and the same
+    # class as the unperformable remedies, a tool whose stated behaviour is
+    # not its behaviour.
+    sys.exit("%s not found -- nothing to regenerate. Restore it from git "
+             "history; this script fills counts into rows that already "
+             "exist and cannot recreate the document." % mp)
 untracked_rows=[]
 stale=[]
 for it in range(10):
@@ -81,6 +91,16 @@ for it in range(10):
 else:
     print("did not converge in 10 passes -- something else is editing the "
           "table"); sys.exit(1)
+
+# Say out loud, on every run, what this did NOT do. The seam holds only if
+# both sides state it: preflight's remedies now name the hand-edits, and a
+# bare "fixed point after 1 pass(es)" reads as "the manifest is now correct".
+# A silent generator reporting success is exactly how a reader following the
+# old remedy concluded it had worked -- Ledger's finding from the tool's side.
+print("NOT touched: the Totals: sentence (prose) and the SET of rows -- this "
+      "fills counts into rows that already exist and never adds or removes "
+      "one. If this change added or deleted a file, do both by hand; "
+      "preflight --all names the exact numbers.")
 
 for f in untracked_rows:
     print("row names an untracked path, skipped (that is "
