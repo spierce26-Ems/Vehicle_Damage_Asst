@@ -749,6 +749,106 @@ def types_with_custom_decoder(path, spans):
     return out
 
 
+def check_decoder_completeness(files):
+    """A hand-written init(from:) that never reads a stored property.
+
+    Blocking under PROCESS.md sec.5b kind 2, and it is the mirror image of
+    check_persisted_model. That check asks whether an OLD payload can still
+    be read by NEW code. This one asks whether NEW code still reads
+    everything the payload CARRIES.
+
+    Swift's synthesized decoder reads every stored property, so this hazard
+    cannot exist until someone writes their own -- and writing one is the
+    remedy check_persisted_model recommends, so the two arrive together.
+    From that moment the decoder is a hand-maintained list, and a field
+    added to the type by anyone else is silently not decoded. The property
+    keeps its declared default, the build stays green, `encode(to:)` stays
+    synthesized so the value is still WRITTEN to disk, and the loss appears
+    only as that field reverting to its default on every load.
+
+    The concrete case this was written for: `ToolMarkComparison` gained a
+    hand-written `init(from:)` on one branch (for `exclusions`) while
+    gaining `permutationPValue` and `nullTrialCount` on another. A union
+    resolution that compiles perfectly drops both on decode, and
+    `isStatisticallySignificant` then returns nil -- which renders as "no
+    significance test was possible", the honest-absence state the team
+    deliberately built. A silent data loss wearing the exact appearance of
+    correct behaviour.
+
+    Scoped to types that have BOTH a Codable span and a hand-written
+    decoder, since a synthesized decoder needs no list to fall out of date.
+    """
+    for f in files:
+        if not f.endswith(".swift"):
+            continue
+        spans = codable_line_spans(f)
+        if not spans:
+            continue
+        by_hand = types_with_custom_decoder(f, spans)
+        if not by_hand:
+            continue
+        try:
+            with open(os.path.join(REPO, f), encoding="utf-8") as fh:
+                lines = fh.read().split("\n")
+        except OSError:
+            continue
+
+        # One type yields SEVERAL spans: codable_line_spans records depth-1
+        # stretches so that locals inside function and getter bodies are not
+        # read as stored fields. Group them back per type and check the union
+        # once -- iterating spans directly reports the same type repeatedly
+        # and, worse, judges each fragment on its own, so a fragment holding
+        # no declarations looks like a type with no stored properties.
+        by_name = {}
+        for lo, hi, name in spans:
+            by_name.setdefault(name, []).append((lo, hi))
+
+        whole = "\n".join(lines)
+        for name, ranges in by_name.items():
+            if name not in by_hand:
+                continue
+            body = []
+            for lo, hi in ranges:
+                body.extend(lines[lo - 1:hi])
+            fields = []
+            for raw in body:
+                decl = raw.strip()
+                if not re.match(r"(?:var|let)\s", decl):
+                    continue
+                parsed = _parse_field(decl)
+                if parsed:
+                    fields.append(parsed[0])
+            if not fields:
+                # No stored properties found. Rather than report clean --
+                # which is indistinguishable from a check that ran and
+                # found nothing wrong -- say the subject was absent.
+                warn("decoder-completeness",
+                     f"{f}: `{name}` has a hand-written init(from:) but no "
+                     "stored properties were found to check",
+                     "probably a parsing gap in this check rather than a "
+                     "real finding -- worth a look, since a check with no "
+                     "subject cannot fail.")
+                continue
+
+            # The decoder may live in an extension outside the span, so
+            # search the whole file for assignments to each field.
+            missing = [fld for fld in fields
+                       if not re.search(
+                           r"(?:self\.)?" + re.escape(fld) +
+                           r"\s*=\s*try\s+\w+\.decode", whole)]
+            if missing:
+                fail("decoder-completeness",
+                     f"{f}: `{name}` has a hand-written init(from:) that "
+                     "never decodes " +
+                     ", ".join(f"`{m}`" for m in missing),
+                     "a hand-written decoder is a hand-maintained list of "
+                     "every stored property. An undecoded field silently "
+                     "reverts to its default on load while encode(to:) "
+                     "keeps writing it -- green build, lost case data. Add "
+                     "a decodeIfPresent for each, or delete the custom "
+                     "decoder if the synthesized one now suffices.")
+
+
 def check_persisted_model(files):
     """Persisted-model changes that survive a green build and lose case data.
 
@@ -936,6 +1036,7 @@ def main():
         check_commit_size(files)
         check_docs_owed(files)
         check_persisted_model(files)
+        check_decoder_completeness(files)
 
     for check, msg, remedy in warnings:
         print(f"warn  [{check}] {msg}\n      -> {remedy}")
