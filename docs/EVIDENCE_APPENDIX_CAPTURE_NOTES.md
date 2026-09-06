@@ -308,3 +308,110 @@ decision rather than an oversight.
 - [ ] A photo where the examiner was asked and declined (`frameConfirmedClear == false`) does render the note — confirming `nil` and `false` are not collapsed anywhere in the render path.
 - [ ] A factor whose inputs include a flagged photo shows the §2.4 cross-reference, and its numeric score is unchanged from the same analysis run without the appendix.
 - [ ] Search the rendered PDF text for: likely, probably, consistent with, suggests, indicates, match confirmed — zero hits in the Capture Conditions section.
+
+---
+
+## 6. Excluded cross-sections: wording and the ordering record (task #6)
+
+Written on Prism's statistical review of per-cross-section exclusion
+(2026-09-06). Two things belong to this spec rather than to the statistics: what
+the report and the results screen are permitted to *say* when exclusions are
+active, and what has to be recorded at capture time so that anything can be said
+at all.
+
+### 6.1 No significance verdict on a filtered subset
+
+**Required.** When one or more cross-sections have been excluded from a
+comparison, the significance verdict is **suppressed**, not recomputed. The
+headline may state the filtered similarity figure; it may not state "above
+chance" or "NOT distinguishable from chance" for the filtered subset.
+
+Locked wording for `headlineDisplay` in the filtered case:
+
+> Filtered comparison — NN% similarity across M of N cross-sections.
+> Statistical significance is not established for a filtered subset. See the
+> exclusion record in the appendix.
+
+Rationale, and why this is not conservatism for its own sake: the p-value
+recomputed on a filtered subset is not wrong by a small margin. Prism measured a
+15.6× inflation of the false-positive rate at two exclusions, with the *typical*
+unrelated pair landing on p = 0.05 once an investigator selects the filtered
+view with the lowest p-value. A verdict computed against 0.05 in that state is a
+number the report cannot defend, printed in the one place a reader trusts most.
+This is the same case as the missing null baseline in the version-stamp work: the
+figure stays, the claim about the figure goes.
+
+A calibrated critical value may later replace suppression with a real verdict.
+Until a fitted lookup table is in the tree and referenced by the code, the
+verdict stays suppressed — an uncalibrated threshold is not an improvement on
+saying nothing.
+
+### 6.2 The exclusion record has to know what came first
+
+A legitimate exclusion (a probe that wandered onto a ruler) and an exclusion
+chosen because it improved the number are statistically identical. Nothing in
+the score separates them. What separates them is whether the decision was taken
+before or after a similarity figure for that comparison had been displayed.
+
+That ordering exists only while it is happening. It cannot be reconstructed from
+a saved case, a timestamp added later, or an investigator's recollection. So it
+is recorded at capture time or it is permanently unavailable — which makes it a
+data-model requirement for #6 rather than a later enhancement, and the reason
+this section is being written before the feature lands rather than after.
+
+**What to persist**, per exclusion and per comparison:
+
+- the comparison's `firstScoreDisplayedAt` — set once, the first time any
+  similarity figure for that pair is rendered to the screen; never overwritten.
+- each exclusion's own `recordedAt`.
+- each exclusion's investigator-stated `reason` (already in #6's shape).
+
+Ordering is **derived** from the two timestamps, never stored as a
+pre-judged boolean. Storing the label would freeze one interpretation of the
+event; storing the two instants records only what is known and lets the
+rendering rule change without invalidating saved cases.
+
+All three are new fields on a persisted model, therefore optional — see
+PROCESS.md §1. Cases created before these fields existed decode to `nil`.
+
+### 6.3 Rendering the ordering — three states, never two
+
+| state | appendix wording |
+|---|---|
+| `recordedAt` earlier than `firstScoreDisplayedAt` | Recorded before any similarity figure was displayed for this comparison. |
+| `recordedAt` later than `firstScoreDisplayedAt` | Recorded after a similarity figure had been displayed for this comparison. |
+| either timestamp `nil` | Ordering not recorded. |
+
+The third row is not optional and must not be collapsed into the first. An
+exclusion whose ordering was never captured is *unknown*, not *clean*; printing
+the "before" line for a `nil` would make an absence assert the one property this
+whole section exists to establish. House rule, PROCESS.md §5.
+
+The report states the ordering and stops. It does not characterise an exclusion
+as appropriate, inappropriate, legitimate, or selective; it does not rank the
+three states; it prints no warning icon or colour on the "after" row. The
+ordering is a fact about the procedure and the reader draws the inference — the
+moment the report editorialises, the fact becomes an accusation the app cannot
+support.
+
+### 6.4 Copy constraints specific to this section
+
+Forbidden in any exclusion-related string: *cherry-pick*, *shopping*, *p-hacking*,
+*manipulated*, *gamed*, *suspicious*, *justified*, *valid exclusion*,
+*invalid exclusion*. The first six accuse; the last three adjudicate. Both are
+outside what the app knows.
+
+Also forbidden: presenting the filtered figure more prominently than the
+unfiltered one. Both are shown; the unfiltered figure is the one computed
+without any selection and is never demoted.
+
+### 6.5 Test checklist additions (task #6)
+
+- [ ] With any exclusion active, the headline contains no "above chance" / "not distinguishable from chance" verdict, and does contain the §6.1 suppression sentence.
+- [ ] Removing all exclusions restores the ordinary verdict on the unfiltered comparison, identical to a run where no exclusion was ever made.
+- [ ] `firstScoreDisplayedAt` is written once and does not move when the score is re-rendered, re-entered, or recomputed.
+- [ ] An exclusion made before the score was ever shown renders the "before" line; one made after renders the "after" line.
+- [ ] A case saved before these fields existed renders "Ordering not recorded" — not the "before" line, not a blank row, not an omitted row.
+- [ ] The unfiltered similarity figure appears in both the report and the results screen whenever a filtered figure does.
+- [ ] Search the rendered PDF text for: cherry, shopping, manipulated, suspicious, justified, valid exclusion — zero hits.
+- [ ] After the #6 rebase onto the version-stamp branch, the filtered outcome renders through `headlineDisplay` and emits no percentage string of its own.
