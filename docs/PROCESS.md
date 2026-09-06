@@ -220,6 +220,35 @@ When a surface cannot express the difference, it says nothing at all — silence
 is the honest output. Applies to decoding, to UI, to report text, and to
 tooling output alike.
 
+## 5b. Checks, and why most of them are advisory
+
+`scripts/preflight.py` is the mechanical half of this document: run
+`python3 scripts/preflight.py --all` before handing over or landing a patch. It
+enforces the pbxproj rules in §1, the persisted-model rule, and delimiter
+balance on changed Swift files.
+
+Two design rules govern it, and they are the reason to trust its output:
+
+- **Blocking is reserved for a silent reversion that breaks a build or a
+  signature.** Everything else is advisory. A check that blocks work it should
+  not have blocked gets bypassed with `--no-verify`, and the bypass takes every
+  other check with it — so the cost of one over-eager check is all of them.
+  Signing is advisory for exactly this reason: a Simulator build needs no
+  development team, and blocking on it would re-import the wrong
+  P0-1-gates-P0-2 ordering into the tooling.
+- **Passing means "worth compiling", never "works".** The tool says so in its
+  own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
+  history, tooling that could be mistaken for a build would be worse than no
+  tooling.
+
+**A rule written here and a check written in code must agree, and when they
+drift the code wins silently.** Prose that overclaims is visible to anyone who
+reads it; a check scoped by a stale comment looks authoritative and is not.
+So a correction to a rule in this document is not finished until the
+corresponding check has been re-verified against the behaviour it guards —
+against what the generator or compiler actually does, not what its comment
+says it does.
+
 ## 6. Reporting up
 
 - Blocked items and product decisions go to Sean explicitly, with a
