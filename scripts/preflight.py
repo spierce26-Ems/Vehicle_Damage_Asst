@@ -579,26 +579,14 @@ def _parse_field(decl):
     return m.group(1), m.group(2).strip()
 
 
-def codable_line_spans(path):
-    """1-based (start, end, name) for every Codable type body in `path`.
+def _blank_comments_and_strings(src):
+    """Blank comments and string literals, preserving offsets and newlines.
 
-    Used to scope the persisted-field check to types that actually get
-    encoded. Brace-matched rather than regex-to-end-of-type so a nested
-    type inside a Codable one is handled correctly.
-
-    Strings and comments are stripped first for brace counting only -- a
-    brace inside a string literal or a doc comment would otherwise close a
-    type early and silently shrink the checked region, which is exactly the
-    failure mode that makes a checker miss the thing it exists to catch.
-    Character offsets are preserved during stripping so line numbers stay
-    accurate.
+    Extracted from codable_line_spans so brace matching in
+    types_with_custom_decoder uses the same blanking. Both need it for the
+    same reason: a brace inside a comment or a literal must not open or
+    close a type body.
     """
-    try:
-        with open(os.path.join(REPO, path), encoding="utf-8") as fh:
-            src = fh.read()
-    except OSError:
-        return []
-
     out = list(src)
     i, n = 0, len(src)
     while i < n:
@@ -654,7 +642,30 @@ def codable_line_spans(path):
                 i += 1
         else:
             i += 1
-    clean = "".join(out)
+    return "".join(out)
+
+
+def codable_line_spans(path):
+    """1-based (start, end, name) for every Codable type body in `path`.
+
+    Used to scope the persisted-field check to types that actually get
+    encoded. Brace-matched rather than regex-to-end-of-type so a nested
+    type inside a Codable one is handled correctly.
+
+    Strings and comments are stripped first for brace counting only -- a
+    brace inside a string literal or a doc comment would otherwise close a
+    type early and silently shrink the checked region, which is exactly the
+    failure mode that makes a checker miss the thing it exists to catch.
+    Character offsets are preserved during stripping so line numbers stay
+    accurate.
+    """
+    try:
+        with open(os.path.join(REPO, path), encoding="utf-8") as fh:
+            src = fh.read()
+    except OSError:
+        return []
+
+    clean = _blank_comments_and_strings(src)
 
     line_of = {}
     line = 1
@@ -761,18 +772,56 @@ def types_with_custom_decoder(path, spans):
         return set()
 
     out = set()
-    # Walk every type/extension declaration in the file and attribute the
-    # decoders inside it to that type, whether or not the declaration itself
-    # mentions Codable.
-    decls = [(m.start(), m.group(2))
-             for m in re.finditer(
-                 r"\b(struct|class|enum|actor|extension)\s+(\w+)", src)]
-    for idx, (pos, name) in enumerate(decls):
-        if name not in out and name in names:
-            end = decls[idx + 1][0] if idx + 1 < len(decls) else len(src)
-            if re.search(r"\binit\s*\(\s*from\s+\w+\s*:\s*Decoder\s*\)",
-                         src[pos:end]):
-                out.add(name)
+    # Attribute each decoder to the type whose BODY encloses it, brace
+    # matched. The previous version bounded a declaration at the next
+    # declaration keyword, which credits a decoder to whichever type happens
+    # to be declared last before it -- and a NESTED type is declared after
+    # its parent's fields but before the parent's own init(from:). So
+    # `PaintAnalysis` (custom decoder, nine stored properties) handed its
+    # decoder to the nested `enum SurfaceCondition`, which has none. Effects
+    # were both directions at once: SurfaceCondition reported the "no stored
+    # properties" no-subject advisory, and PaintAnalysis dropped out of the
+    # exemption set entirely, so its real fields were never checked. A field
+    # added to PaintAnalysis and omitted from its hand-written decoder --
+    # exactly this check's hazard -- was silent.
+    #
+    # Comments and string literals are already blanked in `stripped` for
+    # brace counting, so a brace inside either cannot close a body early.
+    stripped = _blank_comments_and_strings(src)
+    for m in re.finditer(r"\b(struct|class|enum|actor|extension)\s+(\w+)",
+                         stripped):
+        name = m.group(2)
+        if name not in names or name in out:
+            continue
+        brace = stripped.find("{", m.end())
+        if brace < 0:
+            continue
+        depth, i, n = 0, brace, len(stripped)
+        while i < n:
+            if stripped[i] == "{":
+                depth += 1
+            elif stripped[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        body = stripped[brace:i]
+        # Only decoders at this type's OWN nesting level count; one inside a
+        # nested type's braces belongs to that nested type, not to this one.
+        own = re.sub(r"\{[^{}]*\}", lambda _m: " " * len(_m.group(0)), body)
+        while re.search(r"\{[^{}]*\}", own):
+            own = re.sub(r"\{[^{}]*\}", lambda _m: " " * len(_m.group(0)), own)
+        if re.search(r"\binit\s*\(\s*from\s+\w+\s*:\s*Decoder\s*\)",
+                     body):
+            # `body` finds it anywhere inside; require that the signature is
+            # not itself sunk inside a nested type body.
+            for sig in re.finditer(
+                    r"\binit\s*\(\s*from\s+\w+\s*:\s*Decoder\s*\)",
+                    body):
+                prefix = body[:sig.start()]
+                if prefix.count("{") - prefix.count("}") == 1:
+                    out.add(name)
+                    break
     return out
 
 
