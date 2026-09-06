@@ -128,8 +128,8 @@ in a chat attachment:
 |---|---|---|---|
 | `reapply-focus-ui` | #5 | `0e47398` | The `ScarCaptureView` focus-region UI reapply. Lands first and alone: it is the file blamed for the Xcode crash. |
 | `prism-task10-p1b` | #10a, #10b, #8 | `e92ea8c` | Scoring divergences, version stamp, headline rework, the v1.2.0 resolution audit, and its paperwork. First tree today to run `--all` at zero advisories. |
-| `cross-section-exclude` | #6 | `aa7b695` | Per-cross-section exclude plus verdict suppression and the ordering record. Rebased clean onto `9f3d487` — but that result does **not** survive `prism-task10-p1b` landing; see below. |
-| `readiness-setpoint` | #13 | `d9a8725` | Readiness bar and LiDAR set-point reticle. No new Swift files, so nothing to register in the pbxproj. |
+| `cross-section-exclude` | #6 | `c6e749a`, merged in `13bad3a` | Per-cross-section exclude plus verdict suppression and the ordering record. Rebased clean onto `9f3d487` — but that result does **not** survive `prism-task10-p1b` landing; see below. |
+| `readiness-setpoint` | #13 | `a1239d2`, merged in `51c2611` | Readiness bar and LiDAR set-point reticle. No new Swift files, so nothing to register in the pbxproj. |
 | `duplicate-case` | #7, #11 | `522587e` | Applies cleanly on top. |
 
 **Landing order, verified by testing the applications rather than assuming
@@ -138,7 +138,7 @@ independence:**
 1. `reapply-focus-ui` (#5)
 2. `prism-task10-p1b` (#10a, #10b, #8)
 3. **`cross-section-exclude` (#6), re-rebased onto the resolved tree** — not the
-   `aa7b695` rebase above
+   earlier rebase, whose head was force-pushed away and is no longer citable
 4. `readiness-setpoint` (#13)
 5. `duplicate-case` (#7, #11)
 

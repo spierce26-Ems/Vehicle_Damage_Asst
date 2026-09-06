@@ -851,6 +851,87 @@ def check_swift_parses():
              "this report was measured on a tree that is not valid Swift")
 
 
+# Shas a document cites ON PURPOSE despite not resolving. Both are correct
+# prose, found by running check_cited_commits before trusting it -- its first
+# pass flagged four and two were these. `abc1234` is the sec.2 entry
+# template's placeholder. `1a4ae2a` is cited in sec.5b BECAUSE it was
+# force-pushed away: the passage's whole subject is a measurement that was
+# accurate about a commit that no longer exists. Blocking those would demand
+# the document stop discussing its own central example -- wrong in the
+# section about being wrong for the right reason.
+#
+# An allow-list rather than a comment marker, so adding one is a deliberate
+# edit here with a reason attached, not a tag anyone can sprinkle to silence
+# the check.
+CITED_SHA_EXEMPT = {
+    "abc1234": "sec.2 entry-template placeholder",
+    "1a4ae2a": "sec.5b cites it precisely because it was force-pushed away",
+}
+
+
+def check_cited_commits():
+    """Every commit sha cited in a tracked document must resolve.
+
+    Blocking. A sha is either a real commit or it is nothing, and there is no
+    window in which citing a dead one is acceptable -- the standing
+    advisory-vs-blocking test.
+
+    This is the phantom-hash defect, produced three times in one day from
+    three directions. The manifest header named the commit carrying it, which
+    cannot exist when the file is written (removed in 13fc278).
+    `AuditEntry.examinerName` would have resolved the examiner live,
+    rewriting the chain of custody on every rename (avoided by copy-at-write).
+    And ios/README.md's branch table cites `aa7b695` and `d9a8725` --
+    pre-rebase heads that no longer exist, so the two rows a reader uses to
+    audit tasks #6 and #13 point at nothing. That third one is what this
+    found; nobody had looked.
+
+    Compass's predicate: the tool asked "did I get a result" when it needed
+    to ask "which of the things that could have happened, happened". A cited
+    sha reads as provenance and resolves to whatever is true when read --
+    Ledger's general form, an artefact that looks like a record and is
+    actually a query.
+
+    Prism's dropped commit is why this is a check and not a one-time edit: a
+    changelog entry cited a fix that had never landed, and every check passed
+    because each was true of the commit that DID land. A document recording a
+    fix is not evidence the fix landed. This cannot verify a sha means what
+    the prose claims and says so -- it establishes only that the reference is
+    not dangling, which is the part a tool can establish.
+
+    At least one digit is required so English words in hex letters ("added",
+    "facade", "decade") cannot trip a blocking check; leading-digit would be
+    wrong, since plenty of shas are all letters. Shas that are also tracked
+    paths are skipped.
+    """
+    tracked = sh("git", "ls-files").splitlines()
+    tracked_set = set(tracked)
+    pat = re.compile(r"`([0-9a-f]{7,40})`")
+    dangling = []
+    for doc in [f for f in tracked if f.endswith(".md")]:
+        try:
+            text = open(os.path.join(REPO, doc), encoding="utf-8").read()
+        except OSError:
+            continue
+        for sha in sorted(set(pat.findall(text))):
+            if (sha in tracked_set or sha in CITED_SHA_EXEMPT
+                    or not re.search(r"\d", sha)):
+                continue
+            if sh("git", "cat-file", "-t", sha).strip() != "commit":
+                dangling.append((doc, sha))
+    if dangling:
+        shown = "; ".join(f"{d}: {h}" for d, h in dangling[:4])
+        more = f" (+{len(dangling) - 4} more)" if len(dangling) > 4 else ""
+        fail("cited-commits",
+             f"{len(dangling)} cited commit sha(s) do not resolve: {shown}"
+             f"{more}",
+             "the commit was rebased away or never landed -- replace it with "
+             "the sha actually in history, or drop it. A dead sha reads as "
+             "provenance and resolves to nothing, which is worse than "
+             "citing none. If the citation is deliberate, add it to "
+             "CITED_SHA_EXEMPT with the reason")
+
+
 def check_manifest_drift():
     """Does COMPLETE_FILE_MANIFEST.md still describe the tracked tree?
 
@@ -1735,6 +1816,7 @@ def main():
     check_cited_doc_copy()
     check_doc_drift()
     check_conflict_markers()
+    check_cited_commits()
     check_swift_parses()
     check_manifest_line_counts()
     # NOT commit-shaped, despite reading like one. The defect it exists for
