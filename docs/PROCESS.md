@@ -629,9 +629,12 @@ the thing that reports on the tree.** `check_remedies.py` was standalone:
 `preflight --all` printed `clear (0 advisory)` on `f3e585f` while the harness
 exited 1 on the same tree. **A gate nobody invokes is a file** — this section's
 subject arriving in this section's instrument, `exists` for `runs` one layer
-above the alias it was built to catch. It survived four separate reports of
-having landed because every one of them, from four different agents, quoted the
-harness's own exit code and never `preflight`'s. **A check's own exit code
+above the alias it was built to catch. It survived three separate reports of
+having landed — two from the agent who wrote the wiring and one repeating them
+— because every one of them quoted the harness's own exit code and never
+`preflight`'s. (Counted, not estimated: the claim first appeared in the report
+of `8ae183b`, was repeated for `f3e585f`, and was carried forward once by a
+second agent citing those. Two agents, three reports.) **A check's own exit code
 cannot tell you whether anything invokes it**, so the measurement that closes
 this is the one already in force for everything else: run `--all` and read what
 it says. Wired as `check_remedy_declarations()`, advisory, reporting the
