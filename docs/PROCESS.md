@@ -23,13 +23,27 @@ It is landed on your behalf, authored to you in the commit message. A
 `git format-patch` bundle is the ideal artifact — it carries the message, the
 author, and the exact diff, so nothing is retyped or reinterpreted.
 
+Work in flight lives on a **remote branch**, never only in a chat attachment.
+An attachment is a delivery mechanism, not storage: it cannot be fetched,
+diffed, or rebased, and the version that landed can only be identified by
+diffing afterwards. Push the branch, then point at it.
+
 Two things to know if you produce patches:
 
 - `git am` strips a `[docs]`-style bracketed prefix from the subject line,
   because it reads it as a patch-management tag. Whoever lands the patch must
   restore the prefix, or the commit lands without it.
-- Rebuild the patch from the latest attachment before landing. A patch built
-  from an earlier revision silently reverts corrections made since.
+- Rebuild the patch from the latest revision before landing, and verify it
+  against **where it is going** rather than where it was made:
+  `git apply --check` against a freshly fetched `origin/main` takes seconds.
+  Both of the day's near misses were artefacts that were correct in the place
+  they were made and wrong at the destination — a patch built off a local
+  branch, and a remedy line naming a file that existed only as an attachment.
+- Once a patch is out, corrections go as a **new** patch on top, never an
+  amended one under the same filename. An amended re-send is indistinguishable
+  from a duplicate on the receiving end, and which version landed can then only
+  be established by diffing. Correspondingly, when someone has revisions in
+  flight, wait for the settled version rather than landing the one in hand.
 
 ## 1. Branch and commit rules
 
