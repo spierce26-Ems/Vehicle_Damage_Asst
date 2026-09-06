@@ -16,13 +16,41 @@ or two, and failing loudly beats looping.
 
 Run this after resolving a manifest conflict, then `preflight --all`
 immediately -- after the RESOLUTION, not after the whole stack.
+
+Two behaviours from Compass's independent version, which earned their keep:
+
+  --check  reports and writes NOTHING, exit 1 when stale. So it can gate
+           without being able to paper over anything.
+
+  Rows naming an UNTRACKED path are reported and SKIPPED, not silently
+  matched by os.path.exists. Path drift is check_manifest_drift's subject,
+  and a regenerator that quietly fixed rows for untracked files would hide
+  it.
+
+Also his precise trigger for the fixed point, sharper than "one pass is not
+enough": ONE PASS SUFFICES WHEN A COUNT'S DIGITS CHANGE, AND FAILS WHEN THE
+ROW COUNT CHANGES -- adding or removing a row always shifts the manifest's own
+length, so the self-row then describes the pre-write file. The failing case is
+exactly "a patch that adds a file", which is most patches.
+
+What this deliberately does NOT touch: the `Totals:` prose sentence. Prose is
+Ledger's, and a regenerator with an opinion about his sentences is how a
+document loses its author. preflight names that number in three checks now
+(files, Swift count, and the header's line total), so a patch that adds or
+deletes a file still edits that one line by hand and --all catches it.
 """
 import os
 import re
+import subprocess
 import sys
 
 mp='ios/reference/COMPLETE_FILE_MANIFEST.md'
 pat=re.compile(r'^\|\s*`([^`]+)`\s*\|\s*([^|]*?)\s*\|$')
+check_only='--check' in sys.argv
+tracked=set(subprocess.check_output(
+    ['git','ls-files']).decode().split())
+untracked_rows=[]
+stale=[]
 for it in range(10):
     lines=open(mp).read().split('\n')
     changed=0
@@ -30,13 +58,27 @@ for it in range(10):
         m=pat.match(l)
         if not m: continue
         f,v=m.group(1),m.group(2).strip()
-        if not v.isdigit() or not os.path.exists(f): continue
+        if not v.isdigit(): continue
+        if f not in tracked:
+            # Reported, never rewritten -- see the docstring.
+            if it==0 and os.path.exists(f): untracked_rows.append(f)
+            continue
         a=open(f,'rb').read().count(b'\n')
         if a!=int(v):
             changed+=1
+            if it==0: stale.append("%s says %s, has %d"%(f,v,a))
             lines[i]="| `%s` | %d |"%(f,a)
     if not changed:
         print("fixed point after %d pass(es)"%it); break
+    if check_only: break
     open(mp,'w').write('\n'.join(lines))
 else:
-    print("did not converge"); sys.exit(1)
+    print("did not converge in 10 passes -- something else is editing the "
+          "table"); sys.exit(1)
+
+for f in untracked_rows:
+    print("row names an untracked path, skipped (that is "
+          "check_manifest_drift's subject): %s"%f)
+if check_only and stale:
+    for d in stale: print("stale: %s"%d)
+    sys.exit(1)
