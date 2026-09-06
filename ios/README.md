@@ -1347,6 +1347,105 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     nothing on screen claims a focus region was set.
   - [ ] Retake from the box screen returns to the live camera with a working session.
 
+- **Per-cross-section exclude, verdict suppression, and the decision-ordering record (item 4/5,
+  task #6).** `13bad3a`. Lets an investigator set aside an individual striation probe that landed
+  on something that is not the damage — and does three things to stop that facility becoming a way
+  to manufacture a result.
+
+  **Why**: a tool-mark comparison samples 7 probes per photo, and a probe can land on a tape
+  measure, a reflection, or undamaged panel. Without a way to exclude one, a single bad probe
+  degrades a real comparison. With one, an examiner can exclude probes until the number improves —
+  and **a legitimate exclusion and p-value shopping are statistically identical.** Nothing in the
+  saved data separates them. Demonstrated risk, measured rather than asserted: two exclusions moved
+  a comparison from not-significant to significant, and with 7 probes that is a few taps.
+
+  **What changed**, and each part exists to close a specific hole:
+
+  - `StriationProfile.excluding(_:)` and `ToolMarkMatcher.applying(...)` produce a
+    `ToolMarkFilteredOutcome` — a **separate additive record**, never an overwrite of the
+    unfiltered score. The full score stays the headline.
+  - **The filtered null model is recomputed, not inherited.** A shorter sequence is easier to align
+    by chance, so reusing the full run's baseline would systematically overstate the filtered
+    result.
+  - **The significance verdict is suppressed whenever exclusions are active, and the suppression is
+    stated rather than silent.** Recomputing the baseline was necessary and not sufficient: once
+    the subset is chosen after seeing the score, the statistic under test is the best over all
+    reachable subsets, and the unadjusted threshold does not test that — at two exclusions the
+    median *unrelated* pair reaches p = 0.05, so the verdict was measured to be a false positive
+    more than half the time. An omitted significance line would read as "not yet computed", which
+    is a more forgiving claim than "cannot be established for a filtered subset". The recomputed
+    chance baseline is still reported, because it is real context; only the conclusion is withheld.
+  - **Exclusion reasons are mandatory**, enforced in the view model rather than the UI, so no code
+    path can write an unexplained exclusion. Restores are audited too — the audit trail records the
+    decisions, not just the final state.
+  - **An exclusion that *raised* the score is called out in the report**, in those words. The
+    asymmetry is deliberate: the direction of the change is the single most diagnostic fact about
+    whether the exclusions were reasonable, and stating it in the report is what keeps the feature
+    honest.
+  - **Excluded probes stay in the exported report.** A report that silently drops set-aside data
+    misleads its reader; PDF length is a cosmetic cost against an evidentiary one.
+  - `StriationExclusion.recordedAt` stores **the instant of the decision**, and
+    `ToolMarkComparison.firstScoreDisplayedAt` stores when a figure was first shown. This is the
+    one mitigation on the list that **cannot be retrofitted**: exclusion caps, shopping-aware
+    critical values and higher trial counts can all be added later and applied to old cases, but
+    the ordering exists only at the instant it happens and is unrecoverable afterwards. Every case
+    recorded without it has lost it permanently.
+
+  **Why two timestamps rather than a before/after label.** Storing the label would freeze today's
+  interpretation into every saved case; storing the instants records only what is known and lets
+  the rendering rule change later without invalidating history. `orderingSummary` derives the
+  wording at render time, in three states and never two — a `nil` on either timestamp renders
+  *"Ordering not recorded"*, because rendering the "before" line for a `nil` would make an absence
+  assert the one property this record exists to establish (`docs/PROCESS.md` §5). The copy is
+  locked in `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §6.3: it states the ordering and stops. No
+  adjudication, no ranking, no warning styling on the "after" case. "After" is not evidence of bad
+  faith, and an app that renders it as such accuses an investigator of something it cannot know.
+
+  **Files touched**: `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift`,
+  `ios/VehicleDamageForensics/Models/Case.swift`,
+  `ios/VehicleDamageForensics/ViewModels/AnalysisViewModel.swift`,
+  `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift`,
+  `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift`
+
+  **Commit(s)**: `13bad3a` (merge); branch commits `103293d` and `c6e749a`
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. `preflight --all`
+  clear at zero advisories and `swift-parse` clean, which is syntax under one frontend version and
+  says nothing about the build (`docs/PROCESS.md` §5b). The resolution that produced this merge is
+  where the day's worst defect was found: the union of #6's hand-written decoder and the scoring
+  branch's two new persisted fields kept **encoding** `permutationPValue` and `nullTrialCount` and
+  never decoded them, so a saved `p = 0.004` would load as `nil` and render *"no significance test
+  was possible"* — corruption wearing the honest-absence wording. Both fields are in the decoder
+  and the memberwise init, verified 9-for-9.
+
+  **On-device test checklist**:
+  - [ ] Exclude one probe. The filtered result appears as a **separate** section; the full,
+    unfiltered score is still the headline above it.
+  - [ ] The filtered section reports its own recomputed chance baseline, and **no**
+    significant/not-significant verdict — with the sentence saying significance is deliberately not
+    reported for a filtered subset, not merely absent.
+  - [ ] Attempt to exclude a probe **without** typing a reason. It is refused. Try from every path
+    that can exclude, not just the obvious button.
+  - [ ] Exclude probes until the filtered score goes **up**, then read the report: it says the
+    filtered figure is *HIGHER* than the unfiltered score, in those terms.
+  - [ ] Restore an excluded probe, then export. The audit trail shows the exclusion **and** the
+    restore — not just the final state.
+  - [ ] Excluded probes are present in the exported PDF, marked, not omitted.
+  - [ ] **The ordering case, and it needs two runs.** Exclude a probe *before* opening the results
+    screen: the record reads *"Recorded before any similarity figure was displayed"*. On a second
+    case, view the score first and then exclude: *"Recorded after a similarity figure had been
+    displayed"*. Confirm the "after" line carries **no** warning icon, colour, or ranking.
+  - [ ] **Negative case**: open a case saved **before** this build and exclude nothing. Any
+    exclusion record from before this feature reads *"Ordering not recorded"* — never the "before"
+    line. An unrecorded ordering is unknown, not clean.
+  - [ ] **Negative case**: a comparison with all probes excluded, or too few kept to compare, shows
+    the not-determinable wording rather than a zero score.
+  - [ ] **The decoder regression check**: save a case with a significant comparison, force-quit,
+    reopen it. The p-value and trial count are still there — **not** *"no significance test was
+    possible"*. This is the exact defect the merge resolution fixed, and it is silent if it returns.
+  - [ ] Determinism: exclude the same probe on the same case twice and get identical filtered
+    figures.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
