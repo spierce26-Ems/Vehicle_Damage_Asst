@@ -869,6 +869,41 @@ CITED_SHA_EXEMPT = {
 }
 
 
+def _sha_is_reachable(sha):
+    """Is this sha a commit a READER can reach, not merely one we still hold?
+
+    `git cat-file -t` was the first cut and it was wrong in the worst
+    direction available to this check. It reads the LOCAL object store, and a
+    long-lived clone keeps rebased-away objects alive for weeks -- so it
+    cheerfully resolves a sha nobody else can see. The Tech Lead nearly
+    failed to confirm the two dead README shas because all four resolved in
+    his clone; he only saw the failure from a fresh one. The instrument used
+    to audit the stale document was the one guaranteed to agree with it.
+
+    That is this repo's own defect, in the check written to end its third
+    instance: `exists` standing in for `runs`, one more time, with "exists in
+    my object store" standing in for "exists for a reader".
+
+    So the predicate is REACHABILITY from a ref, not existence. A commit
+    reachable from any local branch, tag or remote-tracking ref is one a
+    reader with the same remote can fetch; a loose object that nothing points
+    at is not, however well it resolves here. Proven on `3c262e2`: `cat-file`
+    calls it a commit in my clone, and it is an ancestor of nothing.
+
+    Note what this still cannot establish -- whether the sha is reachable on
+    the SERVER. A local branch nobody pushed satisfies this. The residual is
+    stated rather than hidden, per sec.5b, and the honest bound is that this
+    catches the rebased-away case, which is all three instances found today.
+    """
+    if sh("git", "cat-file", "-t", sha).strip() != "commit":
+        return False
+    # --contains over all refs: cheaper and more direct than walking history
+    # ourselves, and it answers exactly "does any ref lead here".
+    refs = sh("git", "for-each-ref", "--format=%(refname)",
+              "--contains", sha).strip()
+    return bool(refs)
+
+
 def check_cited_commits():
     """Every commit sha cited in a tracked document must resolve.
 
@@ -899,6 +934,9 @@ def check_cited_commits():
     the prose claims and says so -- it establishes only that the reference is
     not dangling, which is the part a tool can establish.
 
+    Reachability, not existence -- see _sha_is_reachable. A sha that resolves
+    only in the local object store is a sha no reader can see.
+
     At least one digit is required so English words in hex letters ("added",
     "facade", "decade") cannot trip a blocking check; leading-digit would be
     wrong, since plenty of shas are all letters. Shas that are also tracked
@@ -917,7 +955,7 @@ def check_cited_commits():
             if (sha in tracked_set or sha in CITED_SHA_EXEMPT
                     or not re.search(r"\d", sha)):
                 continue
-            if sh("git", "cat-file", "-t", sha).strip() != "commit":
+            if not _sha_is_reachable(sha):
                 dangling.append((doc, sha))
     if dangling:
         shown = "; ".join(f"{d}: {h}" for d, h in dangling[:4])
