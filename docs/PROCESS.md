@@ -49,12 +49,33 @@ Two things to know if you produce patches:
   does not compile into the target. This has already caused two "mystery"
   build failures (`bf3bc5a`, `3f56117`). `scripts/build_pbxproj.py` generates
   the pbxproj from `scripts/pbxproj_skeleton.txt`.
-- **A build setting changed in `project.pbxproj` must also be changed in
+- **A build SETTING changed in `project.pbxproj` must also be changed in
   `scripts/pbxproj_skeleton.txt`.** The generator rebuilds the pbxproj from the
   skeleton, so a setting present only in the live file is silently discarded the
   next time anyone registers a new Swift file. It then resurfaces as a
   configuration breaking itself for no visible reason, in a commit that appears
   to be about an unrelated new file. Both files, every time.
+
+  **Settings only — not file registration.** The skeleton carries build
+  settings; `build_pbxproj.py` discovers source files by walking the tree. So
+  adding a Swift file requires no skeleton edit, and a reviewer should not
+  demand one: it would change nothing. `scripts/preflight.py` check 2 is scoped
+  to setting drift for this reason. Stated explicitly because a patch that
+  registers a new file without touching the skeleton looks like a violation of
+  the rule above and is not one — and a rule that fires on the wrong thing is
+  how people learn to ignore it.
+- **A `PBXFileReference` for a file no longer in the tree is also a defect**,
+  not just the reverse. It happens on renames and reverts — it is the exact
+  shape of the revert at `9b6a67e`, the incident that set this project's whole
+  caution level about commit size. `preflight.py` check 1 catches both
+  directions.
+- **A new field on a persisted model must be optional, or old cases stop
+  opening.** Swift's synthesized `init(from:)` throws `keyNotFound` for a
+  missing non-optional key rather than falling back to the property's default
+  value — a default in the declaration does *not* make decoding tolerant. Every
+  case file already on a device predates the new field, so a non-optional
+  addition breaks all of them on upgrade, and it breaks them at load time with
+  no partial recovery. Use `Bool?` / `Double?` / `decodeIfPresent`, always.
 - **Insert new build-setting keys in Xcode's alphabetical order.** Xcode
   reorders them on first save otherwise, producing a spurious diff on a file
   everyone needs to stay readable.
@@ -179,7 +200,27 @@ whatever the task's status says.
 
 ---
 
-## 5. Reporting up
+## 5. House rule: never let an absence assert something
+
+A missing value means "we do not know." It must never be rendered, decoded, or
+printed as a statement about the thing it describes. Five independent arrivals
+at this rule on one day, from four people who were not coordinating:
+
+| Surface | Absence | What it must NOT become |
+|---|---|---|
+| `MatchResult.algorithmVersion == nil` | result predates version stamping | back-filled with `.current` — that would claim an old score came from today's math |
+| `CapturedPhoto.frameConfirmedClear == nil` | examiner was never asked | an amber "not confirmed" badge on a photo with nothing wrong with it |
+| Evidence appendix, same `nil` | unmeasurable | an "examiner did not confirm" note (§1.1 of the appendix spec) |
+| `preflight.py` signing check | no `DEVELOPMENT_TEAM` set | a blocking error — a Simulator build needs no team, so absence is not a defect |
+| Report cover, examiner identity unbuilt | field does not exist yet | a blank signature line, which reads as an *unsigned* report rather than an unbuilt feature — omit the line instead |
+
+The general form: **an unset value is unmeasured, not failed; an unasked
+question is unanswered, not declined; an unbuilt field is absent, not empty.**
+When a surface cannot express the difference, it says nothing at all — silence
+is the honest output. Applies to decoding, to UI, to report text, and to
+tooling output alike.
+
+## 6. Reporting up
 
 - Blocked items and product decisions go to Sean explicitly, with a
   recommendation and the cost of each option — never a bare question.

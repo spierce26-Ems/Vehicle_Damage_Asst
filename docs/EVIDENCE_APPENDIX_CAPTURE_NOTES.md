@@ -228,6 +228,72 @@ the same breath — not the sentence alone.
 
 ---
 
+### 4.3 Attestation and actor wording (custody appendix)
+
+Scope was ruled separately: the actor column and the attestation block are
+built; a per-page source-file hash is not. What follows is the wording for the
+two that are built.
+
+#### 4.3.1 The attestation
+
+> I generated this report from the case data described above. I make no claim
+> of forensic identification.
+
+Signed by the examiner, with name, unit, and badge or identifier beneath.
+
+What the sentence deliberately does and does not say:
+
+- It attests to an **act** — that this person generated this report from this
+  data. That is a fact the examiner can know and be held to.
+- It does **not** attest to a conclusion, a method's validity, or a chain of
+  custody being unbroken. An examiner cannot truthfully attest to any of those
+  from inside the app, and an attestation that overreaches is worth less than
+  none, because the first challenge to any part of it discredits the whole.
+- The second sentence is not boilerplate hedging. It is the one place in the
+  document where the person signing says the limit out loud in the first
+  person, which is materially different from the app printing a disclaimer
+  about itself.
+
+**Never render an unsigned attestation.** If examiner identity is not
+available, omit the entire block — signature line, name line, and all. A blank
+signature line reads as a report someone declined to sign, which is a claim
+about a person; an absent block reads as a feature that is not there. Same rule
+as the cover's examiner line, and the same house rule as everywhere else: an
+absence must not assert something (`docs/PROCESS.md` §5).
+
+#### 4.3.2 The actor column
+
+Each audit event carries the actor that performed it. Two constraints on how it
+reads:
+
+- **`system` is a real actor, not a gap.** Automated events — analysis runs,
+  generated reports — are attributed to `system`, never left blank and never
+  attributed to whoever happened to be logged in. Conflating the two would make
+  the trail assert a person did something the app did.
+- **Where an event predates the actor field, the cell reads "not recorded"**,
+  not blank and not inferred from the case owner. An event whose actor was
+  never captured is unattributed, which is a different claim from unattended.
+
+The audit trail prints **every** event in timestamp order, never a selection.
+A filtered trail is not a trail. Where length is a concern the answer is
+continuation pages, which the mock already does.
+
+#### 4.3.3 What is deliberately not in the report
+
+A per-page or per-file hash is **not** printed. It would look like
+tamper-evidence and prove nothing: the app that wrote the case data can rewrite
+it, so a digest computed by that same app attests only that the file matched
+itself at print time. Rigour-shaped notation that does not support the claim it
+implies is worse than its absence in a document that may be challenged — the
+first person to test it finds it hollow, and everything near it inherits the
+doubt.
+
+If real tamper-evidence is ever required, it is a signed evidence bundle with
+an external verifier, not a digest in a PDF. Recorded here so this is visibly a
+decision rather than an oversight.
+
+---
+
 ## 5. Test checklist (for the changelog entry when this lands)
 
 - [ ] A case where every analysis photo passed the gates renders the §2.3 line, not an empty section.
@@ -235,6 +301,10 @@ the same breath — not the sentence alone.
 - [ ] A measurement/reference shot with a tape measure clearly in frame produces **no** capture note anywhere.
 - [ ] A case created before these fields existed (`frameConfirmedClear == nil`, `sharpnessScore == nil`) renders **no** capture notes at all on its historical photos — not an "examiner did not confirm" note, not an "unmeasured" note.
 - [ ] A photo imported from the camera roll (`nil` / `nil`) renders no capture note.
+- [ ] With examiner identity unavailable, the attestation block and the cover examiner line are **absent** — no blank signature line anywhere.
+- [ ] An automated audit event shows actor `system`, not blank and not the case owner.
+- [ ] An audit event predating the actor field reads "not recorded".
+- [ ] No page prints a source-file hash.
 - [ ] A photo where the examiner was asked and declined (`frameConfirmedClear == false`) does render the note — confirming `nil` and `false` are not collapsed anywhere in the render path.
 - [ ] A factor whose inputs include a flagged photo shows the §2.4 cross-reference, and its numeric score is unchanged from the same analysis run without the appendix.
 - [ ] Search the rendered PDF text for: likely, probably, consistent with, suggests, indicates, match confirmed — zero hits in the Capture Conditions section.
