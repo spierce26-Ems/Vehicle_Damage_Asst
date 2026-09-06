@@ -284,6 +284,13 @@ Still open:
 The **Apple Developer Team ID** is on that list too, but it is not a decision —
 it is a ten-character identifier that blocks every device run. See §4.
 
+**Three items, and it stays three.** Work blocked on an *event* rather than an
+answer is listed separately under "Queued behind the green build, not behind
+Sean" in `ios/README.md` — the offline null run for the critical-value table and
+the per-branch changelog entries both live there. Mixing them into this list
+would grow it with items nobody can act on, which is the fastest way to make a
+decision list stop being read.
+
 **A recommendation is not a decision.** No box here gets ticked by agreement
 among the people doing the work, however unanimous — only by Sean answering.
 That distinction is the only reason this list is worth keeping.

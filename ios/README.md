@@ -95,6 +95,28 @@ Then item 2's commits, then #11 and #13. Changelog entries assume this order;
 any change to it will be stated explicitly rather than left to be inferred from
 the commit stream.
 
+### Queued behind the green build, not behind Sean
+
+Kept separate from the open decisions below on purpose. These are blocked on an
+event, not on an answer, and listing them among the decisions would grow Sean's
+list with items he cannot act on — which is the fastest way to make a
+decision list stop being read.
+
+- **The offline shopping-aware null run** that produces the critical-value table
+  (`docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §6.1.1). Blocked on compute only:
+  no Mac, no device, no answer from anyone. It is sequenced after the first
+  clean build so it cannot land as committed data referenced by code that has
+  never compiled. Per §6.1.1's per-cell rule this is an **incremental**
+  milestone rather than a go/no-go gate — the well-resolved cells lift
+  suppression at their own probe and exclusion counts while under-resolved
+  corners stay suppressed, so a partial result is a usable result.
+- **Changelog entries and on-device checklists** for each Swift branch as it
+  lands, in the recorded order, each with `COMPLETE_FILE_MANIFEST.md`
+  regenerated in the same patch.
+
+Sean's list is three items and stays three items: the Team ID, the first-build
+error list, and the distribution target.
+
 ### Open decisions
 
 Every box here is Sean's to tick. A recommendation — however unanimous among
