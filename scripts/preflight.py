@@ -439,15 +439,38 @@ def codable_line_spans(path):
         if open_idx < 0:
             continue
         depth = 0
+        # Only the type's OWN member level counts. A `var` declared inside a
+        # func or a computed-property body is a local, not a stored property
+        # -- `var parts: [String] = []` inside a `displayLine` getter is not
+        # persisted and must not be reported. Nested bodies are therefore
+        # excluded by recording only the depth-1 stretches of the type body,
+        # rather than the whole body as one span.
+        #
+        # Indentation is not usable as the discriminator: real nested fields
+        # and locals both appear at non-member indentation, so it cannot
+        # separate them.
+        segment_start = None
         for j in range(open_idx, len(clean)):
             if clean[j] == "{":
                 depth += 1
-            elif clean[j] == "}":
-                depth -= 1
-                if depth == 0:
-                    spans.append((line_of.get(open_idx, 1),
+                if depth == 1:
+                    segment_start = j
+                elif depth == 2 and segment_start is not None:
+                    # Entering a nested body: close the member-level run.
+                    spans.append((line_of.get(segment_start, 1),
                                   line_of.get(j, line),
                                   m.group(1)))
+                    segment_start = None
+            elif clean[j] == "}":
+                depth -= 1
+                if depth == 1:
+                    # Back out to member level; resume collecting.
+                    segment_start = j
+                elif depth == 0:
+                    if segment_start is not None:
+                        spans.append((line_of.get(segment_start, 1),
+                                      line_of.get(j, line),
+                                      m.group(1)))
                     break
     return spans
 
