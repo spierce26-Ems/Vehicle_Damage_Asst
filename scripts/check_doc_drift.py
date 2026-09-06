@@ -58,9 +58,16 @@ Known limits, so a clear run is not read as stronger than it is:
     than the behaviour (PROCESS.md sec.5b).
   - Without a compiler the guard-order probe does not run at all, and says
     so as a `doc-anchor` failure rather than passing quietly.
+  - Compiler DISCOVERY is globbed rather than enumerated, and must stay in
+    step with preflight.py's parse check. A hardcoded version list produces a
+    false ABSENCE for a version nobody thought to name, which is the same
+    misattribution as reporting an unloadable binary as a missing one -- and
+    it splits the two checks apart, so a tree can parse while its bands
+    quietly stop executing.
 
 Usage: python3 scripts/check_doc_drift.py [repo_root]
 """
+import glob
 import os
 import re
 import shutil
@@ -390,10 +397,24 @@ def _score_bands_executed(root, bands):
     """
     swiftc = os.environ.get("SWIFT_C") or shutil.which("swiftc")
     if swiftc is None:
-        for cand in (os.path.expanduser("~/toolchains/swift/usr/bin/swiftc"),
-                     os.path.expanduser("~/toolchains/swift-5.10.1/usr/bin/swiftc"),
-                     os.path.expanduser("~/toolchains/swift-6.0.3/usr/bin/swiftc"),
-                     "/usr/local/bin/swiftc",
+        # Globbed, not enumerated. The hardcoded list named 5.10.1 and 6.0.3 --
+        # the two versions this team happened to install -- so a machine with
+        # `~/toolchains/swift-6.1.0` and no symlink got "no Swift compiler
+        # found" for a toolchain sitting in the directory being searched. That
+        # is the same misattribution Compass fixed one layer up, arriving via
+        # discovery instead of via exec: a false ABSENCE, not a false pass, and
+        # invisible for exactly the reason the loader error was. preflight's
+        # parse check took the glob for this; the two discovery orders must not
+        # diverge, or a tree parses and its bands silently stop executing.
+        # Newest-first so several pinned toolchains resolve deterministically.
+        for pat in ("~/toolchains/swift/usr/bin/swiftc",
+                    "~/toolchains/swift*/usr/bin/swiftc"):
+            hits = sorted(glob.glob(os.path.expanduser(pat)), reverse=True)
+            if hits:
+                swiftc = hits[0]
+                break
+    if swiftc is None:
+        for cand in ("/usr/local/bin/swiftc",
                      "/usr/local/swift/usr/bin/swiftc",
                      "/tmp/swift/usr/bin/swiftc"):
             if os.path.exists(cand):
@@ -421,8 +442,18 @@ def _score_bands_executed(root, bands):
         with open(main, "w", encoding="utf-8") as fh:
             fh.write("\n".join(lines) + "\n")
         binary = os.path.join(tmp, "probe")
-        build = subprocess.run([swiftc, "-o", binary, helpers, main],
-                               capture_output=True, text=True)
+        try:
+            build = subprocess.run([swiftc, "-o", binary, helpers, main],
+                                   capture_output=True, text=True)
+        except OSError as exc:
+            # Only reachable via an explicit SWIFT_C override: discovery
+            # already tested os.path.exists, so this is a path the operator
+            # supplied and got wrong. It used to raise FileNotFoundError and
+            # take the whole check down with a traceback -- a check that
+            # crashes on a bad environment variable is a check that gets
+            # commented out, which costs more than the misattribution did.
+            return None, (f"the compiler path {swiftc} could not be executed "
+                          f"({exc.strerror}) -- SWIFT_C names nothing runnable")
         if build.returncode != 0 or not os.path.exists(binary):
             return None, _build_failure_reason(swiftc, build)
         run = subprocess.run([binary], capture_output=True, text=True)
