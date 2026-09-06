@@ -393,6 +393,16 @@ struct LiDARScanView: View {
                 Button {
                     confirmMeasurement()
                 } label: {
+                    // NOTE(AI Developer): see the analogous NOTE in
+                    // ImpactMarkerView.swift -- wrapping the if/else in
+                    // `Group` is required here too, for the same
+                    // ViewBuilder-modifier-chaining reason. Carried over
+                    // from the old measurement banner when this moved
+                    // into `measurementConfirmation`: the idiom survived
+                    // the move and the reason it is needed did not, so
+                    // the next person to "simplify" it away had nothing
+                    // to read. Found by applying PROCESS.md sec.4d's
+                    // comments-only diff to my own rebase.
                     Group {
                         if isSavingMeasurement {
                             ProgressView().tint(.white)
