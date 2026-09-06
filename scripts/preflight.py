@@ -1155,11 +1155,28 @@ def check_manifest_drift():
                      "Swift file could not be read",
                      "see the path-drift finding below; fix that first")
             elif claimed_lines != actual_lines:
+                # The remedy MUST name the hand-edit. Ledger measured the
+                # first version of this: injected a wrong total, the check
+                # fired, he ran the regenerator it named, re-ran --all, and
+                # got the IDENTICAL failure -- because regen_manifest.py
+                # rewrites rows and leaves the prose header alone, by design
+                # (see its docstring, and PROCESS sec.3's ownership row).
+                #
+                # A REMEDY THAT DOES NOT REMOVE THE CONDITION IS WORSE THAN
+                # NONE: the reader follows it, sees the same failure, and
+                # concludes the CHECK is broken rather than that the header
+                # is wrong. Same routing failure as cited-commits sending
+                # readers to `git cat-file` -- the one instrument guaranteed
+                # to agree with the stale document. So this names the exact
+                # edit and the exact number.
                 warn("manifest",
                      f"{rel} asserts {claimed_lines} Swift lines; the tree "
                      f"has {actual_lines}",
-                     "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md "
-                     "from git ls-files (regenerate, never hand-edit)")
+                     f"edit the `Totals:` sentence by hand to say "
+                     f"{actual_lines} -- this line is PROSE and "
+                     "scripts/regen_manifest.py deliberately does not touch "
+                     "it (rows mechanical, header editorial). Running the "
+                     "regenerator will NOT clear this")
 
     listed = set(re.findall(r"`([^`]+)`", text))
     missing = [f for f in tracked if f not in listed]

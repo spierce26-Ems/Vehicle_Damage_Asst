@@ -306,13 +306,26 @@ rationale without leaving the file.
 
 **A generator must not rewrite prose, and the seam that leaves is a row in the
 table above rather than a rule nobody reads.** The manifest's `Totals:`
-sentence is a sentence — Compass's regenerator deliberately will not touch it,
-because a script with an opinion about the document's wording is how a document
-loses its author. So the seam is real and permanent: **the rows are mechanical,
-the header is editorial, and a patch that adds or deletes a file has to do the
-header by hand in the same commit.** State the seam and let `--all` catch the
-miss; do not close it by giving the tool the pen. The header's unchecked line
-total (§0) is the cost of that seam, not an argument against it.
+sentence is a sentence — `scripts/regen_manifest.py` deliberately will not
+touch it, because a script with an opinion about the document's wording is how
+a document loses its author. So the seam is real and permanent: **the rows are
+mechanical, the header is editorial, and a patch that adds or deletes a file
+has to do the header by hand in the same commit.** State the seam and let
+`--all` catch the miss; do not close it by giving the tool the pen.
+
+**A remedy line must name something that fixes the failure, and this seam
+broke that.** `manifest-lines` caught a wrong header total (`312c8ae`,
+correctly) and told the reader to run `regen_manifest.py` — which rewrites
+rows and leaves the header exactly as it found it. Ledger measured it: inject
+a wrong total, run the named remedy, re-run the check, **get the identical
+failure.** That is worse than no remedy, because a reader who follows it
+concludes the check is broken rather than that the header is wrong — the same
+routing failure as `cited-commits` telling readers a reachable-but-unpublished
+sha "does not resolve", which sent them to the one instrument guaranteed to
+agree with the stale document. **Fixed: the message now names the hand-edit and
+the exact number to write, and says outright that running the regenerator will
+not clear it.** The general rule this earned: *a check that fires on prose must
+name the edit, because the tool that fixes its neighbours cannot fix this one.*
 
 **When a sequencing or ownership decision changes, the record keeper is told
 first, not last.** A record that accurately reflects a superseded decision is
