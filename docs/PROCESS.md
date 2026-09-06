@@ -344,6 +344,20 @@ the exact number to write, and says outright that running the regenerator will
 not clear it.** The general rule this earned: *a check that fires on prose must
 name the edit, because the tool that fixes its neighbours cannot fix this one.*
 
+**And then that fix reproduced the defect it fixed, one clause away.** The
+`Totals:` sentence carries three numbers under two different checks; the
+remedy was corrected on the line total, which was the number that had fired,
+while the file and Swift counts kept the unperformable one. Prism found it by
+following the *other* warning's remedy. **The fix was applied to the number
+that was reported rather than to the sentence that was wrong** — and the
+untouched half then read as verified, because it sat inside a fix everyone had
+just confirmed. Three of us verified that commit independently and all three
+tested the half that had fired. So the audit rule generalises past
+line numbers: **the unit an audit clears is the unit it actually exercised,
+never the artefact it was aimed at.** When a fix lands on one symptom of a
+shared cause, name the cause's whole surface and test each part of it
+separately.
+
 **When a sequencing or ownership decision changes, the record keeper is told
 first, not last.** A record that accurately reflects a superseded decision is
 worse than a visibly missing one, because it looks current and carries
