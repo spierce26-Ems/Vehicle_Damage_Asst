@@ -73,7 +73,15 @@ struct AlgorithmVersion: Codable, Equatable {
     ///            of 1/121 sat only ~6 discrete steps below the 0.05
     ///            threshold, and trial count alone flipped 3-4% of
     ///            verdicts); p-value resolution added to the recorded
-    ///            constants. Scores from 1.1.0 and 1.2.0 are directly
+    ///            constants.
+    ///
+    ///            The 120 and 1/121 above are DELIBERATELY STALE: this
+    ///            list records what each version changed, so rewriting
+    ///            them to the current constant would destroy the very
+    ///            history it exists to carry. PROCESS.md sec.2 says to
+    ///            grep for the number when a constant moves; version
+    ///            history is the one place the old number is the
+    ///            correct content. Do not "fix" this. Scores from 1.1.0 and 1.2.0 are directly
     ///            comparable -- the estimator is unchanged, only its
     ///            precision -- but a 1.1.0 p-value is quantised roughly
     ///            8x more coarsely than its printed decimals suggest.

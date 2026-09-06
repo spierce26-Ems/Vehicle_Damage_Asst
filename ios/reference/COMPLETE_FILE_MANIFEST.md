@@ -93,7 +93,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/ForensicEngine/AlgorithmVersion.swift` | 271 |
+| `ios/VehicleDamageForensics/ForensicEngine/AlgorithmVersion.swift` | 279 |
 | `ios/VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift` | 215 |
 | `ios/VehicleDamageForensics/ForensicEngine/HeightAlignmentAnalyzer.swift` | 100 |
 | `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift` | 833 |
