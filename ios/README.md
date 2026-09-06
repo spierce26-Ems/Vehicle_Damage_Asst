@@ -1640,6 +1640,13 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] **The rewrite check, and it is the reason `examinerName` is a copy**: after recording some
     entries, **change the examiner's name**, then export. The older entries still name the
     **original** examiner. If they all update, the chain of custody has been silently rewritten.
+  - [ ] **The round-trip check, which the rewrite check does not cover**: with entries attributed,
+    force-quit and reopen the case, then export. The names are **still there**. A dropped decode
+    of `examinerName` renders as *"Examiner not recorded"* — which the three-states rule makes a
+    positive claim of absence, not a blank — so a decode fault reads as an examiner who was never
+    recorded, on a chain of custody that looks intact either way. Same class as the two fields
+    that were encoded and never decoded; the rewrite check catches live resolution, this catches
+    silent loss.
   - [ ] The `.created` entry — the first line of the chain of custody — is attributed, not blank.
   - [ ] **Negative case**: a case with **no** examiner recorded. Audit entries read *"Examiner not
     recorded"*, never a blank line, and the PDF prints an explicit not-recorded statement rather
