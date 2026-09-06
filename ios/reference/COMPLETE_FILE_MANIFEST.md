@@ -6,7 +6,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 70 tracked files, of which 41 Swift sources (15981 lines).
+Totals: 74 tracked files, of which 41 Swift sources (15981 lines).
 
 ## iOS app — Xcode project
 
@@ -110,7 +110,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 |---|---:|
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
-| `ios/README.md` | 845 |
+| `ios/README.md` | 853 |
 
 ## Reference material (`ios/reference/`)
 
