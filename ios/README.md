@@ -1003,10 +1003,10 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 
   **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
   checked; the divergence table above is from a Python port of both forms. `preflight --all` clear
-  at zero advisories, which means "worth compiling" and nothing more. This tree is structurally
-  consistent, and parses: 42 tracked Swift files, 0 failures, at `d9f7c4a` -- the tree this
-  entry describes. `preflight`'s own `swift-parse` check now answers this against whatever
-  commit it runs on, so later entries need not name a parser by hand.
+  at zero advisories, and `preflight`'s `swift-parse` check parses all 42 tracked Swift files with
+  zero failures on the tree this entry describes (`swift-frontend` 6.0.3). That still means "worth
+  compiling" and nothing more -- parsing is syntax, and type checking is Xcode's job
+  (`docs/PROCESS.md` §4 clauses 4-6).
 
   **Why the wrong comment was deleted rather than corrected.** The old code carried a comment
   claiming a "50mm tolerance on each axis" that it never implemented — at 1mm per point the real
@@ -1109,22 +1109,49 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   `PBXBuildFile` + group child + Sources build-phase entry — without that it would not compile).
   All persisted-model changes are additive optionals, so existing case JSON still loads.
 
-  **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file.
-  Verified by brace/paren/bracket balance on all seven Swift files and the pbxproj (all balanced),
-  and by porting both null models to Python and Monte-Carlo testing their calibration (numbers
-  quoted above). Balance-checking does not catch type errors. Please rebuild and re-test
-  on-device: (1) the Results screen shows no bare match percentage anywhere — both the Scar
-  Fingerprint and Tool-Mark headlines read "N% … p = …, above chance / NOT distinguishable from
-  chance"; (2) headline colour tracks significance, not score size (a high-but-insignificant score
-  is orange, not green); (3) the collapsed "Analysis algorithm v1.1.0" card appears at the bottom
-  of the Results screen and expands to list the constants; (4) the PDF cover shows the version line
-  under the composite score and a new final "Analysis Provenance" page lists every constant; (5)
-  re-running analysis on the same case twice, and again after a force-quit and relaunch, reports
-  identical percentages AND identical p-values (determinism — this is the check that catches a
-  seeding regression); (6) an existing case saved before this change still opens, and its results
-  screen says the algorithm version was not recorded rather than showing a version or crashing;
-  (7) the "not enough distinct detail to compare" cases still show their original wording with no
-  headline and no significance text.
+  **Commit(s)**: `bb37dff`, merged in `dc069a1`
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Verified by
+  brace/paren/bracket balance on all seven Swift files and the pbxproj, and by porting both null
+  models to Python and Monte-Carlo testing their calibration (numbers quoted above). Balance
+  checking does not catch type errors. `preflight --all` clear at zero advisories, and
+  `swift-parse` parses all 42 tracked Swift files with zero failures on the tree this entry
+  describes. Parsing is syntax; type checking is still Xcode's job.
+
+  **Read this entry with the v1.2.0 resolution-audit entry below it.** The version this change
+  shipped was **v1.1.0** at 120 null trials; the audit raised the trial counts to 1000 and the
+  identifier to v1.2.0. Every constant quoted above was measured against 120 trials and remains
+  the correct record of what v1.1.0 did — but the card a device shows today reads **v1.2.0**, so a
+  checklist item written against v1.1.0 would fail for the right reason and read as a defect. The
+  checklist below names v1.2.0 deliberately.
+
+  **On-device test checklist**:
+  - [ ] The Results screen shows **no bare match percentage anywhere**. Both the Scar Fingerprint
+    and Tool-Mark headlines read a percentage *with* its p-value and a plain-language verdict —
+    "above chance" or "NOT distinguishable from chance".
+  - [ ] **Headline colour tracks significance, not score size.** A high-but-insignificant score is
+    orange, never green. This is the whole point of the change: a big number that chance explains
+    must not look like a good result.
+  - [ ] The collapsed provenance card appears at the bottom of the Results screen, reads
+    **v1.2.0**, and expands to list the constants in force.
+  - [ ] The PDF cover shows the version line under the composite score, and a final "Analysis
+    Provenance" page lists every constant.
+  - [ ] Determinism, twice over: re-run analysis on the same case twice, then again after a
+    force-quit and relaunch. Identical percentages **and** identical p-values. This is the item
+    that catches a seeding regression.
+  - [ ] **Negative case**: open a case saved **before** this change. It still opens, and the
+    results screen says the algorithm version **was not recorded** — it does not show a version, a
+    blank, or a crash. A `nil` version means the result predates stamping; back-filling it with the
+    current identifier would claim an old score came from today's math (`docs/PROCESS.md` §5).
+  - [ ] **Negative case**: a comparison with "not enough distinct detail to compare" keeps its
+    original wording, with no headline and no significance text. An absent test is not a failed
+    test.
+  - [ ] **Negative case**: confirm a *significant* result and an *insignificant* one are
+    distinguishable on the PDF in greyscale, not by colour alone — the report is printed and
+    photocopied.
+  - [ ] After re-running `scripts/build_pbxproj.py`, `AlgorithmVersion.swift` is still registered
+    in the target **and** `DEVELOPMENT_TEAM` survived in both configurations. The project is not
+    `fileSystemSynchronized`; an unregistered file silently does not compile in.
 
 - **Resolution audit of the shipped null-model constants: trial counts 120 -> 1000 (algorithm
   v1.2.0).** Self-audit prompted by the exclusion critical-value table being withheld for being
