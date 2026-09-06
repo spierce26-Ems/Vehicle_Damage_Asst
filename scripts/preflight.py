@@ -61,11 +61,24 @@ def sh(*args):
 # staged; without this the checks that matter most at a conflict resolution
 # are the ones that go silent.
 DIFF_BASE = None
+# True when DIFF_BASE was derived from a merge in progress, so the changes to
+# judge are in the WORKING TREE rather than in HEAD. See diff_args().
+MERGE_BASE_IS_WORKTREE = False
 
 
 def diff_args():
-    """The `git diff` selector the commit-shaped checks should use."""
-    return ["--cached"] if DIFF_BASE is None else [f"{DIFF_BASE}...HEAD"]
+    """The `git diff` selector the commit-shaped checks should use.
+
+    MERGE_BASE_IS_WORKTREE is set when a merge is in progress: the resolution
+    is in the working tree, not in HEAD, so `BASE...HEAD` would compare HEAD
+    to itself and report nothing changed -- a clean line over the exact
+    commit shape that produced today's two worst defects.
+    """
+    if DIFF_BASE is None:
+        return ["--cached"]
+    if MERGE_BASE_IS_WORKTREE:
+        return [DIFF_BASE]
+    return [f"{DIFF_BASE}...HEAD"]
 
 
 def changed_files():
@@ -1825,7 +1838,7 @@ def main():
     if check_script_currency() != 0:
         return 1
 
-    global DIFF_BASE
+    global DIFF_BASE, MERGE_BASE_IS_WORKTREE
     if "--since" in args:
         i = args.index("--since")
         if i + 1 >= len(args):
@@ -1840,6 +1853,32 @@ def main():
                           cwd=REPO, capture_output=True).returncode != 0:
             print(f"preflight: unknown git ref '{DIFF_BASE}'")
             return 1
+    elif os.path.exists(os.path.join(sh("git", "rev-parse",
+                                        "--git-dir").strip() or ".git",
+                                     "MERGE_HEAD")):
+        # A merge resolution in progress, and nothing is staged relative to
+        # HEAD in the way the transition checks need. Compass measured the
+        # gap: examinerName String? -> Int? with a matching decoder edit is
+        # SILENT under --all and blocking under --since. His distinction is
+        # why this is a diff base rather than a check moved tree-wide --
+        # persisted-model's subject is a TRANSITION (an old payload versus a
+        # new declaration), so there is no tree-wide fact to test, while
+        # decoder completeness is a property of the tree alone, which is why
+        # moving THAT one worked (21e18cf).
+        #
+        # The remedy was `--since origin/main` after a merge, which required
+        # remembering. A merge is exactly when nobody remembers, and it is
+        # the commit shape that produced both of today's worst defects. So
+        # the base is derived rather than requested: diff against the first
+        # parent, which is what the merge is bringing changes ON TOP of.
+        first_parent = sh("git", "rev-parse", "--verify", "--quiet",
+                          "HEAD").strip()
+        if first_parent:
+            DIFF_BASE = first_parent
+            MERGE_BASE_IS_WORKTREE = True
+            print(f"preflight: merge in progress -- comparing against HEAD "
+                  f"({first_parent[:7]}) so the transition checks have a "
+                  f"diff to read")
 
     # Reject an argument we do not recognise, rather than ignoring it and
     # falling through to staged mode. `--sinse origin/main` (or `--al`)
