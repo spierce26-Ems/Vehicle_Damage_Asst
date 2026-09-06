@@ -107,29 +107,62 @@ def check_skeleton_drift():
     """Build settings must match between the live pbxproj and the skeleton.
 
     scripts/build_pbxproj.py regenerates project.pbxproj from
-    scripts/pbxproj_skeleton.txt. A setting changed only in the live file is
-    silently reverted the next time anyone registers a new Swift file -- which
+    scripts/pbxproj_skeleton.txt. A **build setting** changed only in the live
+    file is silently reverted the next time the generator runs -- which
     surfaces days later as "signing broke itself" with no diff to blame.
+
+    Scope is build settings only, deliberately. The skeleton carries no file
+    references at all (verified: zero `.swift` mentions in it); the generator
+    discovers sources by walking the tree with os.walk. So registering a new
+    Swift file needs no skeleton edit and is not drift -- only a changed
+    setting is.
     """
     live_p = os.path.join(REPO, PBXPROJ)
     skel_p = os.path.join(REPO, SKELETON)
     if not (os.path.exists(live_p) and os.path.exists(skel_p)):
         return
-    live = open(live_p).read()
-    skel = open(skel_p).read()
 
-    watched = ["DEVELOPMENT_TEAM", "CODE_SIGN_STYLE",
-               "PRODUCT_BUNDLE_IDENTIFIER", "IPHONEOS_DEPLOYMENT_TARGET",
-               "SWIFT_VERSION"]
-    for key in watched:
-        lv = sorted(set(re.findall(rf"{key} = ([^;]+);", live)))
-        sv = sorted(set(re.findall(rf"{key} = ([^;]+);", skel)))
-        if lv != sv:
-            fail("skeleton-drift",
-                 f"{key} differs: project.pbxproj has {lv or 'nothing'}, "
-                 f"skeleton has {sv or 'nothing'}",
-                 f"set {key} in BOTH {PBXPROJ} and {SKELETON} "
-                 f"(for DEVELOPMENT_TEAM: ./scripts/set_dev_team.sh <team-id>)")
+    def build_settings(text):
+        """Map setting name -> set of values, from buildSettings blocks only.
+
+        Parsing the blocks rather than the whole file keeps a setting name
+        appearing in a comment or a file path out of the comparison.
+        """
+        found = {}
+        for block in re.finditer(r"buildSettings = \{(.*?)\n\t+\};",
+                                 text, re.S):
+            for key, val in re.findall(r"\n\t+([A-Z][A-Z0-9_]+) = ([^;]+);",
+                                       block.group(1)):
+                found.setdefault(key, set()).add(val.strip())
+        return found
+
+    live = build_settings(open(live_p).read())
+    skel = build_settings(open(skel_p).read())
+
+    # These are the ones whose silent reversion breaks a build or a signature
+    # rather than merely surprising someone. Drift in them is blocking; drift
+    # in anything else is advisory, so an intentional divergence someone adds
+    # later cannot wedge the commit path.
+    critical = {"DEVELOPMENT_TEAM", "CODE_SIGN_STYLE", "CODE_SIGN_IDENTITY",
+                "CODE_SIGN_ENTITLEMENTS", "PRODUCT_BUNDLE_IDENTIFIER",
+                "IPHONEOS_DEPLOYMENT_TARGET", "SWIFT_VERSION",
+                "INFOPLIST_FILE", "PROVISIONING_PROFILE_SPECIFIER"}
+
+    # Compare every setting present in either file, not a hand-listed few:
+    # the setting that bites is the one nobody thought to watch.
+    for key in sorted(set(live) | set(skel)):
+        lv = sorted(live.get(key, []))
+        sv = sorted(skel.get(key, []))
+        if lv == sv:
+            continue
+        report = fail if key in critical else warn
+        remedy = f"set {key} in BOTH {PBXPROJ} and {SKELETON}"
+        if key == "DEVELOPMENT_TEAM":
+            remedy += " -- ./scripts/set_dev_team.sh <team-id> does both"
+        report("skeleton-drift",
+               f"{key} differs: project.pbxproj has {lv or 'nothing'}, "
+               f"skeleton has {sv or 'nothing'}",
+               remedy)
 
 
 # ---------------------------------------------------------------- check 3
