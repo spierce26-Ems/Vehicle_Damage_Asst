@@ -311,6 +311,107 @@ def check_docs_owed(files):
              "determinism check belongs in the on-device checklist")
 
 
+def check_cited_doc_copy():
+    """A document the app CITES to a reader is report copy.
+
+    The sec.6.4 ban list is enforced against rendered strings, and the
+    rendered strings are clean. But MatchScoreCalculator's exclusion text
+    tells an investigator "see ALGORITHM_EXPLAINER §2", so the report does
+    not CONTAIN the abandoned verdict-and-probability framing -- it POINTS at
+    it. A reader who follows the citation lands three sections later on a
+    table reading "60-79 | 60-85% | MEDIUM | Probable match", which is
+    exactly what MatchResult.scoreRangeLabel refuses to say ("a score band,
+    NOT a statistical probability") and what the legacyProbabilityRange
+    decode path exists to migrate away from.
+
+    So the lock has to follow the citation. Any reference document named in a
+    user-visible string is scanned for the framing the app abandoned; a doc
+    nobody cites is documentation and not this check's business.
+
+    Advisory, and it never rewrites prose -- ios/reference/ is Ledger's. Found
+    by Prism while closing out the ALGORITHM_EXPLAINER advisory on his own
+    scoring commits.
+    """
+    banned = [
+        (r"\|\s*\d+\s*-\s*\d+\s*\|\s*\d+\s*-\s*\d+\s*%",
+         "a score band mapped to a probability range"),
+        (r"pursue legal action", "an action recommendation the app does not make"),
+        (r"PROBABLE MATCH|Probable match", "a verdict label"),
+        (r"deterministic \(no randomness\)",
+         "a no-randomness claim (both matchers run seeded permutation "
+         "shuffles; determinism holds, the stated reason does not)"),
+    ]
+
+    cited = set()
+    for f in sh("git", "ls-files", f"{SOURCE_ROOT}/*.swift").splitlines():
+        if not f:
+            continue
+        try:
+            with open(os.path.join(REPO, f), encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("//") or stripped.startswith("///"):
+                continue
+            for name in re.findall(r"([A-Z][A-Z0-9_]+\.md|[A-Z][A-Z0-9_]{3,})",
+                                   line):
+                base = name[:-3] if name.endswith(".md") else name
+                cited.add(base)
+
+    for doc in sh("git", "ls-files", "ios/reference/*.md",
+                  "docs/*.md").splitlines():
+        if not doc:
+            continue
+        stem = os.path.splitext(os.path.basename(doc))[0]
+        if stem not in cited:
+            continue
+        try:
+            with open(os.path.join(REPO, doc), encoding="utf-8") as fh:
+                body = fh.read()
+        except OSError:
+            continue
+        # A document that RECORDS a correction quotes the wording it
+        # removed -- Ledger's explainer notices do exactly that, in
+        # blockquotes and italicised "Corrected <date>:" notes, and
+        # deliberately, because the old framing is quoted in external
+        # material. Flagging those would penalise the honest form of the
+        # fix and push the next correction toward silent deletion, which
+        # is strictly worse for a reader who arrives expecting the old
+        # text. Only prose that still TEACHES the framing counts.
+        live = []
+        for raw in body.splitlines():
+            stripped = raw.strip()
+            if stripped.startswith(">"):
+                continue
+            if re.match(r"[-*]?\s*\*+\s*Corrected\b", stripped):
+                continue
+            if re.match(r"[-*]?\s*\*+.*\bpreviously (read|mapped)\b",
+                        stripped):
+                continue
+            # Live prose may also NAME the removed wording in quotes while
+            # saying it is gone -- "the earlier 'pursue legal action' cell
+            # asserted otherwise and is removed". That sentence is the
+            # correction, not the claim. Recognised by a retrospective
+            # marker on the same line as the quoted phrase.
+            if re.search(r"\b(previously|earlier|removed|no longer|"
+                         r"abandoned|Corrected)\b", stripped) and '"' in raw:
+                continue
+            live.append(raw)
+        live_body = "\n".join(live)
+
+        hits = [why for pat, why in banned
+                if re.search(pat, live_body)]
+        if hits:
+            warn("cited-doc",
+                 f"{doc} is cited in a user-visible string and contains "
+                 + "; ".join(hits),
+                 "the citation makes this document report copy -- send "
+                 "Ledger the sections; a report that points at the "
+                 "abandoned framing asserts it just as surely as printing it")
+
+
 def check_manifest_drift():
     """Does COMPLETE_FILE_MANIFEST.md still describe the tracked tree?
 
@@ -801,6 +902,7 @@ def main():
     check_signing_configured()
     check_delimiter_balance(files)
     check_manifest_drift()
+    check_cited_doc_copy()
 
     # Commit-shaped checks: only meaningful against a staged diff. In --all
     # mode there is no commit to judge, and firing them anyway trains people
