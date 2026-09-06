@@ -1737,6 +1737,15 @@ def main():
     check_conflict_markers()
     check_swift_parses()
     check_manifest_line_counts()
+    # NOT commit-shaped, despite reading like one. The defect it exists for
+    # arrived in f7921d8 -- a MERGE, which stages nothing, so the staged-diff
+    # gate below never ran it on the one commit shape most likely to produce
+    # it. That is the same blindness that let six conflict markers reach main
+    # (see check_conflict_markers), and entry #6 of the changelog documents
+    # this very hazard as the defect a merge resolution fixed. A hand-written
+    # decoder is a hand-maintained list; whether it is complete is a property
+    # of the TREE, not of a diff. Tree-wide when --all, staged files otherwise.
+    check_decoder_completeness(files)
 
     # Commit-shaped checks: only meaningful against a staged diff. In --all
     # mode there is no commit to judge, and firing them anyway trains people
@@ -1745,7 +1754,6 @@ def main():
         check_commit_size(files)
         check_docs_owed(files)
         check_persisted_model(files)
-        check_decoder_completeness(files)
 
     for check, msg, remedy in warnings:
         print(f"warn  [{check}] {msg}\n      -> {remedy}")
