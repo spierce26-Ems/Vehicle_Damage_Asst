@@ -1,12 +1,12 @@
 # Complete File Manifest — Vehicle_Damage_Asst
 
-Generated from the actual tracked tree at commit `0f657db` (2026-09-06). Line counts are exact at that commit.
+Generated from the actual tracked tree at commit `1e8f29e` (2026-09-06). Line counts are exact at that commit.
 
 This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 68 tracked files, of which 41 Swift sources (15981 lines).
+Totals: 71 tracked files, of which 42 Swift sources (16910 lines).
 
 ## iOS app — Xcode project
 
@@ -14,7 +14,7 @@ Single target, `com.spearitnow.vehicledamageforensics`, iOS 17.0 min, Swift 5.0 
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics.xcodeproj/project.pbxproj` | 607 |
+| `ios/VehicleDamageForensics.xcodeproj/project.pbxproj` | 613 |
 
 ## App entry point
 
@@ -30,7 +30,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 |---|---:|
 | `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 509 |
 | `ios/VehicleDamageForensics/Models/Case.swift` | 512 |
-| `ios/VehicleDamageForensics/Models/MatchResult.swift` | 675 |
+| `ios/VehicleDamageForensics/Models/MatchResult.swift` | 709 |
 | `ios/VehicleDamageForensics/Models/PaintSampleKit.swift` | 140 |
 | `ios/VehicleDamageForensics/Models/Vehicle.swift` | 775 |
 
@@ -59,7 +59,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Views/LiDAR/LiDARScanView.swift` | 365 |
 | `ios/VehicleDamageForensics/Views/Paywall/PaywallView.swift` | 265 |
 | `ios/VehicleDamageForensics/Views/Reports/PDFReportView.swift` | 41 |
-| `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift` | 667 |
+| `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift` | 757 |
 
 ## Services — camera, ARKit/LiDAR, storage, PDF, StoreKit
 
@@ -68,7 +68,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Services/CameraService.swift` | 1000 |
 | `ios/VehicleDamageForensics/Services/HeadingProvider.swift` | 60 |
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
-| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 698 |
+| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 787 |
 | `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
 | `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 461 |
 | `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
@@ -81,19 +81,20 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 |---|---:|
 | `ios/VehicleDamageForensics/Utilities/CameraLevelMath.swift` | 58 |
 | `ios/VehicleDamageForensics/Utilities/ColorAnalysis.swift` | 471 |
-| `ios/VehicleDamageForensics/Utilities/MeasurementHelpers.swift` | 102 |
+| `ios/VehicleDamageForensics/Utilities/MeasurementHelpers.swift` | 166 |
 | `ios/VehicleDamageForensics/Utilities/ModelExtensions.swift` | 53 |
-| `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 385 |
+| `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 570 |
 | `ios/VehicleDamageForensics/Utilities/ScarLineSuggester.swift` | 153 |
-| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 897 |
+| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 989 |
 
 ## ForensicEngine — scoring/matching orchestration
 
 | File | Lines |
 |---|---:|
+| `ios/VehicleDamageForensics/ForensicEngine/AlgorithmVersion.swift` | 271 |
 | `ios/VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift` | 215 |
 | `ios/VehicleDamageForensics/ForensicEngine/HeightAlignmentAnalyzer.swift` | 100 |
-| `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift` | 667 |
+| `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift` | 748 |
 | `ios/VehicleDamageForensics/ForensicEngine/PaintTransferAnalyzer.swift` | 148 |
 
 ## iOS app — other target files
@@ -101,6 +102,11 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | File | Lines |
 |---|---:|
 | `ios/VehicleDamageForensics/Info.plist` | 70 |
+| `ios/VehicleDamageForensics/Resources/PrivacyInfo.xcprivacy` | 31 |
+| `ios/VehicleDamageForensics/Resources/Assets.xcassets/Contents.json` | 6 |
+| `ios/VehicleDamageForensics/Resources/Assets.xcassets/AccentColor.colorset/Contents.json` | 11 |
+| `ios/VehicleDamageForensics/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json` | 14 |
+| `ios/VehicleDamageForensics/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` | binary |
 
 ## Documentation
 
@@ -108,9 +114,11 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `HANDOFF_SUMMARY.md` | 268 |
+| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 463 |
+| `docs/PROCESS.md` | 409 |
+| `HANDOFF_SUMMARY.md` | 315 |
 | `README.md` | 21 |
-| `ios/README.md` | 660 |
+| `ios/README.md` | 1044 |
 
 ## Reference material (`ios/reference/`)
 
@@ -118,9 +126,9 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 
 | File | Lines |
 |---|---:|
-| `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
+| `ios/reference/ALGORITHM_EXPLAINER.md` | 279 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 295 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 157 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -144,6 +152,8 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/build_pbxproj.py` | 110 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 310 |
+| `scripts/preflight.py` | 787 |
+| `scripts/set_dev_team.sh` | 44 |
 
 ## Repo root
 
@@ -155,3 +165,15 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 
 This manifest is generated from `git ls-files`, not hand-maintained. Regenerate it
 whenever files are added, removed, or moved — see `docs/PROCESS.md`.
+
+Two things a regenerator needs to know. **This file lists itself**, so its own
+row is one edit stale the moment the file is rewritten; the row records the
+count before the final write, which is why `preflight.py`'s manifest check
+compares paths and the totals line rather than every row. And **binary files
+carry `binary` rather than a line count** — a line count for a PNG would be a
+number that looks meaningful and is not.
+
+`preflight.py` checks this file two ways: the self-asserted totals line against
+`git ls-files`, and every tracked path against the rows. The second is the one
+that catches drift which already landed, since the Swift-add reminder only fires
+on a staged change and landed drift is the only kind a reader ever meets.

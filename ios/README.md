@@ -970,9 +970,20 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   Also added **"P-value resolution"** to `AlgorithmVersion.current.constants`. The trial count was
   already recorded, but its consequence is not obvious from the number itself; recording the floor
   explicitly lets a reader tell whether a quoted `p = 0.003` was a real measurement or the floor of
-  a coarse test, without doing the arithmetic. Version bumped to **1.2.0** with a changelog note
-  that 1.1.0 and 1.2.0 scores are directly comparable — the estimator is unchanged, only its
-  precision — but a 1.1.0 p-value is quantised ~8x more coarsely than it appears.
+  a coarse test, without doing the arithmetic.
+
+  **Version 1.2.0. Two things are true about older scores at once, and they point in opposite
+  directions, so read them together:**
+
+  - A **1.1.0 score is directly comparable** to a 1.2.0 score. The estimator did not change; only
+    its resolution did. Nothing needs re-running and no old result is invalidated.
+  - A **1.1.0 p-value is quantised roughly 8× more coarsely** than its three printed decimals
+    suggest — multiples of 0.0083 rather than 0.001.
+
+  Neither claim is safe alone. On its own, the first invites treating an old p-value as though it
+  carried today's precision; the second invites discarding old scores that are in fact still valid.
+  A reader who sees one and not the other draws a wrong conclusion in a specific direction, which
+  is why they are adjacent here and in the version-history comment rather than in separate places.
 
   **Copy fix in the same change, from Ledger's review:** both matchers' summaries read "scored this
   well or better in only `p = 0.003` of 1000 chance trials" — a sentence frame that promises a
@@ -985,6 +996,18 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   score ~41%)". At the resolution floor the count is genuinely **0 of 1000**, which states in the
   summary what the provenance page's "P-value resolution" constant explains — a floor p-value means
   no chance trial matched, not zero probability.
+
+  **Printing the count then created a second, quieter problem, fixed in the same change.** A
+  permutation p-value is `(1 + matching trials) / (1 + trials)`, so it counts one more trial than
+  ran: `p = 0.003` is **2** of 1000, not 3. Before the count was printed a reader had no way to
+  check the p-value and no reason to try; with both numbers side by side they multiply, get 3, and
+  conclude one of the two figures is wrong. The notation fix made the discrepancy *visible* without
+  making it *explicable* — which is worse than the original, because the original offered nothing to
+  check and this offers a reason to distrust the report. So the "P-value resolution" constant now
+  states the add-one directly. General rule worth carrying: **exposing a quantity creates an
+  obligation to explain every relationship it now has to its neighbours.** "Only" was correct for
+  two commits and became wrong the moment a count appeared beside it; the p-value was unimpeachable
+  until it acquired a checkable neighbour.
 
   **Two report-bound copy fixes in the same change, from applying `PROCESS.md` §4.0 to my own
   strings.** §4.0 pulls any document the app cites by name in report-bound text inside the copy
@@ -1007,10 +1030,34 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   what I had just changed.
 
   **Not compiled** — brace/paren balance checked; trial-count sensitivity, timing estimates and the
-  p-value/count round-trip all verified via a Python port. On-device: confirm the determinism check
-  still passes (identical p-values across re-run and relaunch), that analysis time has not regressed
-  noticeably, and that a significant comparison's summary reads "N of 1000 chance trials" with a
-  whole number in the count position.
+  p-value/count round-trip all verified via a Python port. That covers arithmetic and syntax, not
+  type errors.
+
+  On-device checklist:
+
+  - [ ] A significant comparison's summary shows a **whole number** in the count position — "in only
+    3 of 1000 chance trials", never a decimal or a `p = …` string there. One-glance test that this
+    class of error has not returned.
+  - [ ] That count is **consistent with the p-value beside it**: count = p × 1001 − 1, rounded.
+    `p = 0.003` is 2 of 1000, not 3.
+  - [ ] The PDF provenance page's **"P-value resolution"** entry explains that add-one, so a reader
+    who multiplies and gets a different number finds the reason on the page instead of concluding
+    the report contradicts itself.
+  - [ ] A comparison at the resolution floor reads **"0 of 1000 chance trials (p < 0.001)"** — zero,
+    not blank and not 1.
+  - [ ] A **non-significant** comparison's summary does **not** contain "only" before its count.
+    With the count printed, "in only 847 of 1000" is understatement pointing the wrong way; that
+    sentence exists to say chance did this routinely.
+  - [ ] A case saved under **1.1.0** still renders its own trial count — "3 of 120 chance trials
+    (p = 0.033)" — rather than being re-expressed against 1000. The trial count travels with the
+    result; it is not read from the current constant.
+  - [ ] Determinism: re-run analysis twice and again after a force-quit, and get **identical**
+    p-values. This is the check that would catch a seeding regression.
+  - [ ] Analysis time has not regressed noticeably against the same case pre-upgrade.
+  - [ ] The results screen provenance card and the PDF "Analysis Provenance" page both show
+    **v1.2.0** and list **"P-value resolution"** among the constants.
+  - [ ] After re-running `scripts/build_pbxproj.py`, `AlgorithmVersion.swift` is still registered in
+    the target **and** `DEVELOPMENT_TEAM` survived in both configurations.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
