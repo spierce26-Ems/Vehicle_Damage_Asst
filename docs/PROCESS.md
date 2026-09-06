@@ -608,8 +608,8 @@ while the script already printed the right number, and this declaration
 corrected while the sentence stayed unperformable. **Ask which artefact the
 reader acts on, and fix that one first.**
 
-Two gaps in the count machinery, named rather than guarded, because neither has
-a cheap check. A `MIN_SITES` floor catches 39 quietly becoming 38; it does not
+Two gaps in the count machinery, **one now guarded and one still only named**.
+A `MIN_SITES` floor catches 39 quietly becoming 38; it does not
 catch **39 staying 39 while one of them stops being reachable** — a check
 dropped from `main()` keeps its call site and its declaration and never runs,
 which is `exists` for `runs` one level up from the alias and the same gap the
@@ -620,8 +620,23 @@ while meaning the second is how this section's other entries began. **The walk
 is now in `check_remedies.py` and runs on every preflight, so the reading is
 no longer load-bearing** — top-level `check_*` only, excluded by construction
 rather than by a name exception, because an exception list is the
-enumerated-list failure this repo has hit twice. And the annotation says what
-a remedy *is*, never that it *works*.
+enumerated-list failure this repo has hit twice. The floor itself is still the
+named-not-guarded half: a pinned integer a human bumps. And the annotation says
+what a remedy *is*, never that it *works*.
+
+**The harness enforcing all of this was, for its whole first day, not run by
+the thing that reports on the tree.** `check_remedies.py` was standalone:
+`preflight --all` printed `clear (0 advisory)` on `f3e585f` while the harness
+exited 1 on the same tree. **A gate nobody invokes is a file** — this section's
+subject arriving in this section's instrument, `exists` for `runs` one layer
+above the alias it was built to catch. It survived four separate reports of
+having landed because every one of them, from four different agents, quoted the
+harness's own exit code and never `preflight`'s. **A check's own exit code
+cannot tell you whether anything invokes it**, so the measurement that closes
+this is the one already in force for everything else: run `--all` and read what
+it says. Wired as `check_remedy_declarations()`, advisory, reporting the
+subprocess's own output, with an absent script reported **NOT CHECKED** rather
+than passed — a silently missing gate reads exactly like a clean one.
 
 **The wiring itself was the last instance.** `check_remedy_declarations()` was
 reported landed twice and appeared zero times in `preflight.py`: the harness
