@@ -68,9 +68,18 @@ struct AlgorithmVersion: Codable, Equatable {
     ///            z-score to a rank-based permutation p-value; scar
     ///            fingerprint matching gained a null model and p-value
     ///            of its own (it previously had none).
+    ///   1.2.0 -- null-model trial counts raised 120 -> 1000 for both
+    ///            matchers after a resolution audit (the p-value floor
+    ///            of 1/121 sat only ~6 discrete steps below the 0.05
+    ///            threshold, and trial count alone flipped 3-4% of
+    ///            verdicts); p-value resolution added to the recorded
+    ///            constants. Scores from 1.1.0 and 1.2.0 are directly
+    ///            comparable -- the estimator is unchanged, only its
+    ///            precision -- but a 1.1.0 p-value is quantised roughly
+    ///            8x more coarsely than its printed decimals suggest.
     static var current: AlgorithmVersion {
         AlgorithmVersion(
-            identifier: "1.1.0",
+            identifier: "1.2.0",
             constants: [
                 Constant(
                     name: "Tool-mark minimum overlap",
@@ -86,6 +95,24 @@ struct AlgorithmVersion: Codable, Equatable {
                     name: "Significance level",
                     value: String(format: "p < %.2f", ForensicNullModel.significanceLevel),
                     explanation: "A correlation is only reported as meaningful when its permutation p-value is below this."
+                ),
+                // NOTE(AI Developer), added 2026-09-06. The stamp records
+                // the trial counts above, but the trial count's real
+                // consequence is not obvious from the number itself: a
+                // permutation p-value is a discrete multiple of
+                // 1/(1+trials), so that fraction is the smallest p-value
+                // the test can express and therefore the resolution of
+                // every p-value in the report. Recording it explicitly
+                // means a reader can tell whether a quoted "p = 0.003"
+                // was a real measurement or the floor of a coarse test,
+                // without knowing this arithmetic. Two thresholds that
+                // both round to the same printed decimals can rest on
+                // very different amounts of evidence.
+                Constant(
+                    name: "P-value resolution",
+                    value: String(format: "%.4f (smallest expressible p-value)",
+                                  1.0 / Double(1 + ToolMarkMatcher.nullModelTrialCount)),
+                    explanation: "Permutation p-values are multiples of this. A p-value at this value means \"no chance trial matched\", not zero probability. Each p-value counts one more trial than were actually run (p = (1 + matching trials) / (1 + trials)), so multiplying a p-value by the trial count overstates the matching count by about one -- the summary's \"N of M chance trials\" is the exact figure."
                 ),
                 Constant(
                     name: "Scar fingerprint position tolerance",
@@ -159,10 +186,44 @@ enum ForensicNullModel {
 
     /// Plain-language rendering of a p-value, floored at the resolution
     /// the trial count can actually support.
+    ///
+    /// NOTE(AI Developer): returns a COMPLETE labelled string ("p =
+    /// 0.003"), so it must never be interpolated into a sentence that
+    /// supplies its own noun -- see `trialCountDisplay` below for the
+    /// bug that caused.
     static func pValueDisplay(_ p: Double, trials: Int) -> String {
         let resolution = 1.0 / Double(1 + trials)
         if p <= resolution { return String(format: "p < %.3f", resolution) }
         return String(format: "p = %.3f", p)
+    }
+
+    /// How many null trials actually scored at least as high as the real
+    /// score, recovered from the p-value.
+    ///
+    /// NOTE(AI Developer), added 2026-09-06 after Ledger caught a
+    /// category error in the summary copy. Both matchers' summaries said
+    /// "scored this well or better in only \(pValueDisplay(...)) of
+    /// \(trials) chance trials", which renders as "in only p = 0.003 of
+    /// 1000 chance trials" -- a sentence that promises a COUNT of trials
+    /// and receives a PROBABILITY, inviting the reader to parse
+    /// "p = 0.003" as a quantity out of 1000. The defect existed only at
+    /// the join: the helper was correct, and the sentence was correct
+    /// before the helper existed.
+    ///
+    /// `permutationPValue` is `(1 + atLeastAsExtreme) / (1 + trials)`,
+    /// so this inverts it exactly rather than approximating. The
+    /// rounding guards against float drift in that round trip.
+    ///
+    /// The floor case is the valuable one: at the smallest expressible
+    /// p-value this returns **0**, so the sentence reads "0 of 1000
+    /// chance trials" -- which is both literally correct and the
+    /// clearest statement in the whole report of what a floor p-value
+    /// means (no chance trial matched, NOT zero probability). The old
+    /// wording hid the strongest true claim available behind a notation
+    /// error.
+    static func trialCountAtLeastAsExtreme(pValue: Double, trials: Int) -> Int {
+        let count = pValue * Double(1 + trials) - 1
+        return max(0, Int(count.rounded()))
     }
 
     /// A small deterministic PRNG (SplitMix64).

@@ -944,6 +944,74 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   (7) the "not enough distinct detail to compare" cases still show their original wording with no
   headline and no significance text.
 
+- **Resolution audit of the shipped null-model constants: trial counts 120 -> 1000 (algorithm
+  v1.2.0).** Self-audit prompted by the exclusion critical-value table being withheld for being
+  resolution-limited: the same arithmetic applies to the constants already shipped in P1b, so they
+  were checked rather than assumed safe.
+
+  A permutation p-value from `t` trials is a **discrete multiple of 1/(1+t)**, so the trial count
+  sets a hard floor on the smallest p-value the test can express — and therefore the resolution of
+  every p-value printed in a report. At `nullModelTrialCount = 120` that floor was 1/121 = 0.0083,
+  only ~6 grid steps below the 0.05 significance level. Nothing was broken (the verdict was
+  reachable, unlike the Bonferroni case where the corrected alpha fell *below* the floor), but 6
+  steps is the same marginal zone that made the critical-value table unshippable, and it meant
+  p-values were quantised far more coarsely than their three printed decimals imply.
+
+  Measured: on 10-element rhythms, **3.0% of unrelated pairs and 4.0% of true matches flip
+  significance verdict purely on trial count** between 120 and 2000 trials. A modest but real
+  instability in a number this app presents as evidence.
+
+  Raised to 1000 for both matchers (kept equal so both verdicts in one report rest on the same
+  evidence and share a resolution floor). Floor becomes 0.001, 50 grid steps below 0.05. Estimated
+  cost ~5-40ms on the longest realistic rhythm sequences — still inside the "cheap enough to run
+  synchronously" budget the constant was originally chosen against. Determinism is unaffected: the
+  seed still derives from the data.
+
+  Also added **"P-value resolution"** to `AlgorithmVersion.current.constants`. The trial count was
+  already recorded, but its consequence is not obvious from the number itself; recording the floor
+  explicitly lets a reader tell whether a quoted `p = 0.003` was a real measurement or the floor of
+  a coarse test, without doing the arithmetic. Version bumped to **1.2.0** with a changelog note
+  that 1.1.0 and 1.2.0 scores are directly comparable — the estimator is unchanged, only its
+  precision — but a 1.1.0 p-value is quantised ~8x more coarsely than it appears.
+
+  **Copy fix in the same change, from Ledger's review:** both matchers' summaries read "scored this
+  well or better in only `p = 0.003` of 1000 chance trials" — a sentence frame that promises a
+  *count of trials* and was handed a *probability*, inviting the reader to parse `p = 0.003` as a
+  quantity out of 1000. Four sites. The defect existed only at the join: `pValueDisplay` returns a
+  complete labelled string and was correct, and the sentence was correct before that helper existed.
+  New `ForensicNullModel.trialCountAtLeastAsExtreme(pValue:trials:)` inverts the p-value definition
+  exactly to recover the count, verified exact across all 1001 possible counts at 1000 trials and
+  on legacy 120-trial values. Now reads "in only 3 of 1000 chance trials (p = 0.004; typical chance
+  score ~41%)". At the resolution floor the count is genuinely **0 of 1000**, which states in the
+  summary what the provenance page's "P-value resolution" constant explains — a floor p-value means
+  no chance trial matched, not zero probability.
+
+  **Two report-bound copy fixes in the same change, from applying `PROCESS.md` §4.0 to my own
+  strings.** §4.0 pulls any document the app cites by name in report-bound text inside the copy
+  lock *in its entirety*, so the citation I had added was itself the thing that created the
+  obligation. A sweep of every string literal on a non-comment line for person names, section
+  references, filenames and commit identifiers found exactly two hits, both in
+  `evaluateExclusionRule`:
+
+  - The height rule-out string cited "ALGORITHM_EXPLAINER §2" to an investigator. Removed. The
+    threshold's provenance belongs in the code comment and on the Analysis Provenance page, both
+    reviewable; in a report sentence it adds nothing the reader can act on while committing us to
+    every other line of the destination.
+  - The combined-rule string read "both conditions of Sean's hard exclusion rule are met" — a named
+    individual presented, in a prominent PDF exclusion callout, as the authority for excluding a
+    suspect. Now "the combined exclusion rule". Whose rule it is carries no actionable information,
+    and attributing an exclusion to a person rather than to the evidence raises exactly the question
+    the app should not raise. The attribution stays in the doc comment as design intent.
+
+  The second predates this work; it surfaced because the sweep was mechanical rather than aimed at
+  what I had just changed.
+
+  **Not compiled** — brace/paren balance checked; trial-count sensitivity, timing estimates and the
+  p-value/count round-trip all verified via a Python port. On-device: confirm the determinism check
+  still passes (identical p-values across re-run and relaunch), that analysis time has not regressed
+  noticeably, and that a significant comparison's summary reads "N of 1000 chance trials" with a
+  whole number in the count position.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.

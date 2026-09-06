@@ -462,9 +462,22 @@ struct MatchScoreCalculator {
         // not a collision at all.
         if let heights, MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
             let diff = abs(heights.v - heights.s)
+            // NOTE(AI Developer), 2026-09-06: this string deliberately
+            // does NOT cite "ALGORITHM_EXPLAINER §2", though an earlier
+            // draft did. Per PROCESS.md §4.0, a document the app names
+            // in report-bound text is pulled inside the copy lock in
+            // its entirety -- a citation is a promise the whole
+            // destination is as defensible as the passage cited, and a
+            // reader who follows it does not stop where we wanted them
+            // to. The threshold's provenance belongs in this comment and
+            // in the Analysis Provenance page, both of which are
+            // reviewable; it does not belong in a sentence an
+            // investigator reads, where it adds no information they can
+            // act on and commits us to every other line of the
+            // destination.
             return String(format:
                 "Height Alignment rule-out: %@ differ by %.1f\", more than the %.0f\" maximum at which "
-                + "two damage points can physically have contacted each other (see ALGORITHM_EXPLAINER §2). "
+                + "two damage points can physically have contacted each other. "
                 + "On height evidence alone this suspect vehicle should be ruled out, independently of every "
                 + "other factor below. The full factor breakdown is still shown for reference — this is a "
                 + "strong negative finding layered on top of it, not a reason to hide the evidence.",
@@ -480,7 +493,17 @@ struct MatchScoreCalculator {
         guard let heights, MeasurementHelpers.heightsAlign(heights.v, heights.s) == false else { return nil }
 
         let deltaText = scarCheck.reciprocityDeltaDegrees.map { String(format: "%.0f°", $0) } ?? "n/a"
-        return "Height Alignment mismatch (\(heights.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of Sean's hard exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
+        // NOTE(AI Developer), reworded 2026-09-06. This previously read
+        // "both conditions of Sean's hard exclusion rule are met" -- a
+        // named individual presented, in report-bound text, as the
+        // authority for excluding a suspect. Whose rule it is carries no
+        // information an investigator can act on, and attributing an
+        // exclusion to a person rather than to the evidence invites
+        // exactly the question the app should not be raising. The rule
+        // itself is what belongs in the sentence; the attribution stays
+        // in the doc comment on `evaluateExclusionRule`, where it
+        // records design intent for maintainers.
+        return "Height Alignment mismatch (\(heights.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of the combined exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
     }
 
     /// Builds the `scenarioNarrative` sentence Sean explicitly requested:

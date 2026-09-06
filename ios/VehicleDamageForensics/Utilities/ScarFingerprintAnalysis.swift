@@ -409,11 +409,16 @@ struct ScarFingerprintMatch: Codable, Equatable {
               let significant = isStatisticallySignificant else {
             return base + " No chance-level baseline could be computed for this pair, so this percentage has NOT been tested against coincidence. Marking alignment of this kind occurs readily between unrelated scars, so it must not be read as evidence of a match on its own."
         }
+        // NOTE(AI Developer), reworded 2026-09-06 per Ledger's copy
+        // review -- same category error and same fix as
+        // `ToolMarkComparison.summary`; see
+        // `ForensicNullModel.trialCountAtLeastAsExtreme`.
         let pText = ForensicNullModel.pValueDisplay(p, trials: trials)
+        let hits = ForensicNullModel.trialCountAtLeastAsExtreme(pValue: p, trials: trials)
         if significant {
-            return base + String(format: " Randomly-placed markings of the same number and kind aligned this well or better in only %@ of %d trials (typical chance score ~%.0f%%), so this alignment is unlikely to be coincidence.", pText, trials, mean)
+            return base + String(format: " Randomly-placed markings of the same number and kind aligned this well or better in only %d of %d chance trials (%@; typical chance score ~%.0f%%), so this alignment is unlikely to be coincidence.", hits, trials, pText, mean)
         } else {
-            return base + String(format: " However, randomly-placed markings of the same number and kind aligned this well or better at %@ across %d trials (typical chance score ~%.0f%%) -- this result is NOT distinguishable from chance and must not be treated as meaningful evidence on its own.", pText, trials, mean)
+            return base + String(format: " However, randomly-placed markings of the same number and kind aligned this well or better in %d of %d chance trials (%@; typical chance score ~%.0f%%) -- this result is NOT distinguishable from chance and must not be treated as meaningful evidence on its own.", hits, trials, pText, mean)
         }
     }
 
@@ -443,7 +448,14 @@ enum ScarFingerprintMatcher {
     /// verdicts in one report rest on the same amount of evidence and
     /// quote p-values with the same resolution floor. Cheap: each trial
     /// is a greedy pass over well under a dozen markings.
-    static let nullModelTrialCount = 120
+    ///
+    /// NOTE(AI Developer), raised from 120 to 1000 on 2026-09-06
+    /// alongside `ToolMarkMatcher.nullModelTrialCount` -- see that
+    /// constant's note for the resolution arithmetic. Kept equal to it
+    /// deliberately so both significance verdicts in one report rest on
+    /// the same amount of evidence and quote p-values with the same
+    /// resolution floor.
+    static let nullModelTrialCount = 1000
 
     /// Greedy nearest-neighbor matching: for each victim minutia (in
     /// position order), pick the closest same-type, not-yet-used

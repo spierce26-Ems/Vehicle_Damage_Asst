@@ -702,11 +702,17 @@ struct ToolMarkComparison: Codable, Equatable {
               let significant = isStatisticallySignificant else {
             return baseSummary + " No chance-level baseline could be computed for this pair, so this similarity has NOT been tested against coincidence and must not be read as evidence of a match on its own."
         }
+        // NOTE(AI Developer), reworded 2026-09-06 per Ledger's copy
+        // review. The count comes first because the sentence frame
+        // ("in only ... of N chance trials") promises a count; the
+        // p-value rides in parentheses where it does no grammatical
+        // work. See `ForensicNullModel.trialCountAtLeastAsExtreme`.
         let pText = ForensicNullModel.pValueDisplay(p, trials: trials)
+        let hits = ForensicNullModel.trialCountAtLeastAsExtreme(pValue: p, trials: trials)
         if significant {
-            return baseSummary + String(format: " Unrelated scrapes scored this well or better in only %@ of %d chance trials (typical chance score ~%.0f%%), so this correlation is unlikely to be coincidence.", pText, trials, baselineMean)
+            return baseSummary + String(format: " Unrelated scrapes scored this well or better in only %d of %d chance trials (%@; typical chance score ~%.0f%%), so this correlation is unlikely to be coincidence.", hits, trials, pText, baselineMean)
         } else {
-            return baseSummary + String(format: " However, unrelated/random spacing patterns scored this well or better by chance alone at %@ across %d trials (typical chance score ~%.0f%%) -- this result is NOT statistically distinguishable from random and must not be treated as meaningful evidence on its own.", pText, trials, baselineMean)
+            return baseSummary + String(format: " However, unrelated/random spacing patterns scored this well or better in %d of %d chance trials (%@; typical chance score ~%.0f%%) -- this result is NOT statistically distinguishable from random and must not be treated as meaningful evidence on its own.", hits, trials, pText, baselineMean)
         }
     }
 
@@ -789,7 +795,33 @@ enum ToolMarkMatcher {
     /// run synchronously" budget (see `MatchScoreCalculator.evaluate`) --
     /// even on the longest possible rhythm sequences this stays well
     /// under a second on-device.
-    static let nullModelTrialCount = 120
+    ///
+    /// NOTE(AI Developer), raised from 120 to 1000 on 2026-09-06 after a
+    /// resolution audit of the shipped constants. A permutation p-value
+    /// from `t` trials is a DISCRETE multiple of 1/(1+t), so the trial
+    /// count sets a hard floor on the smallest p-value this test can
+    /// express -- and at 120 trials that floor was 1/121 = 0.0083,
+    /// only ~6 grid steps below the 0.05 significance level. The verdict
+    /// was reachable, so nothing was broken, but 6 steps of resolution
+    /// is the same marginal zone that made a separate critical-value
+    /// calibration unshippable, and it left the p-value quoted to
+    /// investigators quantised far more coarsely than its three printed
+    /// decimals imply.
+    ///
+    /// Measured verdict disagreement between 120 and 2000 trials on
+    /// 10-element rhythms: 3.0% of unrelated pairs and 4.0% of true
+    /// matches flipped significance verdict purely on trial count. That
+    /// is a real if modest instability in a number this app presents as
+    /// evidence, and it is entirely avoidable.
+    ///
+    /// 1000 trials puts the floor at 0.001 (50 grid steps below 0.05)
+    /// and costs an estimated ~5-40ms on the longest realistic rhythm
+    /// sequences -- still comfortably inside the "cheap enough to run
+    /// synchronously" budget this constant was originally chosen
+    /// against. Determinism is unaffected: the seed still derives from
+    /// the data, so the same two profiles always produce the same
+    /// p-value.
+    static let nullModelTrialCount = 1000
 
     /// NOTE(AI Developer), 2026-09: DEPRECATED as the significance
     /// test. Kept only so already-persisted `zScore` values remain
