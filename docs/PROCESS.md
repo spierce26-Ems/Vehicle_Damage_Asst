@@ -106,6 +106,19 @@ Two things to know if you produce patches:
   file that touches `Models/` is exactly where a field can silently change
   shape, so run preflight on the *resolved* tree — a clean pre-rebase result
   says nothing about what the resolution produced.
+
+  **Use `--since`, not a bare run, and this is not a preference.** Preflight's
+  commit-shaped checks read the **index**, and a rebase's product is committed
+  rather than staged — so run plain after resolving a conflict they report
+  nothing staged, and `--all` judges the tree without judging a diff. The check
+  went silent at exactly the moment this rule says it matters most, and a clean
+  line there means "not looking", not "clean". `--since origin/main` routes them
+  through `REF...HEAD`, comparing the resolved tree against the branch it is
+  going onto. Landed in `81103fe`.
+
+  For the `cross-section-exclude` rebase specifically: `--since` against the
+  branch being rebased *onto*. A pre-rebase result, however clean, says nothing
+  about the resolution.
 - **Insert new build-setting keys in Xcode's alphabetical order.** Xcode
   reorders them on first save otherwise, producing a spurious diff on a file
   everyone needs to stay readable.
@@ -347,6 +360,24 @@ Two design rules govern it, and they are the reason to trust its output:
   one, because everyone keeps trusting it — and two independent faults can mask
   each other into a green result. Assert both directions: hazards caught, and
   safe edits not flagged.
+- **A check must report what it examined, not only what it found.** "Clear" and
+  "not looking" have to be visibly different strings. A result line that names
+  no scope gets read as broader than it was — so a check that examined a staged
+  diff says so, and a check handed an unknown or empty scope exits non-zero
+  rather than printing a clean line about nothing. This is the dead-check
+  failure relocated: the code is working correctly and the *reader* draws the
+  false conclusion, which is harder to catch because there is no bug to find.
+  It is also the same defect as a rule in this document that describes intent
+  rather than behaviour — an authoritative-looking statement about work that was
+  never done.
+
+  The worked example is a **real ref that is the wrong one**. `--since HEAD`
+  after a rebase selects no commits, runs nothing, and exits 0 — the identical
+  silence `--since` was built to eliminate, now reachable by a typo instead of a
+  missing feature. So an empty selection must not return early: run what can
+  still be run, and say outright that there was no change to judge. Scope
+  belongs on every result line with a count, because "clear — 1 file" and
+  "clear — 12 files" are different claims.
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
   history, tooling that could be mistaken for a build would be worse than no
