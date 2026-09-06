@@ -633,13 +633,53 @@ def check_remedy_declarations():
         detail = (proc.stdout or proc.stderr or "").strip().split("\n")
         head = detail[0] if detail else "no output"
         more = f" (+{len(detail) - 1} more line(s))" if len(detail) > 1 else ""
-        # remedy: fixes
-        warn("remedy-decl",
-             f"scripts/check_remedies.py exited {proc.returncode}: "
-             f"{head}{more}",
-             "run python3 scripts/check_remedies.py for the full list and "
-             "add the missing `# remedy: <fixes|reminder|external|state>` "
-             "declaration(s); it names the line and the function")
+
+        # The harness reports THREE findings and they need three remedies.
+        # Reporting one, keyed to the most common, is how a remedy stops
+        # matching its trigger: an orphaned check told the reader to "add the
+        # missing declaration(s)" when the declarations were all present and
+        # the CALL was missing, and a crashed harness told them the same. That
+        # is the annotation-versus-string shape one layer out -- the message
+        # was accurate and the remedy beside it was not performable.
+        #
+        # Parse the sub-class out of the sub-process's own words rather than
+        # re-wrapping them: flattening failure classes across a process
+        # boundary is the defect the doc-drift wiring already made once.
+        if "never calls it" in "\n".join(detail):
+            # remedy: fixes
+            # Not `state`: adding the call to main() clears this, measured by
+            # deleting check_manifest_line_counts()'s call (rc=1, orphan
+            # reported) and restoring it (rc=0).
+            warn("remedy-decl",
+                 f"a declared check is never called from main(): {head}{more}",
+                 "add the check's call to main() -- its remedies are declared "
+                 "and unreachable, so its declarations were audited and its "
+                 "findings can never fire. Run python3 "
+                 "scripts/check_remedies.py for the full list; this is NOT a "
+                 "missing declaration, so adding a `# remedy:` comment will "
+                 "not clear it")
+        elif "no `# remedy:" in "\n".join(detail) or "declaration" in head:
+            # remedy: fixes
+            warn("remedy-decl",
+                 f"a remedy site does not declare its kind: {head}{more}",
+                 "run python3 scripts/check_remedies.py for the full list and "
+                 "add the missing `# remedy: <fixes|reminder|external|state>` "
+                 "declaration(s); it names the line and the function. Check "
+                 "the remedy STRING says the same thing as the kind you "
+                 "declare -- the harness reads the annotation, the reader "
+                 "acts on the string")
+        else:
+            # remedy: state
+            # The harness itself failed. A tool failure reported as a source
+            # defect sends the reader to edit correct code, so this says what
+            # did NOT get checked instead of naming a fix.
+            warn("remedy-decl",
+                 f"scripts/check_remedies.py exited {proc.returncode} without "
+                 f"a recognised finding, so NO remedy site's kind and no "
+                 f"check's reachability were verified: {head}{more}",
+                 "run python3 scripts/check_remedies.py directly and read its "
+                 "output -- this reports that the check could not complete, "
+                 "not that preflight.py is wrong")
 
 
 def check_manifest_line_counts():

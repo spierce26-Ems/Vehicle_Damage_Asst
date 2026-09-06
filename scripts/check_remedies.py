@@ -74,7 +74,7 @@ KINDS = ("fixes", "reminder", "external", "state")
 
 # Floor on the site count. Bump only in the commit that adds or removes a
 # check -- never to make a run pass.
-MIN_SITES = 41
+MIN_SITES = 43
 DECL = re.compile(r"#\s*remedy:\s*(\w+)")
 
 # A reminder's remedy must SAY it will not clear, or the reader does the work
