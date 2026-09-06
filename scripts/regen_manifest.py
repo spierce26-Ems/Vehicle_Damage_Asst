@@ -47,8 +47,14 @@ import sys
 mp='ios/reference/COMPLETE_FILE_MANIFEST.md'
 pat=re.compile(r'^\|\s*`([^`]+)`\s*\|\s*([^|]*?)\s*\|$')
 check_only='--check' in sys.argv
-tracked=set(subprocess.check_output(
-    ['git','ls-files']).decode().split())
+try:
+    tracked=set(subprocess.run(['git','ls-files'],capture_output=True,
+                               text=True,check=True).stdout.split())
+except (OSError,subprocess.CalledProcessError):
+    # Compass's catch. check_output raised CalledProcessError and this exited
+    # 0 with a traceback -- a gate that crashes while reporting success, the
+    # dead-check shape inside the tool written to end a day of them.
+    sys.exit("not inside a git repository, or git ls-files failed")
 untracked_rows=[]
 stale=[]
 for it in range(10):

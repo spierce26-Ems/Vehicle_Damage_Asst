@@ -156,7 +156,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/pbxproj_skeleton.txt` | 312 |
 | `scripts/preflight.py` | 2093 |
 | `scripts/check_doc_drift.py` | 519 |
-| `scripts/regen_manifest.py` | 84 |
+| `scripts/regen_manifest.py` | 90 |
 | `scripts/set_dev_team.sh` | 44 |
 
 ## Repo root
