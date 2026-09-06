@@ -464,6 +464,57 @@ def check_cited_doc_copy():
                  "abandoned framing asserts it just as surely as printing it")
 
 
+def check_doc_drift():
+    """Code that has drifted away from CORRECT documentation (sec.5c).
+
+    Every other check here assumes documentation goes stale behind code. Two
+    of task #10's three scoring divergences were the reverse: the explainer
+    was right and the Swift had drifted from it. scripts/check_doc_drift.py
+    owns the comparison; this wrapper runs it so the failure appears in the
+    same report as everything else rather than in a script nobody remembers
+    to invoke.
+
+    Wired only now because it anchors on `heightRuleOutInches`, which reached
+    main in dc069a1. Landed earlier it would have reported an anchor failure
+    on every run -- the anchor assertion working correctly, and noise that
+    trains people to ignore the output.
+
+    Severity mirrors the sub-check: doc-drift and doc-anchor are blocking
+    (the numbers disagree, or the check lost its subject and cannot claim
+    anything), doc-format is blocking too, because a comparison that was NOT
+    performed must not read as a pass. The sub-script prints its own
+    three-class diagnosis; this only reports that it ran and how it ended,
+    per sec.5b -- naming a next action, never estimating significance.
+    """
+    script = os.path.join(REPO, "scripts", "check_doc_drift.py")
+    if not os.path.exists(script):
+        warn("doc-drift",
+             "scripts/check_doc_drift.py not found -- the explainer/code "
+             "number comparison did not run",
+             "restore the script or drop this call; a clear preflight "
+             "currently says nothing about scoring-doc agreement")
+        return
+    proc = subprocess.run([sys.executable, script, REPO],
+                          cwd=REPO, capture_output=True, text=True)
+    if proc.returncode != 0:
+        detail = (proc.stdout + proc.stderr).strip().splitlines()
+        head = detail[0] if detail else "check_doc_drift.py failed"
+        # The sub-script prefixes its own `FAIL [doc-format]` / `[doc-anchor]`
+        # / `[doc-drift]` tag. Keep the sub-class -- it is the whole point of
+        # reporting them apart -- but strip the duplicated FAIL so the line
+        # does not read `FAIL [doc-drift] FAIL [doc-format] ...`, which
+        # misattributes a format failure to the drift class in the summary
+        # line most readers stop at.
+        m = re.match(r"FAIL\s+\[(doc-\w+)\]\s+(.*)", head)
+        subclass, head = (m.group(1), m.group(2)) if m else ("doc-drift", head)
+        fail(subclass,
+             head,
+             "run `python3 scripts/check_doc_drift.py` for the full "
+             "three-class diagnosis: doc-format means the comparison did "
+             "not run, doc-anchor means it lost its subject in the Swift, "
+             "doc-drift means the numbers genuinely disagree")
+
+
 def check_manifest_drift():
     """Does COMPLETE_FILE_MANIFEST.md still describe the tracked tree?
 
@@ -1285,6 +1336,7 @@ def main():
     check_delimiter_balance(files)
     check_manifest_drift()
     check_cited_doc_copy()
+    check_doc_drift()
 
     # Commit-shaped checks: only meaningful against a staged diff. In --all
     # mode there is no commit to judge, and firing them anyway trains people

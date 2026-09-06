@@ -42,6 +42,20 @@ Known limits, so a clear run is not read as stronger than it is:
   - `require_stored_constant` guards the `let` -> computed-property rename:
     a same-named computed property would satisfy a bare name search while no
     longer being a constant anyone can compare.
+  - **The graded bands are PARSED, not executed, and the parse is weaker than
+    it looks.** `_score_band` reads `heightAlignmentScore`'s guards as an
+    ordered list and assumes the default `toleranceInches = 2.0`. That
+    argument is caller-configurable and `HeightAlignmentAnalyzer` threads a
+    caller value through all four call sites, so guard ORDER matters in ways
+    the parse cannot see. Verified: hoisting `if diff <= toleranceInches`
+    above the rule-out guard produces byte-identical parser output while
+    restoring the pre-#10a defect -- a caller passing a tolerance above 6"
+    then scores 100 for a height difference that should exclude. The honest
+    fix is to execute the function, which needs the Swift test target; a
+    cleverer parser would be the same mistake one level deeper, since it
+    would still be a representation of the behaviour rather than the
+    behaviour (PROCESS.md sec.5b). Until then this file checks that the band
+    NUMBERS agree, not that the scorer applies them in the documented order.
 
 Usage: python3 scripts/check_doc_drift.py [repo_root]
 """
