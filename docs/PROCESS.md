@@ -508,9 +508,10 @@ told.** *"The condition persists after the remedy"* is the signature of a
 **correct reminder** and of a **broken drift-check remedy** at once: one
 observation, two opposite verdicts, which is this document's own
 predicate-one-short shape aimed at the fix for it. The class is not marginal —
-`preflight.py` carries around forty `warn()`/`fail()` sites against seven uses
-of `diff_args()`, so roughly a fifth of the surface is diff-keyed and every one
-of those correctly refuses to clear. A harness that guessed would flag them as
+`preflight.py` carries 38 remedy call sites (26 `warn()` + 12 `fail()`; a bare
+grep says 27/13 because it counts the two function definitions) against 7 uses
+of `diff_args()`, so 18% of the surface is diff-keyed and every one of those
+correctly refuses to clear. Six of the 38 have ever been swept. A harness that guessed would flag them as
 broken and train the bypass habit the grading rules exist to prevent.
 **Declare the kind at the call site; do not derive it from behaviour.**
 
