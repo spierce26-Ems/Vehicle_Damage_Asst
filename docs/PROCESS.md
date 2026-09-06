@@ -536,6 +536,23 @@ parenthetical *"could not be checked"* rather than passing it, applied to a
 sweep report instead of to a check. **A documented gap beats a fifth sweep
 declaring closure.**
 
+**Then two of the 32 were exercised and both were defective**, which moves the
+count to 8 of 38 and puts a number on what "unexercised" was protecting: the
+`pbxproj` remedy names a regeneration that only ever ADDS sources, so a stale
+entry survives a run **that reports success**; and the `skeleton-drift` remedy
+names a script that refuses precisely when the check has fired. Two of two is a
+small sample and not one that suggests the remaining thirty are clean.
+
+**The second of those is a variety no reading catches, and it is worth naming:
+a remedy whose precondition is the negation of its trigger.** `set_dev_team.sh`
+is right for first-time signing setup — the key absent from both files — and
+the check fires only on a *mismatch*, which is every case except that one. Read
+against the situation it was written for, the remedy is true; read against the
+situation it is offered in, it cannot run. Not stale text, not a missing tool,
+and invisible to review, because review supplies the charitable case
+automatically. **Ask what state the check guarantees at the moment it fires,
+then ask whether the remedy is legal in that state.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
