@@ -119,6 +119,16 @@ Two things to know if you produce patches:
   For the `cross-section-exclude` rebase specifically: `--since` against the
   branch being rebased *onto*. A pre-rebase result, however clean, says nothing
   about the resolution.
+
+  **And run `main`'s `scripts/preflight.py` against a feature branch, never the
+  branch's own copy.** Verified at `prism-task10-p1b` @ `6230c4f` and
+  `cross-section-exclude` @ `c6e749a`: both scripts handle `--since` perfectly
+  well, and neither contains `decoder-completeness` at all. So the reason is
+  not a misbehaving flag — it is that the branch script lacks the check the
+  merge needs, and a clean run there is a clean run by a script that never
+  looked. Recorded with the reason because the wrong reason implies a flag
+  problem a reader can test, find absent, and correctly conclude the
+  instruction was wrong.
 - **Insert new build-setting keys in Xcode's alphabetical order.** Xcode
   reorders them on first save otherwise, producing a spurious diff on a file
   everyone needs to stay readable.
@@ -448,6 +458,53 @@ Two design rules govern it, and they are the reason to trust its output:
   still be run, and say outright that there was no change to judge. Scope
   belongs on every result line with a count, because "clear — 1 file" and
   "clear — 12 files" are different claims.
+- **A report with no subject must not estimate its own significance.** When a
+  check cannot identify what it was meant to examine, that report's entire job
+  is to say "I do not know what I looked at". Appending a guess about how
+  likely it is to be nothing — "probably a parsing gap rather than a real
+  finding" — hands the reader a verdict the check is by construction unable to
+  reach, and it is read as the finding. The estimate is not merely unwelcome,
+  it is *structurally unavailable*: a check that cannot identify its subject
+  has no information about what it missed, so any likelihood it offers is
+  manufactured by the apparatus that reports it and inherits that apparatus's
+  authority anyway — the p-value-floor defect applied to prose. That exact
+  sentence stood on the advisory that was the only visible symptom of the
+  nested-type misattribution fixed at `515e731`, and it produced the shrug it
+  invited: two readers saw it and moved on, because the text told them to.
+  **Reporting the gap is the check's competence; guessing its significance is
+  not.** Landed in `97ddc3c`.
+
+  The rule is narrower than "do not hedge", and the boundary is decidable by
+  inspection: **does the sentence name a next action, or estimate a
+  significance?** The delimiter check's *"probably truncated or mis-merged"*
+  passes — it is a diagnosis attached to a finding the check *did* make, on a
+  blocking failure the tool has already acted on. `doc-format`'s "fix the
+  parser or restore the documented format" passes; it is an action. "Probably
+  nothing" is a claim about a thing you did not see. You can apply this test
+  without knowing anything about the check.
+- **Assert on behaviour, not on a representation of it.** Both halves of this
+  cost real time today at different scales, and they are one mistake:
+  - *Source text is a representation of emitted copy.* Verifying a locked
+    string by grepping the script returned `False` on a correct fix — the
+    literal is split across two source lines, so the source never contains it
+    contiguously. Trigger the branch and read the output. The same applies to
+    every copy swap: confirm the report still *fires* with the new wording,
+    because a swap that silently disabled the report is exactly the failure
+    that line exists to prevent.
+  - *A remote-tracking ref is a representation of a branch.* `git show
+    origin/<branch>:<path>` is only as current as your last successful fetch,
+    and it reads a force-pushed-away commit without complaint. Two branch-state
+    claims in this document's history were wrong that way, one of them used to
+    contradict a teammate who had fresher data. Before asserting a fact about a
+    remote branch, `git ls-remote` — which queries the server — or force-fetch
+    with `--prune --force`. A ref-scoped command is not self-updating.
+- **An unrecognised flag must exit non-zero, exactly like an unrecognised ref.**
+  `preflight.py --sinse origin/main` fell through to staged mode and printed
+  `nothing staged` at exit 0 — a clean run over nothing wearing the face of a
+  clean run over everything, and the most reassuring line the tool can emit.
+  The unknown-*ref* guard was written deliberately for this hazard, so the
+  protection had stopped one argument short of itself. Scope validation belongs
+  on every input that selects scope, argv included. Landed in `97ddc3c`.
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
   history, tooling that could be mistaken for a build would be worse than no
