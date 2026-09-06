@@ -311,8 +311,9 @@ struct LiDARScanView: View {
     ///
     /// NOTE(AI Developer), added 2026-09 (spec B.3). This is the
     /// highest-consequence measurement in the app -- a height mismatch
-    /// is one of the two conditions that can rule a vehicle out -- and
-    /// it was previously confirmed in a one-line banner sharing a row
+    /// is a standalone exclusion condition in the engine (narrowing to
+    /// tape-measured input only, under task #14) -- and it was
+    /// previously confirmed in a one-line banner sharing a row
     /// with Retry and Save, where a digit misread on scene becomes a
     /// number in a report nobody re-derives. A wrong measurement has to
     /// be catchable at arm's length, in sun.
@@ -352,9 +353,35 @@ struct LiDARScanView: View {
             // tolerance on the one measurement that can exclude a
             // vehicle is the worst possible place for an invented
             // number.
+            //
+            // NOTE(AI Developer), 2026-09, follow-up: omitting it was
+            // load-bearing. Prism assembled the error budget for a
+            // two-raycast height in response -- sigma ~1.7in, DOMINATED
+            // BY USER AIM AND MESH SMOOTHING, not the sensor -- and that
+            // number showed the standalone >6in height rule-out excludes
+            // a suspect whose TRUE difference is 5.0in about 27.8% of
+            // the time. Under task #14 a LiDAR-derived height therefore
+            // reports "inconclusive on height" instead of driving an
+            // exclusion, until a device-measured sigma exists; a manual
+            // tape entry, which is good to well under an inch, still
+            // carries the rule-out. Hence the wording below -- see its
+            // own NOTE.
 
+            // NOTE(AI Developer), 2026-09: this line deliberately does
+            // NOT say this measurement "can rule a vehicle out". That
+            // was true of the engine when the spec was written and stops
+            // being true under task #14, where a LiDAR-derived height
+            // reports inconclusive rather than excluding. Telling an
+            // examiner on the capture screen that their measurement can
+            // rule a vehicle out, when the engine will not let it,
+            // overstates the consequence at the moment they are deciding
+            // whether the number is good enough -- and overstating
+            // consequence is how a measurement gets defended rather than
+            // re-taken. It states what is true either way: the value is
+            // compared against the other vehicle, and a bad one is worth
+            // re-taking now rather than discovering later.
             Label {
-                Text("This is compared against the other vehicle's damage height. A mismatch here is one of the two conditions that can rule a vehicle out.")
+                Text("This is compared against the other vehicle's damage height. Getting it right here matters — a measurement taken at the scene cannot be re-taken from the report.")
             } icon: {
                 Image(systemName: "info.circle.fill")
             }
