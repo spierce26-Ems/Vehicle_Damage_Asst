@@ -90,6 +90,22 @@ Two things to know if you produce patches:
   case file already on a device predates the new field, so a non-optional
   addition breaks all of them on upgrade, and it breaks them at load time with
   no partial recovery. Use `Bool?` / `Double?` / `decodeIfPresent`, always.
+- **Never change the type of an existing persisted field.** Optionality does
+  not protect you here: `decodeIfPresent` throws `typeMismatch` when the key is
+  present with the wrong type, so `Double?` becoming `String?` destroys every
+  saved case exactly as thoroughly as the `keyNotFound` case above. It is also
+  far more innocent-looking in review — a one-word edit inside a declaration
+  that was already there, with no new line to draw the eye.
+
+  The two directions are **not** symmetric. Widening `T` to `T?` is the
+  migration *fix* and is always allowed. Changing the underlying type is not.
+  A genuine type change needs a new optional field plus a decode path that
+  reads the old one, never an edit in place.
+
+  Highest-risk moment for this: **resolving a merge conflict.** A conflict in a
+  file that touches `Models/` is exactly where a field can silently change
+  shape, so run preflight on the *resolved* tree — a clean pre-rebase result
+  says nothing about what the resolution produced.
 - **Insert new build-setting keys in Xcode's alphabetical order.** Xcode
   reorders them on first save otherwise, producing a spurious diff on a file
   everyone needs to stay readable.
@@ -318,6 +334,19 @@ Two design rules govern it, and they are the reason to trust its output:
   The test is therefore not "how bad is it" but **"what else would catch it,
   and at what cost?"** A defect the next step catches cheaply should warn. A
   defect nothing downstream catches should block.
+
+- **A blocking check must be scoped more carefully than an advisory one, not
+  less.** Its failure mode is not a wrong answer — it is someone reaching for
+  `--no-verify`, which silences every other check at once. So the cost of one
+  over-eager blocker is all of them. Any check argued *up* to blocking earns
+  extra scrutiny of its false positives, not less.
+
+- **Test that a check stays silent on safe input, not only that it fires on
+  bad input.** "No failures reported" is exactly what a dead check looks like.
+  A blocking check that has quietly stopped checking is worse than not having
+  one, because everyone keeps trusting it — and two independent faults can mask
+  each other into a green result. Assert both directions: hazards caught, and
+  safe edits not flagged.
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
   history, tooling that could be mistaken for a build would be worse than no
