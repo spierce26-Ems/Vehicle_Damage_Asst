@@ -1,295 +1,167 @@
-# 📁 COMPLETE FILE MANIFEST - All 31 Files
-
-## 🎯 Your Hit-and-Run Case (9 files)
-
-1. **FORENSIC_MATCH_REPORT_FINAL.pdf** (8 pages)
-   - Court-ready forensic report
-   - Match score: 84.5/100 → 92.5/100
-   - Download: https://[your-vm]/workspace/vehicle-damage-forensics/
-
-2. **advanced_analysis_v3.json** (NEW!)
-   - ML-enhanced analysis
-   - 92.5/100 match score
-   - Expert witness quality
-
-3. **VICTIM_PHOTO_ANALYSIS.md**
-   - 8 victim vehicle photos analyzed
-   - Damage assessment
-   - Height measurements
-
-4. **CASE_001_USER_INCIDENT.md**
-   - Incident details
-   - Timeline
-   - Vehicle information
-
-5. **POLICE_REPORT_TEMPLATE.md**
-   - Ready to fill out
-   - Talking points included
-   - Monday action item
-
-6. **SUSPECT_PHOTO_GUIDE.md**
-   - What to photograph
-   - How to capture evidence
-   - 16-shot checklist
-
-7. **FORENSIC_COMPARISON_REPORT.md**
-   - Side-by-side analysis
-   - Factor breakdown
-   - Match probability
-
-8. **analysis_results.json**
-   - Raw analysis data
-   - 7-factor scores
-   - Structured output
-
-9. **photos/** directory
-   - 15 photos (8 victim + 7 suspect)
-   - High-quality evidence
-   - Timestamped & organized
-
----
-
-## 💻 Algorithm & Code (6 files)
-
-10. **forensic_analyzer.py** (500+ lines)
-    - Version 1.0
-    - 7-factor algorithm
-    - Validated on your case
-
-11. **enhanced_forensic_analyzer.py** (800+ lines)
-    - Version 2.0
-    - Confidence intervals
-    - Scenario analysis
-
-12. **image_processor.py** (300+ lines)
-    - Auto-detect colors
-    - Measurement extraction
-    - Quality scoring
-
-13. **SwiftUI_Production_Code.swift** (368 lines) ⭐ NEW!
-    - Complete iOS app structure
-    - Production-ready templates
-    - ARKit integration
-
-14. **test_suite.py** (1 KB) ⭐ NEW!
-    - Comprehensive tests
-    - Algorithm validation
-    - Quality assurance
-
-15. **enhanced_analysis_results.json**
-    - Version 2.0 output
-    - Detailed confidence data
-
----
-
-## 📱 iOS Development (5 files)
-
-16. **iOS_TECHNICAL_SPECS.md** (350+ lines)
-    - Complete architecture
-    - SwiftUI components
-    - ARKit implementation
-
-17. **DEVELOPER_HANDOFF_PACKAGE.md** (410+ lines)
-    - Hiring guide
-    - Interview questions
-    - Code challenge
-
-18. **TECHNICAL_ARCHITECTURE.md**
-    - System design
-    - Data models
-    - API documentation
-
-19. **MVP_SPRINT_PLAN.md**
-    - 12-week timeline
-    - Milestones
-    - Deliverables
-
-20. **BETA_TESTING_FRAMEWORK.md**
-    - 10-tester plan
-    - Recruitment strategy
-    - Success metrics
-
----
+# Complete File Manifest — Vehicle_Damage_Asst
+
+Generated from the actual tracked tree at commit `3656b64` (2026-09-06). Line counts are exact at that commit.
+
+This file supersedes the earlier manifest, which described a one-off AI-session
+workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
+file is not listed below, it is not in the repo.
+
+Totals: 74 tracked files, of which 41 Swift sources (15981 lines).
+
+## iOS app — Xcode project
+
+Single target, `com.spearitnow.vehicledamageforensics`, iOS 17.0 min, Swift 5.0 language mode.
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics.xcodeproj/project.pbxproj` | 607 |
+
+## App entry point
 
-## 💼 Business & Marketing (6 files)
-
-21. **APP_STORE_LISTING.md** (654 lines)
-    - Full marketing copy
-    - Keywords
-    - Screenshots spec
-
-22. **USE_CASES.md**
-    - Market analysis
-    - $395M TAM
-    - Customer segments
-
-23. **PROJECT_BRIEF.md**
-    - Executive summary
-    - Vision & mission
-    - Value proposition
-
-24. **USER_RESPONSES.md**
-    - Feature validation
-    - User feedback
-    - Pricing tests
-
-25. **ULTIMATE_FEATURE_LIST.md** ⭐ NEW!
-    - 10 core features
-    - Phase 2 roadmap
-    - Competitive advantages
-
-26. **DEPLOYMENT_GUIDE.md** ⭐ NEW!
-    - Launch checklist
-    - App Store process
-    - Week 1 metrics
-
----
-
-## 📖 Guides & Documentation (5 files)
-
-27. **PHOTO_CAPTURE_PROTOCOL.md**
-    - 16-shot guide
-    - Quality standards
-    - Best practices
-
-28. **ACTION_DASHBOARD.md**
-    - Daily action items
-    - Current status
-    - Next steps
-
-29. **README.md**
-    - Project overview
-    - Quick start
-    - File structure
-
-30. **QUICK_START.md**
-    - Getting started
-    - 5-minute tutorial
-    - Common tasks
-
-31. **FINAL_SUMMARY_MAXIMUM_BUILD.md** ⭐ NEW!
-    - Complete summary
-    - All upgrades
-    - Launch readiness
-
----
-
-## 🌐 Web & Demos
-
-32. **web_demo.html** (19 KB)
-    - Browser-based prototype
-    - Visual demonstration
-    - Working UI
-
-33. **monday_reminder_data.json**
-    - Structured action data
-    - Mobile-friendly format
-
-34. **MONDAY_CHECKLIST_TEXT_ONLY.txt**
-    - Plain text version
-    - Copy/paste ready
-    - Phone-friendly
-
----
-
-## 🛠️ Support Files
-
-35. **MONDAY_MORNING_CHECKLIST.md**
-    - Detailed 55-min plan
-    - Exact scripts
-    - Contact forms
-
-36. **AUTOMATED_MONDAY_SETUP.md**
-    - Reminder setup guide
-    - Multiple options
-    - Step-by-step
-
-37. **OFFLINE_ACCESS_GUIDE.md**
-    - No internet access
-    - Alternative methods
-    - Troubleshooting
-
-38. **ACTUAL_PROJECT_STATUS.md**
-    - Reality check
-    - What's done
-    - What's left
-
-39. **WHAT_HAPPENS_NEXT.md**
-    - Timeline
-    - Expectations
-    - Action plan
-
-40. **BUILD_TO_COMPLETION_PLAN.md**
-    - Original plan
-    - Phase breakdown
-    - Success criteria
-
----
-
-## 📊 SUMMARY STATISTICS
-
-### Total Files: 40+
-- Case files: 9
-- Code/algorithms: 6
-- iOS specs: 5
-- Business docs: 6
-- Guides: 5
-- Web/demos: 3
-- Support: 6+
-
-### Total Size: 3.5 MB
-- Photos: 2.8 MB
-- PDF: 400 KB
-- Code/docs: 300 KB
-
-### Total Lines: 11,000+
-- Python: 1,500+ lines
-- Swift: 368 lines
-- Markdown: 9,000+ lines
-
-### Key Metrics
-- Match Score: 92.5/100 ⭐
-- Launch Readiness: 95/100 ⭐
-- Success Probability: 99% ⭐
-
----
-
-## 🎯 FILES YOU NEED MONDAY
-
-**Essential 3**:
-1. FORENSIC_MATCH_REPORT_FINAL.pdf (download & print 2 copies)
-2. MONDAY_MORNING_CHECKLIST.md (your action plan)
-3. DEVELOPER_HANDOFF_PACKAGE.md (for Upwork posting)
-
-**Backup**:
-4. POLICE_REPORT_TEMPLATE.md (fill out Sunday)
-5. photos/ directory (all 15 images on USB)
-
----
-
-## 📥 HOW TO ACCESS
-
-### Option 1: Web (if SSL works)
-https://info-09d194e5-7933-vm.eastus2.cloudapp.azure.com/workspace/vehicle-damage-forensics/
-
-### Option 2: Command Line
-```bash
-cd ~/.openclaw/workspace/vehicle-damage-forensics
-ls -lah
-```
-
-### Option 3: Copy to Local
-```bash
-scp -r work@[your-vm]:~/.openclaw/workspace/vehicle-damage-forensics ~/Desktop/
-```
-
-### Option 4: Shown in Chat
-Ask me to display any file and I'll paste it here
-
----
-
-**All Files Complete**: ✅  
-**Ready for Monday**: ✅  
-**Launch Ready**: ✅  
-
-**Your empire in 40 files.** 🏆
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/App/VehicleDamageForensicsApp.swift` | 191 |
+
+## Models — Codable structs, persisted as JSON
+
+Changing any field here is a persistence-format change: keep it additive/optional or write a migration.
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 509 |
+| `ios/VehicleDamageForensics/Models/Case.swift` | 512 |
+| `ios/VehicleDamageForensics/Models/MatchResult.swift` | 675 |
+| `ios/VehicleDamageForensics/Models/PaintSampleKit.swift` | 140 |
+| `ios/VehicleDamageForensics/Models/Vehicle.swift` | 775 |
+
+## ViewModels — @ObservableObject (MVVM)
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/ViewModels/AnalysisViewModel.swift` | 302 |
+| `ios/VehicleDamageForensics/ViewModels/CaptureViewModel.swift` | 1068 |
+| `ios/VehicleDamageForensics/ViewModels/CaseListViewModel.swift` | 141 |
+
+## Views — SwiftUI, grouped by feature
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift` | 534 |
+| `ios/VehicleDamageForensics/Views/Capture/CaptureFlowView.swift` | 313 |
+| `ios/VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift` | 537 |
+| `ios/VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift` | 212 |
+| `ios/VehicleDamageForensics/Views/Capture/PhotoReviewView.swift` | 329 |
+| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1052 |
+| `ios/VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift` | 189 |
+| `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift` | 466 |
+| `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift` | 274 |
+| `ios/VehicleDamageForensics/Views/Dashboard/OnboardingView.swift` | 132 |
+| `ios/VehicleDamageForensics/Views/LiDAR/LiDARScanView.swift` | 365 |
+| `ios/VehicleDamageForensics/Views/Paywall/PaywallView.swift` | 265 |
+| `ios/VehicleDamageForensics/Views/Reports/PDFReportView.swift` | 41 |
+| `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift` | 667 |
+
+## Services — camera, ARKit/LiDAR, storage, PDF, StoreKit
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/Services/CameraService.swift` | 1000 |
+| `ios/VehicleDamageForensics/Services/HeadingProvider.swift` | 60 |
+| `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
+| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 698 |
+| `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
+| `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 461 |
+| `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
+
+## Utilities — pure-function analysis algorithms
+
+Hand-rolled pixel/statistics math; validated against the Python reference in `ios/reference/`.
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/Utilities/CameraLevelMath.swift` | 58 |
+| `ios/VehicleDamageForensics/Utilities/ColorAnalysis.swift` | 471 |
+| `ios/VehicleDamageForensics/Utilities/MeasurementHelpers.swift` | 102 |
+| `ios/VehicleDamageForensics/Utilities/ModelExtensions.swift` | 53 |
+| `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 385 |
+| `ios/VehicleDamageForensics/Utilities/ScarLineSuggester.swift` | 153 |
+| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 897 |
+
+## ForensicEngine — scoring/matching orchestration
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift` | 215 |
+| `ios/VehicleDamageForensics/ForensicEngine/HeightAlignmentAnalyzer.swift` | 100 |
+| `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift` | 667 |
+| `ios/VehicleDamageForensics/ForensicEngine/PaintTransferAnalyzer.swift` | 148 |
+
+## iOS app — other target files
+
+| File | Lines |
+|---|---:|
+| `ios/VehicleDamageForensics/Info.plist` | 70 |
+
+## Documentation
+
+`ios/README.md` is the authoritative changelog. `HANDOFF_SUMMARY.md` is the team-facing state-of-the-project doc.
+
+| File | Lines |
+|---|---:|
+| `HANDOFF_SUMMARY.md` | 268 |
+| `README.md` | 21 |
+| `ios/README.md` | 660 |
+
+## Reference material (`ios/reference/`)
+
+Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analyzer.py`, the Python reference implementation the Swift scoring engine is validated against.
+
+| File | Lines |
+|---|---:|
+| `ios/reference/ALGORITHM_EXPLAINER.md` | 279 |
+| `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 295 |
+| `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
+| `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
+| `ios/reference/PROJECT_BRIEF.md` | 31 |
+| `ios/reference/enhanced_forensic_analyzer.py` | 689 |
+| `ios/reference/forensic_analyzer.py` | 571 |
+| `ios/reference/iOS_TECHNICAL_SPECS.md` | 427 |
+
+## Legal / web pages
+
+| File | Lines |
+|---|---:|
+| `docs/privacy-policy.html` | 143 |
+| `docs/terms-of-use.html` | 101 |
+
+## Build scripts
+
+`build_pbxproj.py` / `gen_pbxproj_ids.py` generate `project.pbxproj` from `pbxproj_skeleton.txt`. Any NEW Swift file must be registered in the pbxproj or it silently does not compile into the target.
+
+| File | Lines |
+|---|---:|
+| `scripts/build_pbxproj.py` | 110 |
+| `scripts/gen_pbxproj_ids.py` | 18 |
+| `scripts/pbxproj_skeleton.txt` | 310 |
+
+## Legacy web scaffold (not part of the iOS app)
+
+Vite/Cloudflare leftovers from an earlier web prototype. Not built, not shipped, not referenced by the iOS target. Candidate for deletion — see the open decisions list in `HANDOFF_SUMMARY.md`.
+
+| File | Lines |
+|---|---:|
+| `.gitignore` | 46 |
+| `package-lock.json` | 2680 |
+| `package.json` | 20 |
+| `public/static/style.css` | 1 |
+| `src/index.tsx` | 12 |
+| `src/renderer.tsx` | 12 |
+| `tsconfig.json` | 15 |
+| `vite.config.ts` | 14 |
+| `wrangler.jsonc` | 34 |
+
+## Regenerating this file
+
+This manifest is generated from `git ls-files`, not hand-maintained. Regenerate it
+whenever files are added, removed, or moved — see `docs/PROCESS.md`.
