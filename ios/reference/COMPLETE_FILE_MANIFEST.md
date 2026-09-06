@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 72 tracked files, of which 42 Swift sources (19887 lines).
+Totals: 73 tracked files, of which 42 Swift sources (19887 lines).
 
 ## iOS app — Xcode project
 
@@ -130,7 +130,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 186 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 187 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -156,6 +156,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/pbxproj_skeleton.txt` | 312 |
 | `scripts/preflight.py` | 1995 |
 | `scripts/check_doc_drift.py` | 519 |
+| `scripts/regen_manifest.py` | 42 |
 | `scripts/set_dev_team.sh` | 44 |
 
 ## Repo root
