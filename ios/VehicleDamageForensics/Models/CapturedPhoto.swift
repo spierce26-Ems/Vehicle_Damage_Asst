@@ -260,6 +260,48 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         scarFrontEndpoint = try c.decodeIfPresent(ScarEndpoint.self, forKey: .scarFrontEndpoint)
     }
 
+    // MARK: Duplication (item #5)
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan (duplicate case for another suspect). Fresh `id` for this
+    /// photo and for every nested `Identifiable` record inside it --
+    /// see `Vehicle.duplicatedWithFreshIDs()` for the full rationale
+    /// (SwiftUI row identity, and id-keyed references such as
+    /// `StriationExclusion.crossSectionID` addressing the wrong case's
+    /// data).
+    ///
+    /// `imageData`/`thumbnailData` are shared by value: the duplicate
+    /// documents the SAME physical photograph of the same victim
+    /// vehicle. `wasImported` is likewise preserved rather than reset --
+    /// how this evidence was originally obtained is a chain-of-custody
+    /// fact about the photograph, and copying it into another case does
+    /// not change it.
+    func duplicatedWithFreshIDs() -> CapturedPhoto {
+        CapturedPhoto(
+            id: UUID(),
+            imageData: imageData,
+            thumbnailData: thumbnailData,
+            captureDate: captureDate,
+            photoType: photoType,
+            qualityScore: qualityScore,
+            qualityFlags: qualityFlags,
+            sensorData: sensorData,
+            gpsCoordinate: gpsCoordinate,
+            cameraSettings: cameraSettings,
+            sequenceIndex: sequenceIndex,
+            annotationNotes: annotationNotes,
+            wasImported: wasImported,
+            paintDamagePoint: paintDamagePoint,
+            paintReferencePoint: paintReferencePoint,
+            scarLineStart: scarLineStart,
+            scarLineEnd: scarLineEnd,
+            scarMinutiae: scarMinutiae.map { $0.duplicatedWithFreshID() },
+            toolMarkStriationProfile: toolMarkStriationProfile?.duplicatedWithFreshIDs(),
+            scarFocusRegion: scarFocusRegion,
+            scarFrontEndpoint: scarFrontEndpoint
+        )
+    }
+
     // MARK: Computed
 
     var qualityLabel: QualityLabel {

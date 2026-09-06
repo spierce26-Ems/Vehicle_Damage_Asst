@@ -48,6 +48,9 @@ struct MatchResultsView: View {
             VStack(alignment: .leading, spacing: 20) {
                 verdictCard
                 disclaimerCard
+                if viewModel.isDuplicatedCase {
+                    sharedEvidenceCard
+                }
                 if viewModel.isUnlocked {
                     factorBreakdown
                     if !viewModel.skippedShotsSummary.isEmpty {
@@ -284,6 +287,32 @@ struct MatchResultsView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 (duplicate case for
+    /// another suspect). Shown on any case created by duplication.
+    ///
+    /// This is the reason `ForensicCase.sourceCaseID` exists rather than
+    /// the duplication being a silent convenience. An investigator
+    /// comparing "suspect A scored 74%, suspect B scored 71%" across two
+    /// cases must know those are not two independent investigations --
+    /// they rest on one single set of victim-vehicle photographs, so a
+    /// flaw in that evidence (a bad angle, a ruler in frame, a
+    /// mismarked scar line) is present in BOTH results identically and
+    /// the two scores cannot corroborate each other.
+    private var sharedEvidenceCard: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Shared victim-vehicle evidence")
+                    .font(.caption.bold())
+                Text("This case was created by duplicating another case, so its victim-vehicle photos are the same images used there. Results for the two suspects are not independent of each other: anything wrong with the victim photos affects both scores the same way. See this case's audit log for the source case.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } icon: {
+            Image(systemName: "person.2.badge.plus")
+                .foregroundStyle(.indigo)
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))

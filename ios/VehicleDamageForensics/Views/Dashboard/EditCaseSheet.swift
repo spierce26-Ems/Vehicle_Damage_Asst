@@ -64,6 +64,14 @@ struct EditCaseSheet: View {
     @State private var suspectVIN: String
     @State private var suspectBodyType: VehicleBodyType
 
+    // NOTE(AI Developer), added 2026-09 for task #11. Examiner identity
+    // is editable here rather than only at creation, because the person
+    // documenting a case may well not be the person who created it --
+    // and a field that can only be set once is a field that stays wrong.
+    @State private var examinerName: String
+    @State private var examinerAgency: String
+    @State private var examinerBadge: String
+
     init(forensicCase: ForensicCase, onSave: @escaping (ForensicCase) -> Void) {
         self.original = forensicCase
         self.onSave = onSave
@@ -102,6 +110,11 @@ struct EditCaseSheet: View {
         _suspectPlate = State(initialValue: s?.licensePlate ?? "")
         _suspectVIN = State(initialValue: s?.vin ?? "")
         _suspectBodyType = State(initialValue: s?.bodyType ?? .car)
+
+        let e = forensicCase.examiner
+        _examinerName = State(initialValue: e?.name ?? "")
+        _examinerAgency = State(initialValue: e?.agency ?? "")
+        _examinerBadge = State(initialValue: e?.badgeNumber ?? "")
     }
 
     var body: some View {
@@ -116,6 +129,24 @@ struct EditCaseSheet: View {
                             Text(t.displayName).tag(t)
                         }
                     }
+                }
+
+                // NOTE(AI Developer), added 2026-09 for task #11. The
+                // footer states why this is optional AND what it is
+                // for: an examiner who does not know the attestation
+                // depends on it will reasonably skip it, and a blank
+                // here silently weakens every capture note in the
+                // report.
+                Section {
+                    TextField("Examiner name", text: $examinerName)
+                        .textContentType(.name)
+                    TextField("Agency or department", text: $examinerAgency)
+                        .textContentType(.organizationName)
+                    TextField("Badge or ID number", text: $examinerBadge)
+                } header: {
+                    Text("Documented by")
+                } footer: {
+                    Text("Optional — leave blank if you're documenting your own incident. If provided, this name is attached to each recorded event in the chain-of-custody log and to the report's attestation. Without it the report states that its capture conditions cannot be attributed to a named person.")
                 }
 
                 Section("Incident Details") {
@@ -269,6 +300,20 @@ struct EditCaseSheet: View {
         }
 
         dismiss()
+        // NOTE(AI Developer), task #11: `ExaminerIdentity.init`
+        // normalizes whitespace and collapses empties to nil, so a
+        // field the user cleared or filled with spaces becomes a real
+        // "not recorded" rather than a non-nil value that renders
+        // blank. `hasAnyDetail` then decides nil-vs-value for the whole
+        // struct, so an all-empty form never persists an empty shell
+        // that would make `attestationSummary` non-nil.
+        let examiner = ExaminerIdentity(
+            name: examinerName,
+            agency: examinerAgency,
+            badgeNumber: examinerBadge
+        )
+        updated.examiner = examiner.hasAnyDetail ? examiner : nil
+
         onSave(updated)
     }
 }

@@ -20,6 +20,21 @@ struct DashboardView: View {
     @State private var editingCase: ForensicCase?
     @State private var caseToDelete: ForensicCase?
 
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan (duplicate case for another suspect). Non-nil while the
+    /// user is naming the duplicate; `duplicateName` holds the editable
+    /// name, prefilled by
+    /// `CaseListViewModel.suggestedDuplicateName(for:)`.
+    ///
+    /// Deliberately a confirmation step rather than an immediate
+    /// one-tap clone: duplicating copies every victim photo into a new
+    /// case file on disk (tens of MB), so an accidental swipe-tap
+    /// should not silently double the app's storage use. The sheet also
+    /// gives somewhere honest to state what will and won't be copied.
+    @State private var caseToDuplicate: ForensicCase?
+    @State private var duplicateName: String = ""
+    @State private var duplicateRoute: ForensicCase?
+
     // NOTE(AI Developer), added 2026-07 per Sean's request for a
     // first-time "how this works" intro. `@AppStorage` (not `AppState`,
     // which is dead/unused code -- see the NOTE in
@@ -80,7 +95,8 @@ struct DashboardView: View {
                             incidentDate: draft.incidentDate,
                             location: draft.location,
                             victimVehicle: draft.victimVehicle,
-                            notes: draft.notes
+                            notes: draft.notes,
+                            examiner: draft.examiner
                         )
                         newCaseRoute = new
                     }
@@ -93,6 +109,14 @@ struct DashboardView: View {
                 EditCaseSheet(forensicCase: c) { updated in
                     Task { await viewModel.updateCase(updated) }
                 }
+            }
+            // NOTE(AI Developer), added 2026-09 for item #5 (duplicate
+            // case for another suspect).
+            .sheet(item: $caseToDuplicate) { c in
+                duplicateSheet(for: c)
+            }
+            .navigationDestination(item: $duplicateRoute) { c in
+                CaptureFlowView(forensicCase: c)
             }
             // NOTE(AI Developer): Delete confirmation added per Sean's
             // security-audit decision (2026-07). Deleting a case is
@@ -117,6 +141,67 @@ struct DashboardView: View {
                 Button("Cancel", role: .cancel) { caseToDelete = nil }
             } message: { c in
                 Text("This permanently deletes all photos, LiDAR scans, and the audit log for this case. This cannot be undone.")
+            }
+        }
+    }
+
+    // MARK: Duplicate for another suspect (item #5)
+
+    /// NOTE(AI Developer), added 2026-09 for item #5. The copy here is
+    /// the whole point of having a sheet at all: it states plainly what
+    /// carries over and what does not, so an investigator is never
+    /// surprised to find the new case has no match score, and -- more
+    /// importantly -- never assumes the old score somehow still applies
+    /// to a different suspect.
+    private func duplicateSheet(for source: ForensicCase) -> some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Case name", text: $duplicateName)
+                } header: {
+                    Text("New case name")
+                } footer: {
+                    Text("A new case number is assigned automatically.")
+                }
+
+                Section("Copied from \(source.displayTitle)") {
+                    Label("Victim vehicle details and all its photos, scans, and markings", systemImage: "checkmark.circle")
+                    Label("Incident type, date, location, and notes", systemImage: "checkmark.circle")
+                    // Task #11 interacting with item #5: identity is a
+                    // fact about who is doing the work, so it carries
+                    // over. Listed explicitly rather than silently,
+                    // since the user should know their name will be
+                    // attached to the new case's audit entries.
+                    Label("Examiner name, agency, and badge number", systemImage: "checkmark.circle")
+                }
+
+                Section {
+                    Label("Suspect vehicle — you'll capture the new one", systemImage: "xmark.circle")
+                    Label("Match score and correlation results", systemImage: "xmark.circle")
+                    Label("Generated PDF report", systemImage: "xmark.circle")
+                } header: {
+                    Text("Not copied")
+                } footer: {
+                    Text("The previous results were about a different suspect vehicle, so they don't carry over. Both cases will record in their audit logs that they share the same victim vehicle evidence.")
+                }
+            }
+            .navigationTitle("Compare Another Suspect")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { caseToDuplicate = nil }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        let name = duplicateName
+                        caseToDuplicate = nil
+                        Task {
+                            let clone = await viewModel.duplicateCase(source, caseName: name)
+                            duplicateRoute = clone
+                        }
+                    }
+                    .disabled(duplicateName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
             }
         }
     }
@@ -183,6 +268,19 @@ struct DashboardView: View {
                         Label("Edit", systemImage: "pencil")
                     }
                     .tint(.blue)
+                    // NOTE(AI Developer), added 2026-09 for item #5:
+                    // "Another Suspect" rather than a bare "Duplicate",
+                    // because what this action is FOR is not obvious
+                    // from the generic verb -- the investigator is
+                    // setting up a comparison against a second suspect
+                    // vehicle, not making a backup copy of a case.
+                    Button {
+                        caseToDuplicate = c
+                        duplicateName = viewModel.suggestedDuplicateName(for: c)
+                    } label: {
+                        Label("Another Suspect", systemImage: "person.2.badge.plus")
+                    }
+                    .tint(.indigo)
                 }
                 // NOTE(AI Developer): Replaced the old `.onDelete` full-swipe
                 // (which deleted immediately on swipe-to-end, no confirmation)
@@ -333,6 +431,10 @@ struct NewCaseDraft {
     var location: IncidentLocation?
     var victimVehicle: Vehicle
     var notes: String
+    /// NOTE(AI Developer), added 2026-09 for task #11. `nil` when the
+    /// creator left the "Documented by" section blank, which is a
+    /// supported outcome -- see `ExaminerIdentity`.
+    var examiner: ExaminerIdentity?
 }
 
 /// Case-creation form per Sean's decision (2026-07): lets the investigator
@@ -366,6 +468,11 @@ struct NewCaseSheet: View {
     @State private var licensePlate: String = ""
     @State private var vin: String = ""
 
+    // Examiner identity (task #11)
+    @State private var examinerName: String = ""
+    @State private var examinerAgency: String = ""
+    @State private var examinerBadge: String = ""
+
     var onCreate: (NewCaseDraft) -> Void
 
     var body: some View {
@@ -378,6 +485,21 @@ struct NewCaseSheet: View {
                             Text(t.displayName).tag(t)
                         }
                     }
+                }
+
+                // Task #11. Same copy as EditCaseSheet -- one source
+                // of wording for one concept, so the two screens
+                // cannot drift.
+                Section {
+                    TextField("Examiner name", text: $examinerName)
+                        .textContentType(.name)
+                    TextField("Agency or department", text: $examinerAgency)
+                        .textContentType(.organizationName)
+                    TextField("Badge or ID number", text: $examinerBadge)
+                } header: {
+                    Text("Documented by")
+                } footer: {
+                    Text("Optional — leave blank if you're documenting your own incident. If provided, this name is attached to each recorded event in the chain-of-custody log and to the report's attestation. Without it the report states that its capture conditions cannot be attributed to a named person.")
                 }
 
                 Section("Incident Details") {
@@ -454,13 +576,21 @@ struct NewCaseSheet: View {
             licensePlate: licensePlate.isEmpty ? nil : licensePlate,
             vin: vin.isEmpty ? nil : vin
         )
+        // See EditCaseSheet.save() -- normalization plus hasAnyDetail so
+        // an all-blank section persists nil rather than an empty shell.
+        let examiner = ExaminerIdentity(
+            name: examinerName,
+            agency: examinerAgency,
+            badgeNumber: examinerBadge
+        )
         return NewCaseDraft(
             caseName: caseName,
             caseType: caseType,
             incidentDate: recordIncidentDate ? incidentDate : nil,
             location: location.isEmpty ? nil : location,
             victimVehicle: vehicle,
-            notes: notes
+            notes: notes,
+            examiner: examiner.hasAnyDetail ? examiner : nil
         )
     }
 }

@@ -100,6 +100,20 @@ struct ScarMinutia: Codable, Equatable, Identifiable {
     /// prominence peaks are filtered out before this struct is even
     /// created -- see `ScarFingerprintExtractor.minimumProminence`.
     var prominence: Double
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 (duplicate case for
+    /// another suspect). See `Vehicle.duplicatedWithFreshIDs()` for why
+    /// nested `Identifiable` ids must be regenerated rather than shared
+    /// between two cases.
+    func duplicatedWithFreshID() -> ScarMinutia {
+        ScarMinutia(
+            id: UUID(),
+            type: type,
+            positionAlongLine: positionAlongLine,
+            magnitude: magnitude,
+            prominence: prominence
+        )
+    }
 }
 
 // MARK: - Scar Fingerprint Extractor

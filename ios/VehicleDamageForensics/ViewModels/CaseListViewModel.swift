@@ -73,7 +73,8 @@ final class CaseListViewModel: ObservableObject {
         incidentDate: Date? = nil,
         location: IncidentLocation? = nil,
         victimVehicle: Vehicle = Vehicle(role: .victim),
-        notes: String = ""
+        notes: String = "",
+        examiner: ExaminerIdentity? = nil
     ) async -> ForensicCase {
         let newCase = ForensicCase(
             caseNumber: nextCaseNumber(),
@@ -84,10 +85,86 @@ final class CaseListViewModel: ObservableObject {
             incidentDate: incidentDate,
             location: (location?.isEmpty ?? true) ? nil : location,
             notes: notes,
-            victimVehicle: victimVehicle
+            victimVehicle: victimVehicle,
+            // Task #11: passed into the initializer rather than assigned
+            // afterwards, so the `.created` audit entry that
+            // `ForensicCase.init` appends is itself attributed. Setting
+            // it after construction would leave the very first entry in
+            // every case's chain of custody unattributed.
+            examiner: examiner
         )
         await storage.save(newCase)
         return newCase
+    }
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan ("Duplicate Case for Another Suspect"), Option B per the
+    /// Tech Lead's decision.
+    ///
+    /// Clones `source`'s victim-vehicle evidence and incident details
+    /// into a brand-new case with a freshly assigned serial number,
+    /// ready for a different suspect vehicle. See
+    /// `ForensicCase.duplicatedForNewSuspect` for exactly what is
+    /// carried over and (more importantly) what is cleared.
+    ///
+    /// Also records a `.caseDuplicated` entry on the SOURCE case and
+    /// re-saves it, so the link is discoverable from both ends -- a
+    /// reader of the original case can see its victim evidence was
+    /// reused, not just a reader of the clone. Without this the reuse is
+    /// only visible from whichever case you happen to open second.
+    ///
+    /// `nextCaseNumber()` reads `cases`, which is `@MainActor` state
+    /// bound from `StorageService`; this method is therefore
+    /// MainActor-isolated like the rest of this class, and the serial is
+    /// generated before any `await` so two rapid duplications can't race
+    /// to the same number.
+    func duplicateCase(_ source: ForensicCase, caseName: String) async -> ForensicCase {
+        let assignedNumber = nextCaseNumber()
+        let trimmedName = caseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clone = source.duplicatedForNewSuspect(
+            caseNumber: assignedNumber,
+            caseName: trimmedName
+        )
+        await storage.save(clone)
+
+        // Back-link on the source case. Done after the clone is safely
+        // persisted, and its failure is deliberately non-fatal: if this
+        // second save fails the clone still exists and still carries its
+        // own `sourceCaseID` + audit entry, so the link is never lost
+        // entirely -- only its convenience direction.
+        var updatedSource = source
+        updatedSource.recordAudit(
+            .caseDuplicated,
+            detail: "This case's victim vehicle evidence was duplicated into new case \(clone.displayTitle) (\(assignedNumber)) to compare against a different suspect vehicle."
+        )
+        await storage.save(updatedSource)
+
+        return clone
+    }
+
+    /// A sensible prefilled name for a duplicate, so the case list
+    /// doesn't fill up with identically-named rows.
+    ///
+    /// NOTE(AI Developer): counts existing cases already duplicated from
+    /// the same source to produce "… — Suspect 2", "… — Suspect 3", and
+    /// so on. The source case itself is implicitly "Suspect 1", which is
+    /// why the count starts at 2. Uses the source's `displayTitle` as
+    /// the base so an unnamed case falls back to its serial number
+    /// rather than producing a name that starts with " — Suspect 2".
+    func suggestedDuplicateName(for source: ForensicCase) -> String {
+        let base = source.caseName.isEmpty ? source.displayTitle : source.caseName
+        // Strip any existing "— Suspect N" so duplicating a duplicate
+        // doesn't compound into "X — Suspect 2 — Suspect 3".
+        let root: String
+        if let range = base.range(of: " — Suspect ", options: .backwards),
+           Int(base[range.upperBound...].trimmingCharacters(in: .whitespaces)) != nil {
+            root = String(base[base.startIndex..<range.lowerBound])
+        } else {
+            root = base
+        }
+        let rootID = source.sourceCaseID ?? source.id
+        let siblings = cases.filter { $0.id == rootID || $0.sourceCaseID == rootID }.count
+        return "\(root) — Suspect \(max(siblings + 1, 2))"
     }
 
     /// Persist edits made via `EditCaseSheet` from the Dashboard. Records

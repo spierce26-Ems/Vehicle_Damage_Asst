@@ -64,6 +64,41 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     /// free access -- see custom `init(from:)` below.
     var isUnlocked: Bool
 
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan ("Duplicate Case for Another Suspect"), implemented as
+    /// Option B per the Tech Lead's decision -- a clone action rather
+    /// than refactoring `suspectVehicle` into an array (~88 references
+    /// across 15 files).
+    ///
+    /// The `id` of the case this one was duplicated from, or `nil` for a
+    /// case created from scratch. Set once at clone time and never
+    /// changed afterwards.
+    ///
+    /// This exists for evidential rather than functional reasons. Two
+    /// cases that share the same victim-vehicle photographs are not
+    /// independent observations, and anyone reviewing a
+    /// "suspect A scored 74%, suspect B scored 71%" comparison needs to
+    /// know that. Without this link the duplication is invisible in the
+    /// data, and the same victim evidence could be presented twice as if
+    /// it had been gathered twice. It is deliberately a plain `UUID?`
+    /// and NOT a resolved reference: the source case may later be
+    /// deleted, and a dangling id that still records "this came from
+    /// somewhere" is more honest than a reference that must be kept
+    /// valid or silently dropped.
+    var sourceCaseID: UUID?
+
+    /// NOTE(AI Developer), added 2026-09 for task #11. Who is
+    /// documenting this case -- see `ExaminerIdentity` for why every
+    /// part of it is optional and why it must never gate a capture.
+    ///
+    /// Recorded per-case rather than as a global app setting on
+    /// purpose: the same device can legitimately be used by different
+    /// examiners, and a global value would retroactively re-attribute
+    /// cases documented by someone else. Same reasoning as the copied
+    /// `AuditEntry.examinerName` -- attribution is a fact about a
+    /// moment, not a current setting.
+    var examiner: ExaminerIdentity?
+
     // MARK: Init
 
     init(
@@ -82,7 +117,9 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         reportURL: URL? = nil,
         metadata: CaseMetadata = CaseMetadata(),
         auditLog: [AuditEntry] = [],
-        isUnlocked: Bool = false
+        isUnlocked: Bool = false,
+        sourceCaseID: UUID? = nil,
+        examiner: ExaminerIdentity? = nil
     ) {
         self.id = id
         self.caseNumber = caseNumber
@@ -100,8 +137,20 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         self.metadata = metadata
         // A freshly-created case always gets a `.created` entry so the
         // audit trail's first line is never missing.
-        self.auditLog = auditLog.isEmpty ? [AuditEntry(action: .created)] : auditLog
+        //
+        // NOTE(AI Developer), task #11: this entry is constructed
+        // directly rather than via `recordAudit`, so it needs the
+        // examiner passed explicitly -- otherwise the FIRST line of
+        // every case's chain of custody would be the one unattributed
+        // entry, which is the line a reader looks at first. `examiner`
+        // is read from the parameter, not `self.examiner`, because the
+        // stored property is not assigned until below.
+        self.auditLog = auditLog.isEmpty
+            ? [AuditEntry(action: .created, examinerName: examiner?.name)]
+            : auditLog
         self.isUnlocked = isUnlocked
+        self.sourceCaseID = sourceCaseID
+        self.examiner = examiner
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -138,6 +187,12 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         // Falls back to `false` (locked) for any case file persisted
         // before monetization existed -- see the field's doc comment.
         isUnlocked = try c.decodeIfPresent(Bool.self, forKey: .isUnlocked) ?? false
+        // Optional, so `decodeIfPresent` is what the synthesized code
+        // would do anyway -- `nil` for every case saved before
+        // duplication existed, which is exactly right: those cases were
+        // created from scratch.
+        sourceCaseID = try c.decodeIfPresent(UUID.self, forKey: .sourceCaseID)
+        examiner = try c.decodeIfPresent(ExaminerIdentity.self, forKey: .examiner)
     }
 
     // MARK: Computed Properties
@@ -382,18 +437,148 @@ struct AuditEntry: Codable, Equatable, Identifiable {
     let deviceID: String
     let detail: String?
 
+    /// NOTE(AI Developer), added 2026-09 for task #11 per the Tech
+    /// Lead's ruling on the chain-of-custody page: "an audit trail that
+    /// records what happened but not who did it is barely an audit
+    /// trail."
+    ///
+    /// The examiner's display name at the moment this entry was
+    /// recorded. It matters most for the entries that record a
+    /// JUDGEMENT rather than a data event -- `.striationProbeExcluded`
+    /// above all, where a probe being set aside is a decision someone
+    /// made and the decision is only assessable if attributable.
+    ///
+    /// Deliberately a COPIED STRING, not a reference into
+    /// `ForensicCase.examiner`. An audit entry is immutable history: if
+    /// the examiner later corrects their name or another examiner picks
+    /// the case up, entries already written must keep naming whoever
+    /// actually recorded them. Resolving live would silently rewrite the
+    /// past.
+    ///
+    /// Optional per the persisted-model rule (PROCESS.md sec.1 and
+    /// preflight): every entry written before this field existed decodes
+    /// as `nil`, and `nil` is a real third state -- "not recorded",
+    /// which is distinct from an examiner having been recorded as
+    /// anonymous. `attributionSummary` renders it as such and never as
+    /// a blank.
+    let examinerName: String?
+
     init(
         id: UUID = UUID(),
         timestamp: Date = Date(),
         action: AuditAction,
         deviceID: String = UIDevice.current.identifierForVendor?.uuidString ?? "unknown",
-        detail: String? = nil
+        detail: String? = nil,
+        examinerName: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
         self.action = action
         self.deviceID = deviceID
         self.detail = detail
+        self.examinerName = examinerName
+    }
+
+    /// NOTE(AI Developer), added 2026-09 for task #11. Custom
+    /// `init(from:)` is REQUIRED here even though `examinerName` is
+    /// optional: `id`, `timestamp`, `action` and `deviceID` are all
+    /// non-optional `let`s, so this type has always depended on the
+    /// synthesized decoder, and adding a member to it means writing the
+    /// whole thing. Optional `examinerName` decodes via
+    /// `decodeIfPresent` exactly as the synthesized code would.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        action = try c.decode(AuditAction.self, forKey: .action)
+        deviceID = try c.decode(String.self, forKey: .deviceID)
+        detail = try c.decodeIfPresent(String.self, forKey: .detail)
+        examinerName = try c.decodeIfPresent(String.self, forKey: .examinerName)
+    }
+
+    /// Chain-of-custody rendering of who recorded this entry. Three
+    /// states, never two -- the house rule this board has now converged
+    /// on repeatedly: an absence must not assert anything. `nil` means
+    /// no examiner was recorded, which is NOT the same claim as an
+    /// examiner having been recorded anonymously, and neither may
+    /// render as a blank (a blank attribution line reads as an unsigned
+    /// entry).
+    var attributionSummary: String {
+        guard let examinerName, !examinerName.isEmpty else {
+            return "Examiner not recorded"
+        }
+        return examinerName
+    }
+}
+
+// MARK: - Examiner Identity
+
+/// Who is documenting this case.
+///
+/// NOTE(AI Developer), added 2026-09 for task #11 per the UI/UX
+/// Designer's argument, accepted by the Tech Lead: `frameConfirmedClear`
+/// (and the striation exclusions) are ATTESTATIONS, and Ledger's
+/// evidence appendix already renders them as "the examiner attested".
+/// An unattributed attestation is weaker than none -- it asserts that
+/// somebody vouched for something without recording who, which is a
+/// claim the report cannot support.
+///
+/// All three fields are optional, and the whole struct is optional on
+/// `ForensicCase`, for two independent reasons:
+///
+/// 1. The persisted-model rule (PROCESS.md sec.1): a non-optional field
+///    on a Codable model throws `keyNotFound` for every case saved
+///    before it existed.
+/// 2. It must NEVER block a roadside capture. A consumer documenting
+///    their own hit-and-run has no agency and no badge number, and a
+///    required field here would either lock them out or train everyone
+///    to type junk into it -- which is worse than an honest blank,
+///    because junk is indistinguishable from a real entry.
+struct ExaminerIdentity: Codable, Equatable {
+    /// Examiner or documenting party's name.
+    var name: String?
+    /// Agency, department, or firm. Absent for a private individual
+    /// documenting their own incident, which is a supported and common
+    /// case -- not a deficiency.
+    var agency: String?
+    /// Badge, licence, or employee number.
+    var badgeNumber: String?
+
+    init(name: String? = nil, agency: String? = nil, badgeNumber: String? = nil) {
+        self.name = Self.normalized(name)
+        self.agency = Self.normalized(agency)
+        self.badgeNumber = Self.normalized(badgeNumber)
+    }
+
+    /// Trims whitespace and collapses an empty string to `nil`, so
+    /// "recorded as empty" and "not recorded" cannot diverge in the
+    /// data. Without this, a user who types a space into the name field
+    /// produces a record that is non-nil but renders blank -- exactly
+    /// the "absence asserting something" failure the three-state rule
+    /// exists to prevent.
+    private static func normalized(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
+
+    /// True when at least one field carries something. `false` is
+    /// reported honestly rather than hidden -- see
+    /// `ForensicCase.attestationSummary`.
+    var hasAnyDetail: Bool {
+        name != nil || agency != nil || badgeNumber != nil
+    }
+
+    /// Single-line rendering for the report cover and audit entries.
+    /// Only the fields that exist appear; nothing is padded with
+    /// placeholders, since a placeholder in an attestation is a
+    /// statement the app cannot support.
+    var displayLine: String? {
+        var parts: [String] = []
+        if let name { parts.append(name) }
+        if let badgeNumber { parts.append("Badge \(badgeNumber)") }
+        if let agency { parts.append(agency) }
+        return parts.isEmpty ? nil : parts.joined(separator: " — ")
     }
 }
 
@@ -476,6 +661,7 @@ enum AuditAction: String, Codable {
     // evidence having been superseded after the fact, not just filled
     // once.
     case photoReplaced = "photo_replaced"
+<<<<<<< HEAD
     // NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item
     // plan (per-cross-section exclude). Excluding a striation probe
     // changes a reported forensic score, so it is exactly the kind of
@@ -491,6 +677,17 @@ enum AuditAction: String, Codable {
     // only their final state -- an exclusion that was made and then
     // quietly reversed is itself meaningful context.
     case striationProbeRestored = "striation_probe_restored"
+=======
+    // NOTE(AI Developer), added 2026-09 for item #5 (duplicate case for
+    // another suspect). Recorded on the NEW case, naming the case its
+    // victim evidence was copied from -- so the clone's chain of custody
+    // states on its very first line that its victim photographs were not
+    // captured for this case. Also recorded on the SOURCE case, so
+    // someone reading the original can tell its evidence was reused
+    // elsewhere. Both directions matter: the link is only useful for
+    // assessing independence if it is discoverable from either end.
+    case caseDuplicated = "case_duplicated"
+>>>>>>> origin/duplicate-case
 
     var displayName: String {
         switch self {
@@ -510,8 +707,12 @@ enum AuditAction: String, Codable {
         case .scarDirectionRecorded: return "Scar Direction Recorded"
         case .scarPhotoCaptured: return "Scar Photo Captured"
         case .photoReplaced: return "Photo Replaced"
+<<<<<<< HEAD
         case .striationProbeExcluded: return "Striation Probe Excluded"
         case .striationProbeRestored: return "Striation Probe Restored"
+=======
+        case .caseDuplicated: return "Case Duplicated for Another Suspect"
+>>>>>>> origin/duplicate-case
         }
     }
 }
@@ -520,8 +721,135 @@ extension ForensicCase {
     /// Appends an immutable audit entry to this case's chain-of-custody log.
     /// Call this at every mutation point (capture, analysis, report, etc.)
     /// rather than mutating `auditLog` directly, so entries stay consistent.
+    /// NOTE(AI Developer), 2026-09 for task #11: the examiner name is
+    /// captured HERE, at the single choke point every mutation already
+    /// goes through, rather than at each of the ~15 call sites. That is
+    /// the whole reason this function exists (see its original doc
+    /// comment above), and it means attribution cannot be forgotten by
+    /// a future call site the way it would be if each caller passed it.
+    ///
+    /// The value is copied from `examiner` at the instant of the event,
+    /// so later edits to the examiner's details never rewrite entries
+    /// already recorded -- see `AuditEntry.examinerName`.
     mutating func recordAudit(_ action: AuditAction, detail: String? = nil) {
-        auditLog.append(AuditEntry(action: action, detail: detail))
+        auditLog.append(AuditEntry(
+            action: action,
+            detail: detail,
+            examinerName: examiner?.name
+        ))
+    }
+
+    // MARK: Attestation (task #11)
+
+    /// NOTE(AI Developer), added 2026-09 for task #11. The report's
+    /// attestation block, or `nil` when there is nothing to attest
+    /// with.
+    ///
+    /// Returning `nil` rather than a partially-filled block is
+    /// deliberate: per the Designer's rule the Tech Lead adopted as
+    /// general ("specifying omission rather than blank lines"), a
+    /// report with a blank examiner line reads as an UNSIGNED report,
+    /// which is a worse artefact than an obviously incomplete one. The
+    /// PDF renders an explicit "not recorded" statement in this case --
+    /// see `PDFReportGenerator.drawAttestationBlock`.
+    var attestationSummary: String? {
+        examiner?.displayLine
+    }
+
+    // MARK: Duplication for another suspect (item #5)
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan, built as Option B per the Tech Lead's decision: a clone
+    /// action rather than refactoring `suspectVehicle` from `Vehicle?`
+    /// into an array (~88 references across 15 files -- a far riskier
+    /// rewrite for the same investigator-visible outcome).
+    ///
+    /// Produces a NEW case that reuses this case's victim-vehicle
+    /// evidence and incident details, ready to be compared against a
+    /// different suspect vehicle. What is deliberately carried over vs.
+    /// cleared:
+    ///
+    /// CARRIED OVER -- facts about the incident and the victim vehicle,
+    /// which are identical no matter who is suspected: the victim
+    /// vehicle and all its photos/scans/markings, case type, incident
+    /// date, location, and notes.
+    ///
+    /// CLEARED -- everything that is a statement about a SUSPECT or a
+    /// conclusion drawn about one:
+    /// - `suspectVehicle` (nil): the whole point is a different suspect.
+    /// - `matchResult` (nil): a score computed against suspect A is
+    ///   meaningless in a case about suspect B. Carrying it over would
+    ///   be the single most dangerous possible bug in this feature --
+    ///   a case showing a 78% correlation against a vehicle it was never
+    ///   compared to.
+    /// - `reportURL` (nil): that PDF documents the other comparison.
+    /// - `status` (.inProgress): the new case genuinely is incomplete.
+    /// - `isUnlocked` (false): an unlock is a purchase against one
+    ///   case's report. Inheriting it would let one payment unlock
+    ///   unlimited cases -- see `PurchaseManager`. Deliberately NOT
+    ///   inherited even though it makes the feature slightly less
+    ///   convenient.
+    /// - `id`, `caseNumber`, `dateCreated`, `metadata`: this is a new
+    ///   case record, created now, on this device.
+    /// - `auditLog`: starts fresh, because a chain of custody belongs to
+    ///   one case. It is NOT empty though -- see below.
+    ///
+    /// The new case's audit log opens with the standard `.created` entry
+    /// plus a `.caseDuplicated` entry naming the source case, so the
+    /// clone's chain of custody discloses on its first two lines that
+    /// its victim photographs were captured for a different case. That
+    /// disclosure, together with `sourceCaseID`, is what keeps
+    /// "suspect A: 74%, suspect B: 71%" from being read as two
+    /// independent investigations when they share one set of victim
+    /// evidence.
+    ///
+    /// - Parameters:
+    ///   - caseNumber: the newly assigned serial. Callers must pass a
+    ///     freshly generated one (see `CaseListViewModel.nextCaseNumber`)
+    ///     -- this type has no access to the set of existing cases and
+    ///     so cannot generate a unique number itself.
+    ///   - caseName: name for the new case. Callers should offer the
+    ///     user a sensible prefilled default rather than reusing the
+    ///     source's name verbatim, or the case list ends up with several
+    ///     identically-named rows.
+    func duplicatedForNewSuspect(caseNumber: String, caseName: String) -> ForensicCase {
+        var clone = ForensicCase(
+            caseNumber: caseNumber,
+            caseName: caseName,
+            caseType: caseType,
+            status: .inProgress,
+            dateCreated: Date(),
+            incidentDate: incidentDate,
+            location: location,
+            notes: notes,
+            victimVehicle: victimVehicle.duplicatedWithFreshIDs(),
+            suspectVehicle: nil,
+            matchResult: nil,
+            reportURL: nil,
+            metadata: CaseMetadata(createdBy: metadata.createdBy),
+            auditLog: [],
+            isUnlocked: false,
+            sourceCaseID: id,
+            // NOTE(AI Developer), task #11 interacting with item #5:
+            // the examiner IS carried over. It belongs with the
+            // "facts about the incident" group, not the "conclusions
+            // about a suspect" group -- the same person is documenting
+            // the same incident against a different suspect, and making
+            // them retype their badge number for each suspect would
+            // train them to skip it. Note this differs from
+            // `isUnlocked`, which is cleared: an unlock is a purchase
+            // against one case's report, whereas identity is a fact
+            // about who is doing the work.
+            examiner: examiner
+        )
+        clone.recordAudit(
+            .caseDuplicated,
+            // `self.` is explicit throughout: the source case's own
+            // identifiers, NOT the new case's `caseNumber`/`caseName`
+            // parameters shadowing them.
+            detail: "Victim vehicle evidence duplicated from case \(self.displayTitle) (\(self.caseNumber), id \(self.id.uuidString)). The victim photos in this case were captured for that case, not this one; no suspect data, match result, or report was carried over."
+        )
+        return clone
     }
 }
 
