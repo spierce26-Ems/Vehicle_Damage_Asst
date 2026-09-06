@@ -935,11 +935,45 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   by paint colour. Sean's original combined rule is unchanged and now runs only for the
   sub-rule-out mismatch band. Missing measurements are still never treated as a mismatch.
 
-  **Not yet compiled** — no Xcode toolchain; brace/paren balance checked, and the new band curve
-  was verified against a Python port of both the old and reference implementations at every
-  boundary. On-device: confirm a deliberate >6" height-mismatch pair surfaces the exclusion banner
-  on the results screen and in the PDF, and that a 3" mismatch does NOT (poor score, plausible
-  collision).
+  **Files touched**: `ios/VehicleDamageForensics/Utilities/MeasurementHelpers.swift`,
+  `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift`
+
+  **Commit(s)**: `448f854`, merged in `dc069a1`
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
+  checked; the new band curve was verified against a Python port of both the old and the reference
+  implementations at every boundary, including 2.001", 4.001" and 6.001". `preflight --all` clear
+  at zero advisories. That means "worth compiling" and nothing more.
+
+  **Read this entry with the #14 part 1 entry at the top of this file.** The standalone rule-out
+  described here was later gated on measurement provenance: a LiDAR-measured pair above 6" now
+  reports *Height Alignment inconclusive* instead of an exclusion, because a two-raycast height
+  carries σ ≈ 1.7" and would have produced false exclusions. Nothing here is retracted — the 6"
+  threshold is a geometric claim and does not move — but the rule fires only when both sides are
+  rule-out capable. A reader consulting this entry alone would overstate what the app now does.
+
+  **On-device test checklist**:
+  - [ ] Enter both bumper heights **by hand**, 7" apart. The results screen shows the Height
+    Alignment **rule-out** banner naming both heights, the difference, and the 6" limit.
+  - [ ] The same case's PDF carries that rule-out text, not just the score.
+  - [ ] The full factor breakdown is still displayed underneath it. The exclusion layers on top of
+    the evidence; it does not replace or hide it.
+  - [ ] **Negative case, the one that matters most**: a hand-entered 3" difference shows **no**
+    exclusion — a poor Height Alignment subscore and nothing more. A 3" mismatch is a plausible
+    collision.
+  - [ ] **Negative case**: a 7" difference where the heights came from a **LiDAR scan** shows the
+    *inconclusive* wording and **no** exclusion, and the text tells the examiner a tape measure
+    resolves it (#14 part 1).
+  - [ ] **Negative case**: a case with **no** height data on one side produces no exclusion and no
+    inconclusive notice. A missing measurement is unmeasured, never a mismatch (`docs/PROCESS.md`
+    §5).
+  - [ ] Band boundaries on a real case, since these are the numbers the Python port verified and
+    the device is the only place the Swift runs: 2" reads 100, 4" reads 75, 6" reads 50, and 6.1"
+    reads 0 with the rule-out.
+  - [ ] Confirm a 7" difference **with scar directions that agree** still rules out. Before this
+    change an exclusion required a scar conflict as well, so agreeing scars silently suppressed a
+    physical impossibility.
+  - [ ] Determinism: re-run analysis on the same case twice and get identical subscores.
 
 - **Damage Dimensions: replace absolute-mm scoring with the smaller/larger ratio form (task #10b).**
   `MatchScoreCalculator.scoreDamageDimensions` scored `max(0, 100 - abs(diff))` — 1mm = 1 point —
