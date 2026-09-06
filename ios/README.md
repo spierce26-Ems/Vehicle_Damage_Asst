@@ -146,8 +146,9 @@ independence:**
 `cross-section-exclude` rebased onto `9f3d487` with zero conflicts and zero
 blocking checks. That is evidence about the tree it was rebased onto and
 nothing else: cherry-picking #6 onto `prism-task10-p1b` conflicts in one region
-of `ToolMarkAnalysis.swift`, roughly lines 720-845, precisely because
-`prism-task10-p1b` is not on `main` yet and that file had no competing edit.
+of `ToolMarkAnalysis.swift` — the `StriationProfile` and `ToolMarkComparison`
+declarations — precisely because `prism-task10-p1b` is not on `main` yet and
+that file had no competing edit.
 The conflict was reproduced and then **aborted rather than resolved** — hand
 resolving it and trusting a green check afterwards is the failure this project
 ruled out this morning, and `ToolMarkAnalysis.swift` is where a persisted field
