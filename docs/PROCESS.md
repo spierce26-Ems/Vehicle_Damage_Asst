@@ -383,6 +383,44 @@ Two design rules govern it, and they are the reason to trust its output:
   history, tooling that could be mistaken for a build would be worse than no
   tooling.
 
+### 5c. The other direction: code drifting from correct documentation
+
+Every check in `preflight.py` assumes documentation goes stale behind code.
+Two of task #10's three scoring divergences were the reverse:
+`ALGORITHM_EXPLAINER.md` was **right**, and the Swift had drifted away from it.
+Nothing monitored that direction, and the asymmetry is why — a stale doc is
+caught by anyone reading the code, while correct documentation the code has
+left behind is only caught by someone reading the doc *as authority*, which is
+not a thing anyone does routinely. It was a review-habit gap before it was a
+tooling gap.
+
+`scripts/check_doc_drift.py` mechanizes the tractable subset: **numeric claims
+only** — the factor weights and the height bands — which is where all three
+real divergences lived. General prose agreement is not tractable and is not
+attempted.
+
+Two conditions on it, both from testing it against the way this document is
+actually edited rather than against a regression:
+
+- **It must assert the expected number of claims, not just compare the ones it
+  finds.** Converting the height-band list to a markdown table made it check
+  three bands instead of four and still print `clear`. That is the dead-check
+  failure in its quietest form: the check did not break, it just quietly
+  examined less, and the missing band was the rule-out row. A count that is
+  expected must be asserted or a format change silently narrows the check.
+- **A format failure must not be reported as a drift failure.** Rewording one
+  heading from `(30% weight)` to `(weight 30%)` produced
+  `doc [20,15,...] != code [30,20,...]` — which reads as a scoring regression
+  and would send the reader to the Swift, where nothing is wrong. Failing on a
+  prose rewrite is the *right* direction to fail, but it has to say that is what
+  happened.
+
+Accepted as the cheap version deliberately. The robust alternative is a data
+file both the document and the code reference, which is more work and changes
+how the document is authored; that is worth doing only if this fires often
+enough to be annoying. Recorded so the choice is visible rather than defaulted
+into.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
