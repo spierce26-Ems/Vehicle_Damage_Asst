@@ -662,10 +662,13 @@ def _swift_parser():
     team installed one within the hour after "we need Xcode" turned out to be
     the wrong shape of the problem.
 
-    Returns (path, version, ephemeral). `ephemeral` marks a location that does
-    not survive a sandbox rebuild, so the caller can warn while still running
-    the check -- see SWIFT_PARSER_PATHS.
+    Returns (path, version, ephemeral, broken). `ephemeral` marks a location
+    that does not survive a sandbox rebuild, so the caller can warn while
+    still running the check -- see SWIFT_PARSER_PATHS. `broken` lists
+    candidates that EXIST but cannot run, which is a different report from
+    finding nothing.
     """
+    broken = []
     for spec, kind, ephemeral in SWIFT_PARSER_PATHS:
         if spec == "$SWIFT_FRONTEND":
             path = os.environ.get("SWIFT_FRONTEND") or None
@@ -680,9 +683,50 @@ def _swift_parser():
             path = hits[0] if hits else None
         else:
             path = spec
-        if path and os.path.exists(path):
-            return path, _swift_version(path), ephemeral
-    return None, None, False
+        if not path or not os.path.exists(path):
+            continue
+        # EXISTS is not RUNS. `swiftc` on Ubuntu 24.04 wants
+        # libncurses.so.6 and the distro ships only the wide variant, so the
+        # binary is present and cannot load. Probed by executing it, because
+        # an existence test cannot tell a missing tool from an unloadable
+        # one -- the Tech Lead lost twenty minutes to a report that said "no
+        # compiler found" when the compiler was right there.
+        #
+        # This mattered more than a confusing message. Before this probe an
+        # unloadable frontend made every file "fail to parse", so a broken
+        # toolchain was reported as 42 blocking source defects -- the tool
+        # blaming the code for its own inability to run, which is the worst
+        # available direction for a check meant to protect Sean's build.
+        ok, why = _parser_runs(path)
+        if ok:
+            return path, _swift_version(path), ephemeral, None
+        broken.append((path, why))
+    return None, None, False, broken or None
+
+
+def _parser_runs(path):
+    """Can this binary actually execute? Returns (ok, reason_if_not).
+
+    A loader failure prints to stderr and exits non-zero without ever
+    reading a source file, so it is distinguishable from a parse error --
+    but only if something looks.
+    """
+    try:
+        proc = subprocess.run([path, "--version"], capture_output=True,
+                              text=True, timeout=30)
+    except OSError as exc:
+        return False, str(exc)
+    except subprocess.TimeoutExpired:
+        return False, "timed out running --version"
+    text = (proc.stdout + proc.stderr).strip()
+    if "[Ss]wift version" and re.search(r"[Ss]wift version", text):
+        return True, None
+    first = text.splitlines()[0] if text else f"exited {proc.returncode}"
+    if proc.returncode == 0:
+        # Ran, but did not identify itself as Swift. Do not use it: naming
+        # the parser is only worth anything if the name is real.
+        return False, f"did not report a Swift version ({first})"
+    return False, first
 
 
 def _swift_version(path):
@@ -746,16 +790,30 @@ def check_swift_parses():
              if f.endswith(".swift")]
     if not swift:
         return
-    parser, version, ephemeral = _swift_parser()
+    parser, version, ephemeral, broken = _swift_parser()
     if parser is None:
+        if broken:
+            shown = "; ".join(f"{b} ({why})" for b, why in broken[:2])
+            warn("swift-parse",
+                 f"a Swift frontend EXISTS but cannot run, so {len(swift)} "
+                 f"tracked Swift file(s) were NOT parsed: {shown}",
+                 "this is a broken toolchain, not broken source: a loader "
+                 "error means the binary never read a file. On Ubuntu 24.04 "
+                 "swiftc wants libncurses.so.6 and the distro ships only the "
+                 "wide variant -- symlink libncursesw.so.6. Fix the install, "
+                 "not the code")
+            return
+        looked = ", ".join(spec for spec, _, _ in SWIFT_PARSER_PATHS)
         warn("swift-parse",
              f"no Swift frontend found -- {len(swift)} tracked Swift file(s) "
              "were NOT parsed, and no other check here asks whether they are "
-             "valid",
+             f"valid. Searched: {looked}",
              "install a Swift toolchain (swift.org, Linux tarball is enough "
-             "-- parsing needs no iOS SDK) or set SWIFT_FRONTEND to one; "
-             "until then a clear report says nothing about whether this tree "
-             "parses")
+             "-- parsing needs no iOS SDK) or set SWIFT_FRONTEND to one. If "
+             "your interactive shell parses but `git commit` says this, the "
+             "hook runs with a BARE environment: a profile export does not "
+             "reach it, so put the toolchain on one of the paths above (a "
+             "~/toolchains/swift symlink is enough)")
         return
 
     if ephemeral:
