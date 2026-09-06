@@ -281,6 +281,49 @@ And when a guard is a list, ask whether it can be a rule instead: a list covers
 the ways something has already gone wrong, a rule covers the ways it has not
 gone wrong yet.
 
+### 4d. A conflict resolution is where prose goes missing
+
+The same failure with a specific and repeatable location. When two branches are
+merged, **neither side's hunk has to be wrong for the result to be wrong** — the
+loss happens at the join, and no amount of reviewing either input finds it.
+
+The instance: resolving `cross-section-exclude` against the version-stamp work
+produced correct code and dropped the doc comment above
+`isStatisticallySignificant`. What survived was pre-v1.2.0 text describing the
+z-score test, sitting on top of code running the permutation test, citing a
+constant deprecated eleven hundred lines below with a message saying this very
+property no longer uses it. **Two statements disagreeing inside one file, with
+the wrong one in the place people read.** Anyone auditing the significance test
+the way a careful reader audits a claim they did not write — from the comment,
+not the implementation — concludes the app still thresholds z = 2.0 on a
+bounded, strongly left-skewed null distribution where that threshold never
+delivered the tail it implies. That is precisely the defect the permutation
+switch removed, still legible as current.
+
+Why this is not covered by anything else here. `scripts/check_doc_drift.py`
+covers numeric claims because numbers are mechanizable; a prose comment
+describing which statistical test runs is not, and will not be. `preflight`'s
+staged checks see the resolution's diff, not its omissions relative to a third
+tree. So the guard is a review habit, and it is narrow enough to be followed:
+
+- **After resolving a conflict, diff the resolved file against *both* parents,
+  not just against the branch you are landing on.** An omission relative to one
+  parent is invisible in a diff against the other.
+- **Prose adjacent to changed code is part of the resolution.** A comment that
+  explains a behaviour is as load-bearing as the code when it is the artefact a
+  reviewer consults, and it fails more quietly, because code that contradicts
+  its comment still compiles and still passes every check.
+- Two statements about one behaviour inside one file is always a defect, even
+  when one of them is right. Whichever is stale, a reader has no way to tell
+  which.
+
+This is the third distinct thing a conflict resolution can silently produce,
+alongside a decoder that forgets a field (§1) and a manifest resolved by picking
+a side rather than regenerating (§4c). The general form: **a merge is not a
+choice between two texts, it is the construction of a third**, and nothing about
+either input authorises the result.
+
+
 ## 5. House rule: never let an absence assert something
 
 A missing value means "we do not know." It must never be rendered, decoded, or

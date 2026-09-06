@@ -268,6 +268,16 @@ document cannot be the only thing standing between a case file and a wrong
 report.** They are honest about what the app knows; they are not evidence that
 the app knows it.
 
+**And this absence fails toward silence that looks deliberate**, which is what
+separates it from every other absence state in this document. The others fail
+toward plain silence: a badge is not drawn, a note is not emitted, a verdict is
+withheld. This one emits a sentence carrying the authority of a design
+decision -- so the more carefully the wording was chosen, the better cover it
+gives the data loss. That is an argument for the operational consequence below
+rather than for weakening the wording. A well-written absence state is a better
+disguise than a badly written one, and the answer is to verify the absence, not
+to write it worse.
+
 The check that catches it (`decoder-completeness`, `2d56a5d`) is a
 **staged-mode** check, so `--all` cannot see it -- it needs `--since` or a real
 commit. Anyone reviewing a merge that touches a hand-written decoder and
