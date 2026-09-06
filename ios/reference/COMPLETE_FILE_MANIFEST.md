@@ -130,7 +130,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 182 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 186 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -170,13 +170,17 @@ This manifest is generated from `git ls-files`, not hand-maintained. Regenerate 
 whenever files are added, removed, or moved — see `docs/PROCESS.md`.
 
 Two things a regenerator needs to know. **This file lists itself**, so its own
-row is one edit stale the moment the file is rewritten; the row records the
-count before the final write, which is why `preflight.py`'s manifest check
-compares paths and the totals line rather than every row. And **binary files
-carry `binary` rather than a line count** — a line count for a PNG would be a
-number that looks meaningful and is not.
+row must be written with the count the file will have *after* the final write,
+not the count it has while being written. A regenerator that records the
+in-progress count leaves exactly one row wrong, and `manifest-lines` now says
+so by name. And **binary files carry `binary` rather than a line count** — a
+line count for a PNG would be a number that looks meaningful and is not.
 
-`preflight.py` checks this file two ways: the self-asserted totals line against
-`git ls-files`, and every tracked path against the rows. The second is the one
-that catches drift which already landed, since the Swift-add reminder only fires
-on a staged change and landed drift is the only kind a reader ever meets.
+`preflight.py` checks this file three ways: the self-asserted totals line
+against `git ls-files`, every tracked path against the rows, and every row's
+line count against the file it names. The path check is the one that catches
+drift which already landed, since the Swift-add reminder only fires on a staged
+change and landed drift is the only kind a reader ever meets. The line-count
+check exists because the first two passed clean over a header claiming 17,338
+Swift lines against a tree of 19,837 — a generated document is only as
+trustworthy as the widest assertion anyone validates.
