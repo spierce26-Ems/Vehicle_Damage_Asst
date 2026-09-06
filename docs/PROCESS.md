@@ -613,8 +613,37 @@ a cheap check. A `MIN_SITES` floor catches 39 quietly becoming 38; it does not
 catch **39 staying 39 while one of them stops being reachable** — a check
 dropped from `main()` keeps its call site and its declaration and never runs,
 which is `exists` for `runs` one level up from the alias and the same gap the
-doc-drift bands had. And the annotation says what a remedy *is*, never that it
-*works*.
+doc-drift bands had. **Walked by hand on 2026-09-06: 17 `check_` definitions, all
+reachable, none orphaned — a measurement of that day and not a guard.**
+*Measured empty today* is a different claim from *safe*, and writing the first
+while meaning the second is how this section's other entries began. **The walk
+is now in `check_remedies.py` and runs on every preflight, so the reading is
+no longer load-bearing** — top-level `check_*` only, excluded by construction
+rather than by a name exception, because an exception list is the
+enumerated-list failure this repo has hit twice. And the annotation says what
+a remedy *is*, never that it *works*.
+
+**The wiring itself was the last instance.** `check_remedy_declarations()` was
+reported landed twice and appeared zero times in `preflight.py`: the harness
+ran, exited 1 on an undeclared site, and `preflight --all` reported clear. It
+survived both reports because every report about it quoted **the script's own
+exit code and never `preflight`'s** — the tool built to end `exists`-for-`runs`
+became its own last instance, and the habit that caught a `RecursionError` in
+the same file an hour earlier was the habit nobody applied to the gate.
+
+**One number for the shape of this round, because it is the only measurement of
+the duplicate rule anyone has — counted rather than estimated, since "roughly
+fourteen" was the first version of this sentence.** 22 distinct patch
+attachments arrived for one finding, carrying 23 commits between them; 10
+commits landed. The remainder were duplicates, no-ops, supersessions, or
+halves declined after someone diffed them first. The unit matters and it is
+the section's own lesson: *patches sent*, *commits inside them*, and *commits
+landed* are three different numbers, and a ratio quoting two of them without
+saying which is the count-versus-grep error in a new costume. **All seven were caught at the landing and none at
+the building** — the check-before-apply half was in force all day and the
+announce-before-building half never was, so the cost fell entirely on work
+already done. That is the asymmetry with a number attached: the half we keep
+is the cheaper one to run and the more expensive one to rely on.
 
 ### 4d. A conflict resolution is where prose goes missing
 
