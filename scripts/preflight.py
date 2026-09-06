@@ -1092,6 +1092,96 @@ def check_persisted_model(files):
                  "while real case data becomes unopenable.")
 
 
+def check_script_currency():
+    """Refuse to run when this script is older than origin/main's copy.
+
+    Blocking, and it runs BEFORE any check, because a stale script is not a
+    degraded run -- it is a clean line printed by the wrong tool.
+
+    The hook `--install-hook` writes is path-relative, not version-pinned:
+
+        #!/bin/sh
+        exec python3 scripts/preflight.py
+
+    So it executes whatever `scripts/preflight.py` happens to be in the
+    working tree. Install it once on main, check out a feature branch to
+    build, and every commit from then on runs that BRANCH's copy. Found by
+    Compass on cross-section-exclude @ c6e749a, whose script is 228 lines
+    shorter than main's and predates decoder-completeness, cited-doc and the
+    argv guard -- so the branch that FIXES a decoder hazard shipped beside a
+    script that cannot detect it. Reproduced: an undecoded field in
+    PaintAnalysis gives `clear, exit 0` on the branch script and `1 blocking`
+    naming the field on main's, on the identical tree.
+
+    That is worse than the failure shapes PROCESS.md sec.1 already names. A
+    tool reporting nothing to do at least reports something odd; this is the
+    RIGHT tool's output format carrying the WRONG tool's coverage, and it is
+    indistinguishable from a pass.
+
+    Pinning the hook to main's copy was the alternative. This is the version
+    chosen because it cannot be defeated by checking out a branch: the guard
+    travels IN the script, so any copy old enough to lack a check is also old
+    enough to be refused by the copy that has it. A pinned hook only protects
+    people who reinstall it.
+
+    Deliberately advisory-free: there is no "probably fine" path. Either the
+    script is current or its clean line means nothing -- and per sec.5b this
+    report names a next action rather than estimating its own significance.
+
+    Fails OPEN, and only for a missing remote: with no origin/main fetched
+    (a fresh clone, an offline machine) there is nothing to compare against,
+    so it says so and proceeds rather than blocking work it cannot judge.
+    """
+    # __file__, NOT a fixed repo path. The first cut of this guard read
+    # REPO/scripts/preflight.py -- the file at the path rather than the
+    # script actually executing -- so running a stale copy from anywhere
+    # else compared main against main and printed clear. That is this
+    # repo's own sec.5b rule ("assert on behaviour, not on a
+    # representation of it") violated by the guard written to enforce
+    # it: a fixed path is a representation of "the script running", and
+    # for a hook that execs by path they only coincide by luck. Caught
+    # by grafting the guard onto the stale branch copy and watching it
+    # clear itself.
+    here = os.path.abspath(__file__)
+    ref = sh("git", "rev-parse", "--verify", "--quiet",
+             "origin/main:scripts/preflight.py").strip()
+    if not ref:
+        # No fetched origin/main to compare against. Not a finding.
+        warn("script-currency",
+             "origin/main:scripts/preflight.py not available -- could not "
+             "confirm this script is current",
+             "fetch origin before trusting a clear run on a feature branch, "
+             "since a branch copy may predate checks main already has")
+        return 0
+    try:
+        with open(here, encoding="utf-8") as fh:
+            local = fh.read()
+    except OSError:
+        return 0
+    remote = sh("git", "show", "origin/main:scripts/preflight.py")
+    if local == remote:
+        return 0
+
+    # Differing is not automatically stale: this file is edited on branches
+    # that ADD checks, and refusing those would block the work that fixes
+    # this. Only a LOCAL copy missing checks that origin/main has is stale.
+    def check_names(text):
+        return set(re.findall(r"^def (check_\w+)", text, re.M))
+
+    missing = sorted(check_names(remote) - check_names(local))
+    if not missing:
+        return 0
+    print("FAIL  [script-currency] this scripts/preflight.py is missing "
+          f"{len(missing)} check(s) that origin/main has: "
+          + ", ".join(missing))
+    print("      -> a clean run from this copy does not cover them. Run "
+          "origin/main's copy instead:")
+    print("         git show origin/main:scripts/preflight.py > /tmp/pf.py "
+          "&& python3 /tmp/pf.py --since origin/main")
+    print("\npreflight: refusing to run -- stale script.")
+    return 1
+
+
 # ---------------------------------------------------------------- reporting
 _PRE_COMMIT_HOOK = r"""#!/bin/sh
 # Installed by scripts/preflight.py --install-hook. Do not edit by hand;
@@ -1144,6 +1234,10 @@ def main():
         print("The hook runs origin/main's preflight.py, not the worktree "
               "copy, and refuses if it cannot resolve that ref.")
         return 0
+
+    # Self-staleness guard. See check_script_currency's docstring.
+    if check_script_currency() != 0:
+        return 1
 
     global DIFF_BASE
     if "--since" in args:
