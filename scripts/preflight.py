@@ -220,10 +220,9 @@ def check_skeleton_drift():
             # present ... not overwriting" and the failure stands. Eighth
             # unperformable remedy today, and the first found in the 32
             # sites nobody had executed (PROCESS sec.4c).
-            remedy += (" -- ./scripts/set_dev_team.sh <team-id> does both, "
-                       "but ONLY when DEVELOPMENT_TEAM is absent from both "
-                       "files; it refuses rather than overwrite an existing "
-                       "value, so for a MISMATCH edit both files by hand")
+            remedy += (" -- ./scripts/set_dev_team.sh only sets an ABSENT "
+                       "key and exits 1 when one is already present, so it "
+                       "will not reconcile a mismatch")
         # remedy: state
         # `state`, not `fixes`. set_dev_team.sh refuses when the key is
         # already present -- true for every mismatch that reaches here -- so
