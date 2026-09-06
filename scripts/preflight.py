@@ -107,6 +107,7 @@ def check_pbxproj_registration():
     """
     path = os.path.join(REPO, PBXPROJ)
     if not os.path.exists(path):
+        # remedy: state
         fail("pbxproj", f"{PBXPROJ} not found", "run from a full checkout")
         return
     pbx = open(path).read()
@@ -121,6 +122,7 @@ def check_pbxproj_registration():
         if f"{name} in Sources */" not in pbx or f"/* {name} */" not in pbx:
             missing.append(f)
     if missing:
+        # remedy: fixes
         fail("pbxproj",
              f"{len(missing)} Swift file(s) not registered in the target: "
              + ", ".join(missing),
@@ -133,6 +135,15 @@ def check_pbxproj_registration():
     on_disk = {os.path.basename(f) for f in tracked_swift()}
     ghosts = sorted(referenced - on_disk)
     if ghosts:
+        # remedy: state
+        #
+        # Declared `fixes` in the first draft of this annotation, and Compass
+        # measured that claim FALSE within the hour -- which is the harness
+        # doing its only job. `build_pbxproj.py` only ADDS missing sources; it
+        # never removes an entry, so a ghost PBXBuildFile survives a run that
+        # reports success. Worse than the manifest string in one respect: the
+        # tool says it worked. The finding IS the state -- restore the file, or
+        # delete the stale entries by hand.
         fail("pbxproj",
              "pbxproj references file(s) that are not in the tree: "
              + ", ".join(ghosts),
@@ -233,11 +244,21 @@ def check_signing_configured():
     teams = re.findall(r"DEVELOPMENT_TEAM = ([^;]+);", pbx)
     n_cfg = len(re.findall(r"CODE_SIGN_STYLE = ", pbx))
     if not teams:
+        # remedy: fixes
         warn("signing",
              "DEVELOPMENT_TEAM is not set -- Simulator builds are fine, "
              "device builds and TestFlight will fail to sign",
              "./scripts/set_dev_team.sh <10-char Apple Team ID>")
     elif len(teams) < n_cfg:
+        # remedy: external
+        #
+        # Not `fixes`: set_dev_team.sh refuses when the key is already present
+        # ("already present ... not overwriting", exit 1), correctly -- silently
+        # overwriting a signing identity is worse than stopping. So no script
+        # clears this; a person sets the team in both configurations. Compass's
+        # new variety, one site over: a remedy whose precondition is the
+        # NEGATION of its trigger, true for first-time setup and false for
+        # every mismatch that reaches this branch.
         fail("signing",
              f"DEVELOPMENT_TEAM set in {len(teams)} of {n_cfg} build "
              "configurations",
@@ -272,6 +293,7 @@ def check_delimiter_balance(files):
                                       ("[", "]", "brackets")):
             d = src.count(open_c) - src.count(close_c)
             if d:
+                # remedy: external
                 fail("balance",
                      f"{f}: {name} unbalanced by {d:+d}",
                      "the file is probably truncated or mis-merged; open it "
@@ -294,6 +316,7 @@ def check_commit_size(files):
         if added == "-" or not path.endswith(".swift"):
             continue
         if int(added) > BIG_DIFF_LINES:
+            # remedy: external
             warn("commit-size",
                  f"{path} grows by {added} lines in one commit",
                  "split it if you can; if not, commit alone and open the "
@@ -306,6 +329,7 @@ def check_commit_size(files):
             if f"/{layer}/" in f:
                 layers[layer] += 1
     if sum(1 for v in layers.values() if v) >= 3:
+        # remedy: external
         warn("commit-size",
              "this commit touches Models, ViewModels and Views together",
              "PROCESS.md sec.1 wants three commits in order: "
@@ -321,6 +345,7 @@ def check_docs_owed(files):
     """
     swift = [f for f in files if f.endswith(".swift")]
     if swift and not any(f.endswith("ios/README.md") for f in files):
+        # remedy: external
         warn("docs",
              "functional commit with no ios/README.md changelog entry staged",
              "send Ledger what changed / why / which files -- the entry and "
@@ -335,6 +360,7 @@ def check_docs_owed(files):
         # of the unperformable remedy, found by finishing the sweep a65e612
         # started rather than waiting to be hit. The missing-rows warning
         # already says this; the reminder that PRECEDES it did not.
+        # remedy: reminder
         warn("docs",
              "a Swift file was added or removed",
              "update ios/reference/COMPLETE_FILE_MANIFEST.md in this commit, "
@@ -349,10 +375,14 @@ def check_docs_owed(files):
 
     scoring_dirs = ("/Utilities/", "/ForensicEngine/")
     if any(d in f for f in swift for d in scoring_dirs):
+        # remedy: reminder
         warn("docs",
              "scoring or analysis code changed",
              "ios/reference/ALGORITHM_EXPLAINER.md may need updating; a "
-             "determinism check belongs in the on-device checklist")
+             "determinism check belongs in the on-device checklist. Keyed to "
+             "the diff, like the reminder above: it will not clear in this "
+             "run -- check_doc_drift is what verifies the explainer against "
+             "the code")
 
 
 def check_cited_doc_copy():
@@ -447,6 +477,7 @@ def check_cited_doc_copy():
     # moving into .strings catalogues under localisation, empties the literal
     # set and this check would print clear on a codebase it never read.
     if not scanned_literals:
+        # remedy: state
         warn("cited-doc",
              f"no Swift string literals found under {SOURCE_ROOT} -- "
              "this check read nothing",
@@ -500,6 +531,7 @@ def check_cited_doc_copy():
         hits = [why for pat, why in banned
                 if re.search(pat, live_body)]
         if hits:
+            # remedy: external
             warn("cited-doc",
                  f"{doc} is cited in a user-visible string and contains "
                  + "; ".join(hits),
@@ -532,6 +564,7 @@ def check_doc_drift():
     """
     script = os.path.join(REPO, "scripts", "check_doc_drift.py")
     if not os.path.exists(script):
+        # remedy: state
         warn("doc-drift",
              "scripts/check_doc_drift.py not found -- the explainer/code "
              "number comparison did not run",
@@ -551,6 +584,7 @@ def check_doc_drift():
         # line most readers stop at.
         m = re.match(r"FAIL\s+\[(doc-\w+)\]\s+(.*)", head)
         subclass, head = (m.group(1), m.group(2)) if m else ("doc-drift", head)
+        # remedy: external
         fail(subclass,
              head,
              "run `python3 scripts/check_doc_drift.py` for the full "
@@ -592,6 +626,7 @@ def check_manifest_line_counts():
     # instead of reporting a partial sum. Two checks for one assertion is the
     # duplicate-work waste; his is the better of the two.
     if not rows:
+        # remedy: state
         warn("manifest-lines",
              "no `path | lines` rows parsed from COMPLETE_FILE_MANIFEST.md "
              "-- the per-file line counts were NOT checked",
@@ -611,6 +646,7 @@ def check_manifest_line_counts():
     if wrong:
         shown = "; ".join(wrong[:3])
         more = f" (+{len(wrong) - 3} more)" if len(wrong) > 3 else ""
+        # remedy: fixes
         warn("manifest-lines",
              f"{len(wrong)} manifest line count(s) disagree with the tree: "
              f"{shown}{more}",
@@ -673,6 +709,7 @@ def check_conflict_markers():
         if not hits:
             continue
         lines = [src.count("\n", 0, h) + 1 for h in hits]
+        # remedy: external
         fail("conflict-markers",
              f"{f}: {len(lines)} unresolved conflict marker(s) at line(s) "
              + ", ".join(str(n) for n in lines),
@@ -846,6 +883,7 @@ def check_swift_parses():
     if parser is None:
         if broken:
             shown = "; ".join(f"{b} ({why})" for b, why in broken[:2])
+            # remedy: external
             warn("swift-parse",
                  f"a Swift frontend EXISTS but cannot run, so {len(swift)} "
                  f"tracked Swift file(s) were NOT parsed: {shown}",
@@ -856,6 +894,7 @@ def check_swift_parses():
                  "not the code")
             return
         looked = ", ".join(spec for spec, _, _ in SWIFT_PARSER_PATHS)
+        # remedy: external
         warn("swift-parse",
              f"no Swift frontend found -- {len(swift)} tracked Swift file(s) "
              "were NOT parsed, and no other check here asks whether they are "
@@ -869,6 +908,7 @@ def check_swift_parses():
         return
 
     if ephemeral:
+        # remedy: external
         warn("swift-parse",
              f"the Swift frontend in use ({parser}) is under a path that "
              "does not survive a sandbox rebuild -- the parse ran, but it "
@@ -895,6 +935,7 @@ def check_swift_parses():
     if bad:
         shown = "; ".join(f"{f}: {why}" for f, why in bad[:3])
         more = f" (+{len(bad) - 3} more)" if len(bad) > 3 else ""
+        # remedy: external
         fail("swift-parse",
              f"{len(bad)} of {len(swift)} tracked Swift file(s) do not "
              f"parse (swift {version}): {shown}{more}",
@@ -1060,6 +1101,7 @@ def check_cited_commits():
     if dangling:
         shown = "; ".join(f"{d}: {h}" for d, h in dangling[:4])
         more = f" (+{len(dangling) - 4} more)" if len(dangling) > 4 else ""
+        # remedy: external
         fail("cited-commits",
              f"{len(dangling)} cited commit sha(s) are not citable: {shown}"
              f"{more}",
@@ -1102,6 +1144,7 @@ def check_manifest_drift():
         # day -- here it would be self-inflicted, in the check written to
         # notice exactly this class of falsehood.
         if rel in tracked_paths:
+            # remedy: state
             warn("manifest",
                  f"{rel} is tracked but could not be read -- manifest NOT "
                  "checked",
@@ -1112,6 +1155,7 @@ def check_manifest_drift():
             # the whole document. regen_manifest.py exits when the file is
             # missing, so "regenerate it from git ls-files" names a
             # capability that has never existed anywhere in this repo.
+            # remedy: state
             warn("manifest",
                  f"{rel} is absent -- manifest NOT checked",
                  "the file manifest is the map a reader starts from: restore "
@@ -1132,6 +1176,7 @@ def check_manifest_drift():
         # against the document's own claim. If a regeneration rewords it,
         # this signal disappears -- and a silently absent signal reads as a
         # pass. Report that the assertion could not be found instead.
+        # remedy: fixes
         warn("manifest",
              f"{rel} states no machine-readable file/Swift totals -- that "
              "half of the manifest check could not run",
@@ -1141,6 +1186,7 @@ def check_manifest_drift():
     else:
         claimed_total, claimed_swift = int(m.group(1)), int(m.group(2))
         if claimed_total != len(tracked) or claimed_swift != len(swift):
+            # remedy: fixes
             warn("manifest",
                  f"{rel} asserts {claimed_total} tracked files "
                  f"({claimed_swift} Swift); the tree has {len(tracked)} "
@@ -1181,6 +1227,7 @@ def check_manifest_drift():
         # that vanishes when the wording changes reads as a pass.
         lm = re.search(r"Swift sources\s*\((\d+)\s*lines\)", text)
         if lm is None:
+            # remedy: fixes
             warn("manifest",
                  f"{rel} states no machine-readable Swift LINE total -- "
                  "that half of the totals sentence could not be checked",
@@ -1201,6 +1248,7 @@ def check_manifest_drift():
                     actual_lines = None
                     break
             if actual_lines is None:
+                # remedy: state
                 warn("manifest",
                      f"{rel}'s Swift line total NOT checked -- a tracked "
                      "Swift file could not be read",
@@ -1220,6 +1268,7 @@ def check_manifest_drift():
                 # readers to `git cat-file` -- the one instrument guaranteed
                 # to agree with the stale document. So this names the exact
                 # edit and the exact number.
+                # remedy: fixes
                 warn("manifest",
                      f"{rel} asserts {claimed_lines} Swift lines; the tree "
                      f"has {actual_lines}",
@@ -1241,6 +1290,7 @@ def check_manifest_drift():
         # regenerator that invented rows would decide where in the table a
         # file belongs, which is editorial. So the named remedy could not
         # clear this either. Name the edit.
+        # remedy: fixes
         warn("manifest",
              f"{len(missing)} tracked file(s) absent from {rel}: {shown}{more}",
              "add a `| `path` | N |` row for each, in the section it belongs "
@@ -1630,6 +1680,7 @@ def check_decoder_completeness(files):
                 #
                 # Remedy copy is Ledger's locked replacement, taken verbatim
                 # -- ios/reference/ and the locked strings are his.
+                # remedy: external
                 warn("decoder-completeness",
                      f"{f}: `{name}` has a hand-written init(from:) but no "
                      "stored properties were found -- this decoder was NOT "
@@ -1648,6 +1699,7 @@ def check_decoder_completeness(files):
                            r"(?:self\.)?" + re.escape(fld) +
                            r"\s*=\s*try\s+\w+\.decode", whole)]
             if missing:
+                # remedy: external
                 fail("decoder-completeness",
                      f"{f}: `{name}` has a hand-written init(from:) that "
                      "never decodes " +
@@ -1786,6 +1838,7 @@ def check_persisted_model(files):
 
             if was is not None:
                 if _underlying(was) != _underlying(type_str):
+                    # remedy: external
                     fail("persisted-model",
                          f"{f}: field `{name}` changes type "
                          f"{was} -> {type_str} on a persisted model",
@@ -1806,6 +1859,7 @@ def check_persisted_model(files):
             # fix. Advisory rather than silent: the decoder still has to read
             # this key tolerantly, and only a human can confirm that.
             if owner in decoded_by_hand:
+                # remedy: external
                 warn("persisted-model",
                      f"{f}: new non-optional field `{name}: {type_str}` on "
                      f"`{owner}`, which has a hand-written init(from:)",
@@ -1815,6 +1869,7 @@ def check_persisted_model(files):
                      "a new key non-optionally.")
                 continue
 
+            # remedy: external
             fail("persisted-model",
                  f"{f}: new non-optional field `{name}: {type_str}` on a "
                  "persisted model",
@@ -1909,6 +1964,7 @@ def check_script_currency():
                          "remote.origin.fetch").split("\n") if spec.strip()]
     if fetch_specs and not any(
             re.match(r"\+?refs/heads/\*:", spec) for spec in fetch_specs):
+        # remedy: fixes
         warn("script-currency",
              "remote.origin.fetch does not fetch all branches -- "
              "remote-tracking refs for feature branches will go stale "
@@ -1923,6 +1979,7 @@ def check_script_currency():
              "origin/main:scripts/preflight.py").strip()
     if not ref:
         # No fetched origin/main to compare against. Not a finding.
+        # remedy: external
         warn("script-currency",
              "origin/main:scripts/preflight.py not available -- could not "
              "confirm this script is current",

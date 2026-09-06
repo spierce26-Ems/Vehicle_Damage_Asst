@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 73 tracked files, of which 42 Swift sources (19890 lines).
+Totals: 74 tracked files, of which 42 Swift sources (19890 lines).
 
 ## iOS app — Xcode project
 
@@ -117,7 +117,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | File | Lines |
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 684 |
-| `docs/PROCESS.md` | 1009 |
+| `docs/PROCESS.md` | 1046 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1683 |
@@ -130,7 +130,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 187 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 188 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -154,9 +154,10 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/build_pbxproj.py` | 143 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 312 |
-| `scripts/preflight.py` | 2153 |
+| `scripts/preflight.py` | 2210 |
 | `scripts/check_doc_drift.py` | 519 |
 | `scripts/regen_manifest.py` | 110 |
+| `scripts/check_remedies.py` | 210 |
 | `scripts/set_dev_team.sh` | 44 |
 
 ## Repo root

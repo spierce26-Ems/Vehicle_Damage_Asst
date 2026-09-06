@@ -523,6 +523,43 @@ false remedies, and train the bypass habit the grading rules exist to prevent.
 two function definitions, which is how 37, 38 and 40 were all quoted for the
 same file within one hour.)
 
+**Built, as `scripts/check_remedies.py`.** It walks `preflight.py`'s AST and
+fails the run when any `warn()`/`fail()` site lacks a
+`# remedy: <fixes|reminder|external|state>` declaration, and additionally fails
+a `reminder` whose remedy text never says it will not clear. All 38 sites are
+declared; 7 are reminders, matching the `diff_args()` count exactly. `fixes` =
+following it removes the finding, and name the thing that does. `reminder` =
+keyed to the diff, so **no correct work clears it in this run** — say so, and
+name the checks that verify the result. `external` = needs a device, Xcode, a
+push, or a person. `state` = the finding *is* the state; restore it from
+elsewhere, and say so where no generator exists.
+
+**A declaration is a claim, not a proof, and the first two claims were wrong.**
+The script cannot verify that a `fixes` remedy fixes. Two sites were annotated
+`fixes` and Compass measured both false within the hour — the pbxproj ghost
+(the regenerator only ADDS sources, so a stale entry survives a run that
+*reports success*) and the `DEVELOPMENT_TEAM` mismatch (`set_dev_team.sh`
+correctly refuses to overwrite, so the remedy is true for first-time setup and
+false for every mismatch that reaches the check). They are now `state` and
+`external`. **That is the mechanism working as designed rather than a
+counter-example to it:** the wrong claim was written down where a reader could
+disagree with it, which is the whole difference from an omission. *A remedy is
+read as instruction, never as a claim, and nobody audits an imperative* —
+declaring the kind is what turns it into something auditable.
+
+**One caution built in rather than discovered, Ledger's.** The `reminder`
+grading is a **prose** predicate — the one part of this script that matches
+wording rather than structure — and a prose predicate goes stale in wording
+while staying true in substance, which is this document's dead-check shape
+arriving through the tool built to end it. So it matches a disjunction of
+phrasings rather than one canonical string, and a site can opt out with
+`# remedy-clears-note: ok` when it states the fact in words the list does not
+know. **A false positive here would cost a correct remedy being reworded to
+satisfy a regex, which is how a tool starts training the bypass habit.** If the
+opt-out is ever needed more than once or twice, delete the predicate rather
+than extending it: the declaration is the load-bearing part and this is a
+courtesy on top of it.
+
 **The denominator is the finding, and it is the last wrong all-clear of the
 day.** Six sites were swept and four of us called the surface closed. **Six of
 38 is 16%; the other 32 remedies have never been performed by anyone.** Nothing
