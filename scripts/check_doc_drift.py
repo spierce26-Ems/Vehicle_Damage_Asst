@@ -239,7 +239,7 @@ def main(root="."):
         # method produced it so the weaker one never borrows the stronger
         # one's authority. The difference is not academic -- see the
         # guard-order probe below.
-        executed = _score_bands_executed(root, bands)
+        executed, why_not_executed = _score_bands_executed(root, bands)
         how = "executed" if executed is not None else "parsed"
         for upper, pct in bands:
             if pct == 0:
@@ -273,7 +273,7 @@ def main(root="."):
             # is how a check trains the bypass habit for the checks beside
             # it.
             unverified.append(
-                "guard-order probe did NOT run (no Swift compiler found) -- the "
+                f"guard-order probe did NOT run ({why_not_executed}) -- the "
                 "band numbers above were PARSED, and a parse cannot see guard "
                 "order. That the rule-out survives a caller-supplied tolerance "
                 "is UNVERIFIED here, not verified")
@@ -298,9 +298,19 @@ def main(root="."):
     for m in unverified:
         print(f"warn [doc-unverified] {m}")
     if unverified:
-        print("     -> install a Swift toolchain (swift.org Linux tarball is "
-              "enough -- no iOS SDK) or set SWIFT_C, and this becomes a real "
-              "check in this environment")
+        # The remedy has to match the cause. "Install a toolchain" is actively
+        # misleading for a toolchain that IS installed and dies loading a
+        # library -- it sends the reader to redo the one thing already done.
+        if any("cannot run" in m or "did not build" in m for m in unverified):
+            print("     -> a compiler is installed but unusable: read the reason "
+                  "above and fix THAT, do not reinstall. For a missing "
+                  "libncurses.so.6 on Ubuntu 24.04 the distro ships only the "
+                  "wide build, so symlink libncursesw.so.6 to it. Set SWIFT_C "
+                  "to override discovery.")
+        else:
+            print("     -> install a Swift toolchain (swift.org Linux tarball is "
+                  "enough -- no iOS SDK) or set SWIFT_C, and this becomes a real "
+                  "check in this environment")
     for m in drift:
         print(f"FAIL [doc-drift]  {m}")
     if drift:
@@ -316,13 +326,59 @@ def main(root="."):
     return 1
 
 
+def _first_line(text):
+    """First non-empty line of a compiler's output, trimmed for one report line."""
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if line:
+            return line[:300]
+    return ""
+
+
+def _build_failure_reason(swiftc, build):
+    """Say WHY the compiler could not build, distinguishing broken from absent.
+
+    A shared-library failure at exec is the case that actually bit: `swiftc`
+    exists and is executable, so discovery succeeds, and the driver then dies
+    loading a library the distro did not ship. Reporting that as "no Swift
+    compiler found" sends the reader to reinstall a toolchain that is already
+    installed, and hides a fix that is one symlink long.
+    """
+    err = _first_line(build.stderr) or _first_line(build.stdout)
+    if "error while loading shared libraries" in err or "cannot open shared object" in err:
+        lib = ""
+        m = re.search(r"(lib[\w.+-]*\.so[\w.]*)", err)
+        if m:
+            lib = m.group(1)
+        return ("a Swift compiler was FOUND but cannot run: "
+                + (f"{lib} is missing" if lib else "a shared library is missing")
+                + f" ({swiftc}). This is a broken toolchain, not an absent one -- "
+                  "note that swift-frontend -parse still works, so preflight's "
+                  "parse check can report a clean tree while this probe cannot "
+                  "build at all")
+    return ("a Swift compiler was FOUND but the probe did not build: "
+            + (err or "no diagnostic output"))
+
+
 def _score_bands_executed(root, bands):
     """Run heightAlignmentScore for real, when a Swift compiler exists.
 
-    Returns {upper_bound: score} plus a `_wide_tolerance` probe, or None when
-    no compiler is available -- in which case the caller falls back to
-    _score_band's parse AND labels its findings `parsed`, so a weaker method
-    never reports under the stronger one's wording.
+    Returns `(probe, None)` on success, where probe is {upper_bound: score}
+    plus a `_wide_tolerance` entry; otherwise `(None, reason)` -- in which
+    case the caller falls back to _score_band's parse AND labels its findings
+    `parsed`, so a weaker method never reports under the stronger one's
+    wording.
+
+    The `reason` is load-bearing, not cosmetic. A compiler that is absent and
+    a compiler that is present but cannot execute are different environments
+    with different remedies, and the advisory that names the wrong one sends
+    the reader to install a toolchain they already have. Measured here: a
+    swift.org 5.10.1 tarball on Ubuntu 24.04 has a `swiftc` that exists, is
+    executable, and dies at exec on `libncurses.so.6` -- the distro ships
+    only the wide build, `libncursesw.so.6`. `-parse` never loads the driver,
+    so preflight's parse check is unaffected and reports 42 files clean while
+    this probe cannot build a binary: the same toolchain is simultaneously
+    working and broken, depending on which mode you ask for.
 
     MeasurementHelpers.swift imports only Foundation, so this builds on Linux
     from a swift.org tarball: no iOS SDK, no Xcode. That is the whole reason
@@ -344,10 +400,10 @@ def _score_bands_executed(root, bands):
                 swiftc = cand
                 break
     if swiftc is None:
-        return None
+        return None, "no Swift compiler found"
     helpers = os.path.join(root, MEASUREMENT_HELPERS)
     if not os.path.exists(helpers):
-        return None
+        return None, f"{MEASUREMENT_HELPERS} not found in the tree"
 
     lines = ["import Foundation"]
     for upper, pct in bands:
@@ -365,12 +421,14 @@ def _score_bands_executed(root, bands):
         with open(main, "w", encoding="utf-8") as fh:
             fh.write("\n".join(lines) + "\n")
         binary = os.path.join(tmp, "probe")
-        if subprocess.run([swiftc, "-o", binary, helpers, main],
-                          capture_output=True, text=True).returncode != 0:
-            return None
+        build = subprocess.run([swiftc, "-o", binary, helpers, main],
+                               capture_output=True, text=True)
+        if build.returncode != 0 or not os.path.exists(binary):
+            return None, _build_failure_reason(swiftc, build)
         run = subprocess.run([binary], capture_output=True, text=True)
         if run.returncode != 0:
-            return None
+            return None, (f"the probe built but exited {run.returncode}: "
+                          f"{_first_line(run.stderr) or 'no stderr'}")
         out = {}
         for line in run.stdout.splitlines():
             key, _, val = line.partition("=")
@@ -379,7 +437,9 @@ def _score_bands_executed(root, bands):
             except ValueError:
                 continue
             out[key if key.startswith("_") else float(key)] = int(num)
-        return out or None
+        if not out:
+            return None, "the probe ran but printed nothing parseable"
+        return out, None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
