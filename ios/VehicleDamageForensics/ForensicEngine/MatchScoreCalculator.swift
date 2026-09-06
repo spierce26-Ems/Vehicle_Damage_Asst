@@ -41,7 +41,8 @@ struct MatchScoreCalculator {
                 compositeScore: 0,
                 scoreRangeLabel: "n/a",
                 confidence: .insufficient,
-                recommendations: ["No suspect vehicle data captured."]
+                recommendations: ["No suspect vehicle data captured."],
+                algorithmVersion: .current
             )
         }
         let victim = forensicCase.victimVehicle
@@ -262,7 +263,11 @@ struct MatchScoreCalculator {
             victimContourOverlay: victimOverlay,
             suspectContourOverlay: suspectOverlay,
             scarFingerprintMatch: scarFingerprintMatch,
-            toolMarkComparison: toolMarkComparison
+            toolMarkComparison: toolMarkComparison,
+            // NOTE(AI Developer), added 2026-09: stamped here, at the
+            // one place a MatchResult is actually produced, so no
+            // analysis path can emit an unstamped result.
+            algorithmVersion: .current
         )
     }
 
@@ -421,24 +426,136 @@ struct MatchScoreCalculator {
         suspect: Vehicle,
         scarCheck: ScarDirectionCheck
     ) -> String? {
-        guard scarCheck.status == .inconsistent else { return nil }
-
-        let heightMismatch: (matched: Bool, note: String)?
-        if let vb = victim.effectiveBumperHeightInches, let sb = suspect.effectiveBumperHeightInches {
-            let aligned = MeasurementHelpers.heightsAlign(vb, sb)
-            heightMismatch = (aligned, String(format: "bumper heights %.1f\" vs %.1f\"", vb, sb))
+        // Resolve the best available height pair once, for both rules
+        // below. Preference order and the never-treat-missing-as-mismatch
+        // principle are unchanged from the original implementation.
+        // NOTE(AI Developer), 2026-09-06 (task #14): now carries the
+        // measurement's provenance alongside the value, because the
+        // standalone rule-out below is only defensible on a source
+        // precise enough to support it. `ruleOutCapable` is false for a
+        // LiDAR-derived pair (difference sigma ~1.7"), true for a manual
+        // measurement (well under 1"). See `Vehicle.HeightSource`.
+        let heights: (v: Double, s: Double, note: String, ruleOutCapable: Bool)?
+        if let vh = victim.effectiveHeight, let sh = suspect.effectiveHeight {
+            heights = (vh.inches, sh.inches,
+                       String(format: "bumper heights %.1f\" vs %.1f\"", vh.inches, sh.inches),
+                       // Both sides must support a rule-out; the weaker
+                       // measurement governs, since a comparison is only
+                       // as good as its worse input.
+                       vh.source.canSupportStandaloneRuleOut && sh.source.canSupportStandaloneRuleOut)
         } else if let vz = victim.primaryDamageZone, let sz = suspect.primaryDamageZone,
                   vz.hasZoneHeightData, sz.hasZoneHeightData {
-            let aligned = MeasurementHelpers.heightsAlign(vz.centerHeightInches, sz.centerHeightInches)
-            heightMismatch = (aligned, String(format: "damage-zone heights %.1f\" vs %.1f\"", vz.centerHeightInches, sz.centerHeightInches))
+            // Damage-zone heights are manually recorded zone geometry,
+            // not raycasts, so they carry manual-measurement precision.
+            heights = (vz.centerHeightInches, sz.centerHeightInches,
+                       String(format: "damage-zone heights %.1f\" vs %.1f\"", vz.centerHeightInches, sz.centerHeightInches),
+                       true)
         } else {
-            heightMismatch = nil
+            heights = nil
         }
 
-        guard let heightMismatch, heightMismatch.matched == false else { return nil }
+        // NOTE(AI Developer), added 2026-09 (task #10a). RULE 1 --
+        // standalone physical rule-out. A height difference above
+        // `MeasurementHelpers.heightRuleOutInches` (6", per
+        // ALGORITHM_EXPLAINER §2) means these two damage points cannot
+        // have contacted each other, whatever every other factor says.
+        //
+        // This does NOT require a scar conflict, and that is the point of
+        // the change. Previously the ONLY path to an exclusion was
+        // "height mismatch AND scar conflict", so a physically
+        // impossible height difference on a case with no usable scar
+        // evidence -- or with scars that happened to agree -- produced no
+        // exclusion at all, just a low subscore averaged into a
+        // composite that could still read "MODERATE CORRELATION". A
+        // geometric impossibility is not a weak signal to be outvoted by
+        // paint colour; it stands on its own.
+        //
+        // Note this fires on the 2-inch-tolerance `heightsAlign`
+        // mismatch's much stricter cousin: a 3-inch difference is a poor
+        // score but a plausible collision, while a 7-inch difference is
+        // not a collision at all.
+        // NOTE(AI Developer), 2026-09-06 (task #14): gated on
+        // `ruleOutCapable`. Before this gate, a LiDAR-measured pair
+        // could trigger a standalone exclusion at a measurement
+        // uncertainty of roughly +/-3.3" (95%), so a genuinely 5-inch
+        // mismatch -- a plausible collision -- was excluded about 28% of
+        // the time. A false exclusion exonerates a vehicle that could
+        // have caused the damage, which is the mirror image of the
+        // 39/100 defect the rule-out was introduced to fix, and no less
+        // serious for pointing the other way.
+        if let heights, heights.ruleOutCapable, MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
+            let diff = abs(heights.v - heights.s)
+            // NOTE(AI Developer), 2026-09-06: this string deliberately
+            // does NOT cite "ALGORITHM_EXPLAINER §2", though an earlier
+            // draft did. Per PROCESS.md §4.0, a document the app names
+            // in report-bound text is pulled inside the copy lock in
+            // its entirety -- a citation is a promise the whole
+            // destination is as defensible as the passage cited, and a
+            // reader who follows it does not stop where we wanted them
+            // to. The threshold's provenance belongs in this comment and
+            // in the Analysis Provenance page, both of which are
+            // reviewable; it does not belong in a sentence an
+            // investigator reads, where it adds no information they can
+            // act on and commits us to every other line of the
+            // destination.
+            return String(format:
+                "Height Alignment rule-out: %@ differ by %.1f\", more than the %.0f\" maximum at which "
+                + "two damage points can physically have contacted each other. "
+                + "On height evidence alone this suspect vehicle should be ruled out, independently of every "
+                + "other factor below. The full factor breakdown is still shown for reference — this is a "
+                + "strong negative finding layered on top of it, not a reason to hide the evidence.",
+                heights.note, diff, MeasurementHelpers.heightRuleOutInches)
+        }
+
+        // NOTE(AI Developer), added 2026-09-06 (task #14). When the
+        // measured difference WOULD have ruled out but the measurement
+        // is not precise enough to support it, say so explicitly.
+        //
+        // Silence here would be the exact failure this project has now
+        // hit from several directions: an absent verdict asserting the
+        // clean case. An investigator who sees no exclusion assumes the
+        // heights were compatible, when in fact they differed by more
+        // than the physical limit and the app declined to act on a
+        // measurement it could not stand behind. Those are opposite
+        // findings and must not render identically.
+        //
+        // Deliberately worded as inconclusive rather than as an
+        // exclusion: with a difference sigma of roughly 1.7", a measured
+        // 7" difference genuinely does not distinguish "impossible
+        // collision" from "plausible collision, measured imprecisely".
+        if let heights, heights.ruleOutCapable == false,
+           MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
+            let diff = abs(heights.v - heights.s)
+            return String(format:
+                "Height Alignment inconclusive: %@ differ by %.1f\", which exceeds the %.0f\" physical limit "
+                + "— but this height came from a LiDAR scan measurement, whose uncertainty is too large to "
+                + "support ruling a vehicle out on its own. A difference this size may be a genuine "
+                + "impossibility or a measurement artefact, and these photographs cannot tell them apart. "
+                + "Re-measure both heights with a tape measure to resolve it; a manual measurement is precise "
+                + "enough to support an exclusion. The full factor breakdown below is unaffected.",
+                heights.note, diff, MeasurementHelpers.heightRuleOutInches)
+        }
+
+        // RULE 2 -- Sean's original combined rule: a height mismatch that
+        // is NOT severe enough to rule out on its own, plus a
+        // scar-direction conflict. Unchanged in behaviour; it now runs
+        // only for the sub-rule-out band, since anything above the
+        // rule-out threshold already returned above.
+        guard scarCheck.status == .inconsistent else { return nil }
+        guard let heights, MeasurementHelpers.heightsAlign(heights.v, heights.s) == false else { return nil }
 
         let deltaText = scarCheck.reciprocityDeltaDegrees.map { String(format: "%.0f°", $0) } ?? "n/a"
-        return "Height Alignment mismatch (\(heightMismatch.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of Sean's hard exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
+        // NOTE(AI Developer), reworded 2026-09-06. This previously read
+        // "both conditions of Sean's hard exclusion rule are met" -- a
+        // named individual presented, in report-bound text, as the
+        // authority for excluding a suspect. Whose rule it is carries no
+        // information an investigator can act on, and attributing an
+        // exclusion to a person rather than to the evidence invites
+        // exactly the question the app should not be raising. The rule
+        // itself is what belongs in the sentence; the attribution stays
+        // in the doc comment on `evaluateExclusionRule`, where it
+        // records design intent for maintainers.
+        return "Height Alignment mismatch (\(heights.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of the combined exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
     }
 
     /// Builds the `scenarioNarrative` sentence Sean explicitly requested:
@@ -489,14 +606,53 @@ struct MatchScoreCalculator {
             return FactorScore(factor: .damageDimensions, rawScore: 0, dataQuality: .unavailable,
                                notes: "Damage zones not measured")
         }
-        let widthDiff = abs(v.widthMM - s.widthMM)
-        let heightDiff = abs(v.heightMM - s.heightMM)
-        // 50mm tolerance on each axis is generous but defensible.
-        let wScore = max(0, 100 - widthDiff)
-        let hScore = max(0, 100 - heightDiff)
+        // NOTE(AI Developer), rewritten 2026-09 (task #10b). The previous
+        // implementation was:
+        //
+        //     let wScore = max(0, 100 - widthDiff)   // 1mm = 1 point
+        //     let hScore = max(0, 100 - heightDiff)
+        //
+        // with a comment claiming "50mm tolerance on each axis" that the
+        // code did not implement -- at 1mm per point the effective
+        // tolerance was 100mm to reach zero, and the comment was simply
+        // wrong. It is deleted rather than corrected, because the whole
+        // absolute-difference approach is being replaced.
+        //
+        // The real defect is that absolute millimetres are SCALE-BLIND,
+        // and blind in both directions at once:
+        //
+        //   victim/suspect      absolute form   ratio form
+        //   300 vs 400mm wide        0            67    <- nearly-similar damage scored as total mismatch
+        //   1200 vs 1250mm          65            96    <- a 4% difference on a long gouge scored as poor
+        //   40 vs 60mm              85            67    <- a 50%-larger chip scored as a good match
+        //
+        // A 50mm discrepancy means something completely different on a
+        // 40mm chip than on a 1200mm gouge, and the old form treated them
+        // identically. The last row is the dangerous one: it inflates a
+        // factor score for two marks that are plainly not the same mark.
+        //
+        // Replaced with the smaller/larger ratio form used by
+        // `_analyze_dimensions` in `ios/reference/forensic_analyzer.py`.
+        // Python is not automatically authoritative here (it is an
+        // earlier, simpler design and elsewhere it is the weaker
+        // implementation), but on this specific factor it is right: a
+        // ratio is scale-relative, which is the property this comparison
+        // needs, and it lands in 0-100 with no invented constants.
+        //
+        // `hasDimensionData` already guarantees both values are > 0, so
+        // the division cannot be by zero; the `max(_, 0.0001)` is belt
+        // and braces against a future caller relaxing that guard.
+        func ratioScore(_ a: Double, _ b: Double) -> Double {
+            let smaller = min(a, b), larger = max(a, b)
+            return (smaller / max(larger, 0.0001)) * 100
+        }
+        let wScore = ratioScore(v.widthMM, s.widthMM)
+        let hScore = ratioScore(v.heightMM, s.heightMM)
         let raw = (wScore + hScore) / 2
         return FactorScore(factor: .damageDimensions, rawScore: raw, dataQuality: .full,
-                           notes: String(format: "Δw=%.0fmm, Δh=%.0fmm", widthDiff, heightDiff))
+                           notes: String(format: "width %.0f vs %.0fmm (%.0f%%), height %.0f vs %.0fmm (%.0f%%)",
+                                         v.widthMM, s.widthMM, wScore,
+                                         v.heightMM, s.heightMM, hScore))
     }
 
     /// NOTE(AI Developer), fixed 2026-07 alongside `scoreDamageDimensions`

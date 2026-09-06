@@ -81,11 +81,75 @@ enum MeasurementHelpers {
         abs(a - b) <= toleranceInches
     }
 
+    /// The height difference above which a collision between two damage
+    /// zones is treated as physically impossible, ruling the suspect
+    /// out. Documented in `ios/reference/ALGORITHM_EXPLAINER.md` §2 as
+    /// "> 6\" difference = 0% (rule out suspect)".
+    ///
+    /// NOTE(AI Developer), added 2026-09. This is expressed as an
+    /// absolute number of inches, NOT as a multiple of
+    /// `toleranceInches`, and that is deliberate. The rule-out is a
+    /// claim about vehicle geometry -- bumper and body-panel strike
+    /// heights on real vehicles simply do not differ by more than half a
+    /// foot and still contact each other -- so it does not scale with
+    /// whatever measurement tolerance a caller happens to pass in.
+    /// Tying it to `toleranceInches * 3` would have made the physical
+    /// rule-out move whenever someone tuned measurement precision,
+    /// which is how the previous linear-to-zero-at-5x-tolerance form
+    /// ended up 10 inches wide by accident.
+    static let heightRuleOutInches: Double = 6.0
+
     /// Returns a 0-100 score for height alignment quality.
+    ///
+    /// NOTE(AI Developer), rewritten 2026-09 (task #10a). The previous
+    /// implementation was:
+    ///
+    ///     if diff >= toleranceInches * 5 { return 0 }
+    ///     return max(0, 100 * (1 - diff / (toleranceInches * 5)))
+    ///
+    /// i.e. linear to zero at 5x tolerance = 10 inches. That contradicted
+    /// `ALGORITHM_EXPLAINER.md` §2, which specifies a banded curve with a
+    /// HARD RULE-OUT above 6 inches, and it is the most consequential
+    /// scoring defect found in this engine: a 6.1-inch height mismatch --
+    /// a difference that should exclude a suspect outright -- scored
+    /// **39/100** and contributed a third of a 20%-weighted factor's
+    /// credit toward implicating them. Measured divergence from the
+    /// documented/Python behaviour:
+    ///
+    ///     diff:   1"    2"    4"    6"   6.1"    8"
+    ///     was:   90    80    60    40     39    20
+    ///     now:  100   100    75    50      0     0
+    ///
+    /// Wrong in the direction of implicating someone is the worst
+    /// direction for this app to be wrong in, which is why this is
+    /// banded exactly as documented rather than "improved" into some
+    /// smoother curve of my own invention. The bands come from the
+    /// reference, not from me.
+    ///
+    /// Note the bands are absolute inches per the spec, so
+    /// `toleranceInches` now only widens the top ("perfect") band; it
+    /// cannot move the rule-out (see `heightRuleOutInches`).
     static func heightAlignmentScore(_ a: Double, _ b: Double, toleranceInches: Double = 2.0) -> Double {
         let diff = abs(a - b)
-        if diff >= toleranceInches * 5 { return 0 }
-        return max(0, 100 * (1 - diff / (toleranceInches * 5)))
+        if diff > heightRuleOutInches { return 0 }   // rule-out band
+        if diff <= toleranceInches { return 100 }    // within forensic tolerance
+        if diff <= 4 { return 75 }
+        return 50                                    // 4" < diff <= 6"
+    }
+
+    /// True when two heights differ by more than the physical rule-out
+    /// threshold -- i.e. a collision between these two points is not
+    /// physically possible, independent of every other factor.
+    ///
+    /// NOTE(AI Developer), added 2026-09 (task #10a). Separated from
+    /// `heightAlignmentScore` because a rule-out is a different KIND of
+    /// statement from a low score, and the two must not be conflated: a
+    /// score of 0 gets multiplied by 0.20 and averaged into a composite
+    /// that can still come out moderate, whereas a physical
+    /// impossibility should be surfaced to the investigator as an
+    /// exclusion. See `MatchScoreCalculator.evaluateExclusionRule`.
+    static func heightsRuleOut(_ a: Double, _ b: Double) -> Bool {
+        abs(a - b) > heightRuleOutInches
     }
 
     // MARK: Geometry

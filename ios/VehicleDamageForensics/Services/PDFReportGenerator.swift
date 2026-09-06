@@ -51,6 +51,7 @@ struct PDFReportGenerator {
                 drawToolMarkComparison(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawPhotoEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawChainOfCustody(ctx: ctx, rect: pageRect, case: forensicCase)
+                drawAlgorithmProvenance(ctx: ctx, rect: pageRect, case: forensicCase)
             }
         } catch {
             throw ReportError.writeFailed(error.localizedDescription)
@@ -80,6 +81,18 @@ struct PDFReportGenerator {
             if let range = c.matchResult?.scoreRangeLabel {
                 "Score Range: \(range)".drawCenter(in: rect, y: 368, font: .systemFont(ofSize: 13))
             }
+        }
+
+        // NOTE(AI Developer), added 2026-09: algorithm version on the
+        // cover, immediately under the score it produced. Placed here
+        // for the same reason the disclaimer is boxed here -- if pages
+        // are later split apart, the page carrying the headline number
+        // must also carry the statement of which math produced it. The
+        // full constant list goes on its own page (see
+        // `drawAlgorithmProvenance`).
+        if c.matchResult != nil {
+            let versionLine = c.matchResult?.algorithmVersionDisplay ?? ""
+            versionLine.drawCenter(in: rect, y: 396, font: .systemFont(ofSize: 11))
         }
 
         // NOTE(AI Developer): Required disclaimer callout per Sean's
@@ -428,10 +441,18 @@ struct PDFReportGenerator {
             .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
         y += 30
 
-        if let score = match.matchScorePercent {
-            String(format: "%.0f%% Marking Match", score)
-                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 16))
-            y += 24
+        // NOTE(AI Developer), rewritten 2026-09 for the "no bare match
+        // %" rule -- PDF counterpart to `MatchResultsView
+        // .scarFingerprintSection`'s change. A bold "83% Marking Match"
+        // line in an exported document is worse than the same thing
+        // on screen: the PDF outlives the app session, gets attached to
+        // an investigation file, and gets read by people who never saw
+        // the qualifying sentence underneath. The headline now always
+        // carries the p-value and the chance verdict.
+        if let headline = match.headlineDisplay {
+            headline.draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14),
+                          maxWidth: rect.width - 100)
+            y += 30
         }
         match.summary.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
         y += 34
@@ -489,10 +510,14 @@ struct PDFReportGenerator {
             .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
         y += 40
 
-        if let score = comparison.matchScorePercent, let orientation = comparison.orientationUsed {
-            String(format: "%.0f%% Striation Rhythm Match", score)
-                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 16))
-            y += 20
+        // NOTE(AI Developer), rewritten 2026-09 -- same change and
+        // same reasoning as `drawScarFingerprintMatch` above.
+        if let headline = comparison.headlineDisplay {
+            headline.draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14),
+                          maxWidth: rect.width - 100)
+            y += 30
+        }
+        if let orientation = comparison.orientationUsed {
             let orientationLine = orientation == .reversed
                 ? "Best alignment found in reverse order (stamp/impression pair)"
                 : "Best alignment found in the same order on both vehicles"
@@ -652,6 +677,70 @@ struct PDFReportGenerator {
                 + (entry.detail.map { ": \($0)" } ?? "")
             line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100)
             y += 15
+        }
+    }
+
+    // NOTE(AI Developer), added 2026-09 for the "trust the number" work
+    // item. A dedicated provenance page listing the algorithm version
+    // and every constant that produced this report's numbers.
+    //
+    // Why a whole page and not a footer line: the constants ARE the
+    // meaning of the scores. A report read a year from now, after the
+    // thresholds have moved, is uninterpretable without them, and
+    // "check the git history of the app build the investigator happened
+    // to have installed" is not a real answer for a document that may
+    // be challenged. Printing them makes the artifact self-describing.
+    //
+    // Placed last, after chain of custody, because it is reference
+    // material rather than findings. Rendered even for a legacy
+    // unstamped result, where it states plainly that the version was
+    // not recorded -- an investigator must be able to tell "produced
+    // before stamping existed" apart from "stamp omitted".
+    private func drawAlgorithmProvenance(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
+        guard let result = c.matchResult else { return }
+
+        ctx.beginPage()
+        var y: CGFloat = 50
+        "Analysis Provenance".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
+        y += 28
+
+        result.algorithmVersionDisplay
+            .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 13), maxWidth: rect.width - 100)
+        y += 24
+
+        "Analysis run: \(Self.dateFormatter.string(from: result.analysisDate))"
+            .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+        y += 18
+        "Analysis ID: \(result.analysisID.uuidString)"
+            .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
+        y += 26
+
+        guard let version = result.algorithmVersion else {
+            ("This result was produced before analysis version stamping was introduced, so the "
+             + "thresholds and tolerances behind its scores are not recorded and cannot be "
+             + "reconstructed from this document. Re-run the analysis on the current version of "
+             + "the app to obtain a fully documented result.")
+                .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+            return
+        }
+
+        ("The values below were in force when this analysis ran and determine what its scores "
+         + "mean. They are printed here so this report remains interpretable if the algorithm "
+         + "changes later.")
+            .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
+        y += 34
+
+        for constant in version.constants {
+            if y > rect.height - 80 {
+                ctx.beginPage()
+                y = 50
+            }
+            "\(constant.name): \(constant.value)"
+                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 11), maxWidth: rect.width - 100)
+            y += 16
+            constant.explanation
+                .draw(at: CGPoint(x: 62, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 124, color: .darkGray)
+            y += 26
         }
     }
 

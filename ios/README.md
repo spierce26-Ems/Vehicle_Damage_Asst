@@ -1,6 +1,56 @@
 # Vehicle Damage Investigation Assistant (iOS)
 
 ## Project Overview
+- **Height rule-out gated on measurement provenance (task #14, part 1 of 2).** The standalone >6"
+  height rule-out shipped in #10a was unsafe on LiDAR-measured input, and this closes the
+  false-exclusion path. Found by @Vector asking whether a defensible ± exists for a two-raycast
+  height rather than inventing one; working the budget out found the defect.
+
+  `LiDARService.worldY` raycasts the reconstructed mesh with `.estimatedPlane` and returns a bare
+  `Float` with no accuracy estimate; `heightFromWorldPositions` subtracts two of them. Per-point
+  error: LiDAR depth ranging (~1% of range), mesh/voxel quantisation (1-2cm), plane fit through mesh
+  noise (~1cm), world-tracking vertical drift between the two taps (0.5-2cm), and — dominant —
+  which pixel the examiner judges to be "the damage" (1-3cm). Two independent points combine as
+  √2 × per-point, giving a difference **σ ≈ 1.7"**. At that spread a genuinely **5.0" mismatch is
+  ruled out 27.8% of the time** — a false exclusion, exonerating a vehicle that could have caused
+  the damage. That is the mirror image of the 39/100 defect the rule-out was introduced to fix, and
+  no less serious for pointing the other way.
+
+  `Vehicle.effectiveBumperHeightInches` collapsed a raycast and a tape measurement into one
+  `Double`, and its doc comment asserted the LiDAR value was "more precise and harder to get wrong
+  than a manual guess". That is backwards by roughly an order of magnitude: a tape measure against a
+  bumper is good to well under an inch. **Precision of presentation is not accuracy.**
+
+  New `Vehicle.HeightSource` (`manualMeasurement` / `lidarRaycast`) with
+  `canSupportStandaloneRuleOut`, and `Vehicle.effectiveHeight` returning value plus provenance.
+  Preference order is unchanged — LiDAR still wins when present, because it measures the actual
+  damage point whereas `bumperHeightInches` is a nominal height nothing populates — but callers can
+  now tell what they received. The standalone rule-out requires both sides to be rule-out capable,
+  the weaker measurement governing, since a comparison is only as good as its worse input.
+  `effectiveBumperHeightInches` is retained unchanged for the graded factor, where a 1.7"
+  uncertainty is proportionate.
+
+  **The suppression is disclosed, never silent.** A >6" difference from LiDAR input now reports
+  *Height Alignment inconclusive*, stating that the difference exceeds the physical limit, that the
+  measurement's uncertainty cannot support an exclusion, that these photographs cannot distinguish a
+  genuine impossibility from an artefact, and that a tape measure resolves it. Silence would be the
+  failure this project has now hit from several directions — an absent verdict asserting the clean
+  case, when an investigator seeing no exclusion would assume the heights were compatible.
+
+  **Part 2 is device-blocked and deliberately not implemented:** restoring LiDAR heights to
+  rule-out-capable requires a *measured* σ and a 95%-lower-bound rule, not the budget figure above.
+  A budget assembled from published sensor characteristics is not a calibration, and hard-coding an
+  effective threshold from one would put an uncalibrated constant in charge of whether a person is
+  excluded — the same error refused twice already (the sharpness threshold, the shopping
+  critical-value table). The 6" threshold itself does not move; it is a real geometric claim.
+  Calibration procedure is in the device-run protocol: 90 measurements, three known separations ×
+  three ranges × two mesh maturities × five repeats, re-tapping every repeat because aim is the
+  dominant term and repeats are the only way to measure it.
+
+  **Not compiled** — brace/paren balance checked; branch logic verified exhaustively (a >6" LiDAR
+  difference is never silent; a ≤6" difference from either source falls through unchanged, so no
+  regression). On-device: confirm a >6" LiDAR-measured pair shows the inconclusive text and not an
+  exclusion, and that a manually-entered >6" pair still shows the exclusion.
 - **Name**: Vehicle Damage Investigation Assistant
 - **Owner**: Sean Pierce
 - **Bundle ID**: `com.spearitnow.vehicledamageforensics`
@@ -847,6 +897,280 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] Before that step: `pip install pbxproj`. `scripts/build_pbxproj.py` needs that PyPI package,
     it is undocumented, and it is absent from a clean checkout — unnoticed, the failure reads as a
     project problem rather than a missing dependency.
+
+- **Height Alignment: implement the documented 6-inch hard rule-out (task #10a).**
+  `MeasurementHelpers.heightAlignmentScore` scored linearly to zero at 5x tolerance = 10 inches,
+  contradicting `ios/reference/ALGORITHM_EXPLAINER.md` §2, which specifies banded scoring with a
+  hard rule-out above 6 inches, and contradicting `_analyze_height_alignment` in the Python
+  reference, which implements the bands. The consequence was the most consequential scoring defect
+  found in this engine: a **6.1-inch height mismatch — a difference that should exclude a suspect
+  outright — scored 39/100** and contributed a third of a 20%-weighted factor's credit toward
+  implicating them. Wrong in the direction of implicating someone is the worst direction this app
+  can be wrong in.
+
+  | Δheight | was | now | Python reference |
+  |---|---|---|---|
+  | 1" | 90 | 100 | 100 |
+  | 2" | 80 | 100 | 100 |
+  | 4" | 60 | 75 | 75 |
+  | 6" | 40 | 50 | 50 |
+  | **6.1"** | **39** | **0** | **0** |
+  | 8" | 20 | 0 | 0 |
+
+  Now banded exactly as documented — verified to agree with the Python reference at every band
+  boundary including 2.001", 4.001" and 6.001". Bands are deliberately absolute inches, not
+  multiples of `toleranceInches`: the rule-out is a claim about vehicle geometry (strike heights on
+  real vehicles do not differ by more than half a foot and still touch), so it must not move when
+  someone tunes measurement precision — which is exactly how the old form drifted to 10 inches.
+  `toleranceInches` now only widens the top "perfect" band. New `heightRuleOutInches` constant and
+  `heightsRuleOut(_:_:)` predicate.
+
+  **Also, per the tech lead's requirement that a rule-out surface as an exclusion rather than a low
+  subscore:** `MatchScoreCalculator.evaluateExclusionRule` now fires on a height rule-out
+  **standalone**, without requiring a scar-direction conflict. Previously the only path to an
+  exclusion was "height mismatch AND scar conflict", so a physically impossible height difference
+  on a case with no usable scar evidence — or with scars that happened to agree — produced no
+  exclusion at all, just a 0 subscore multiplied by 0.20 and averaged into a composite that could
+  still read "MODERATE CORRELATION". A geometric impossibility is not a weak signal to be outvoted
+  by paint colour. Sean's original combined rule is unchanged and now runs only for the
+  sub-rule-out mismatch band. Missing measurements are still never treated as a mismatch.
+
+  **Not yet compiled** — no Xcode toolchain; brace/paren balance checked, and the new band curve
+  was verified against a Python port of both the old and reference implementations at every
+  boundary. On-device: confirm a deliberate >6" height-mismatch pair surfaces the exclusion banner
+  on the results screen and in the PDF, and that a 3" mismatch does NOT (poor score, plausible
+  collision).
+
+- **Damage Dimensions: replace absolute-mm scoring with the smaller/larger ratio form (task #10b).**
+  `MatchScoreCalculator.scoreDamageDimensions` scored `max(0, 100 - abs(diff))` — 1mm = 1 point —
+  under a comment claiming a "50mm tolerance on each axis" that the code never implemented (at 1mm
+  per point the effective tolerance to reach zero was 100mm). The comment is deleted rather than
+  corrected, because the approach itself is the defect: absolute millimetres are scale-blind, and
+  blind in both directions at once.
+
+  | victim vs suspect | absolute form | ratio form |
+  |---|---|---|
+  | 300 vs 400mm wide | 0 | 67 |
+  | 1200 vs 1250mm | 65 | 96 |
+  | 40 vs 60mm | 85 | 67 |
+
+  A 50mm discrepancy means something completely different on a 40mm chip than on a 1200mm gouge,
+  and the old form treated them identically. The last row is the dangerous one — it inflated the
+  factor for two marks that are plainly not the same mark. Now uses the smaller/larger ratio form
+  from `_analyze_dimensions` in the Python reference. Python is not automatically authoritative
+  (it is an earlier, simpler design and is the weaker implementation elsewhere), but on this factor
+  it is right: a ratio is scale-relative, which is the property this comparison needs, and it lands
+  in 0-100 with no invented constants. The factor note now shows both measurements and each axis
+  percentage instead of bare deltas.
+
+  **Not yet compiled** — brace/paren balance checked; the divergence table above is from a Python
+  port of both forms.
+- **Trust the number — algorithm version stamp + no bare match percentages (P1b).** Two related
+  problems, both about a score being shown without the context that makes it mean anything.
+
+  *Problem 1: no provenance.* Every score this app ever produced was stamped with nothing but a
+  date. Two results a month apart can both read 78% and mean completely different things, because
+  the thresholds behind them changed with no record of it. "Which version of the algorithm produced
+  this?" was only answerable by git archaeology on whichever app build happened to be installed
+  that week — not acceptable for a document that may be re-read or challenged later. Fix: new
+  `AlgorithmVersion` (`ForensicEngine/AlgorithmVersion.swift`) carrying a hand-maintained semantic
+  `identifier` for the scoring MATH plus the actual `constants` in force at analysis time, read
+  from the matchers' own static properties rather than re-typed. Stamped into
+  `MatchResult.algorithmVersion` by `MatchScoreCalculator.evaluate()` (the single place a
+  `MatchResult` is produced, so no analysis path can emit an unstamped result), persisted with the
+  case, shown on the Results screen as a collapsed provenance card, on the PDF cover page under the
+  composite score, and in full on a new "Analysis Provenance" PDF page. Deliberately NOT a build
+  number or git SHA — those change on pure-UI commits and would claim the math changed when it
+  didn't. Legacy results decode to `nil` and render as "version not recorded"; they are never
+  backfilled with `.current`, which would falsely claim an old score came from today's math.
+
+  *Problem 2: bare percentages.* The Results screen and PDF both rendered "83% Marking Match" /
+  "78% Striation Rhythm Match" as a bold traffic-light-coloured headline, with the colour driven
+  purely by how big the number was. For the scar-fingerprint matcher there was no null model at all
+  behind it; for the tool-mark matcher the null model existed (commit `7391b73`) but when it could
+  not be built the UI still printed the bold coloured percentage with nothing qualifying it — a
+  uniform striation pattern matches almost anything at near 100%, so that was the most
+  confidently-wrong number the app could display. Fix: both comparisons gained a `headlineDisplay`
+  which is now the ONLY string any surface may use as the headline; it always carries the
+  percentage, the p-value, and an explicit "above chance" / "NOT distinguishable from chance"
+  verdict, and says "significance not testable" when no baseline could be built. Headline colour
+  now reflects significance, not score size (green significant, orange tested-and-not-significant,
+  gray untestable) — "not significant" is orange rather than red on purpose, since it means "this
+  tells you nothing", not "this excludes the suspect". Both `summary` strings now state the
+  no-baseline case out loud instead of falling through to an unqualified sentence.
+
+  *Scar fingerprint matcher got a null model (it had none).* Measured against this matcher's own
+  greedy algorithm, two UNRELATED scars average ~42% when each side has 2 markings and ~71% at 8,
+  with better-than-even odds of clearing 50% — and the score INCREASES with marking count, so a
+  richly-detailed unrelated pair outscores a sparse genuinely-matching one. Causes are structural:
+  the position tolerance is 15% of scar length (about ±3.6 samples on a 25-sample profile), the
+  denominator is `min(victimCount, suspectCount)`, and only two feature types exist so type
+  agreement eliminates almost nothing. So a high raw percentage is the EXPECTED outcome for
+  unrelated scars. `ScarFingerprintMatcher.nullModelBaseline` now runs the identical greedy pass
+  (factored out as `greedyPairs` so the trials use the real algorithm, not an approximation)
+  against 120 random-marking sets that keep the suspect's marking count and type mix but redraw
+  positions uniformly — isolating positional agreement, the one thing a genuine match should
+  explain. Simulation of the new test: false-significant rate 0.7–1.3% on unrelated pairs across
+  2–8 markings (raw scores 25–54%), detection rate 86% at 4 markings and 99% at 6–8 on true
+  matches with 3% positional jitter.
+
+  *Significance test changed from z-score to permutation p-value.* Both matchers now use
+  `ForensicNullModel.permutationPValue` (rank-based, `(1+count)/(1+trials)` so it never reports a
+  false `p = 0`) against `ForensicNullModel.significanceLevel` of 0.05. Being precise about why,
+  because the obvious argument overstates it: I measured the old z ≥ 2.0 threshold's ACTUAL false-
+  positive rate on simulated unrelated striation pairs (200 pairs per regime, 400 null trials each)
+  and it produced 2.0–5.5% against the ~2.3% a normal distribution implies, with null distributions
+  only mildly right-skewed (+0.1 to +0.5) — so the old test was NOT broken. The real objection is
+  that its error rate drifts with input shape, worst on long rhythm sequences (5.5% at 16 elements
+  vs 2.0% at 6). A threshold whose true false-positive rate depends on how long the scar happened
+  to be is not defensible in a report; a rank p-value is correctly calibrated by construction for
+  every input shape. `zScore` is retained on `ToolMarkComparison` as descriptive context and so
+  already-persisted values stay interpretable; `significanceZScoreThreshold` is marked deprecated.
+  The tool-mark matcher's private `SeededGenerator`/`nullModelSeed` were hoisted verbatim into
+  `ForensicNullModel` so both null models draw from the identical deterministic source rather than
+  two independently-written ones — same SplitMix64, same FNV-1a seeding, same reproducibility
+  guarantee, only the location changed.
+
+  Files: new `ForensicEngine/AlgorithmVersion.swift`; `Models/MatchResult.swift` (new optional
+  field + Codable, no backfill); `ForensicEngine/MatchScoreCalculator.swift` (stamp at both return
+  sites); `Utilities/ToolMarkAnalysis.swift`; `Utilities/ScarFingerprintAnalysis.swift`;
+  `Views/Results/MatchResultsView.swift`; `Services/PDFReportGenerator.swift`;
+  `VehicleDamageForensics.xcodeproj/project.pbxproj` (the project is NOT
+  `fileSystemSynchronized`, so the new file had to be registered as a `PBXFileReference` +
+  `PBXBuildFile` + group child + Sources build-phase entry — without that it would not compile).
+  All persisted-model changes are additive optionals, so existing case JSON still loads.
+
+  **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file.
+  Verified by brace/paren/bracket balance on all seven Swift files and the pbxproj (all balanced),
+  and by porting both null models to Python and Monte-Carlo testing their calibration (numbers
+  quoted above). Balance-checking does not catch type errors. Please rebuild and re-test
+  on-device: (1) the Results screen shows no bare match percentage anywhere — both the Scar
+  Fingerprint and Tool-Mark headlines read "N% … p = …, above chance / NOT distinguishable from
+  chance"; (2) headline colour tracks significance, not score size (a high-but-insignificant score
+  is orange, not green); (3) the collapsed "Analysis algorithm v1.1.0" card appears at the bottom
+  of the Results screen and expands to list the constants; (4) the PDF cover shows the version line
+  under the composite score and a new final "Analysis Provenance" page lists every constant; (5)
+  re-running analysis on the same case twice, and again after a force-quit and relaunch, reports
+  identical percentages AND identical p-values (determinism — this is the check that catches a
+  seeding regression); (6) an existing case saved before this change still opens, and its results
+  screen says the algorithm version was not recorded rather than showing a version or crashing;
+  (7) the "not enough distinct detail to compare" cases still show their original wording with no
+  headline and no significance text.
+
+- **Resolution audit of the shipped null-model constants: trial counts 120 -> 1000 (algorithm
+  v1.2.0).** Self-audit prompted by the exclusion critical-value table being withheld for being
+  resolution-limited: the same arithmetic applies to the constants already shipped in P1b, so they
+  were checked rather than assumed safe.
+
+  A permutation p-value from `t` trials is a **discrete multiple of 1/(1+t)**, so the trial count
+  sets a hard floor on the smallest p-value the test can express — and therefore the resolution of
+  every p-value printed in a report. At `nullModelTrialCount = 120` that floor was 1/121 = 0.0083,
+  only ~6 grid steps below the 0.05 significance level. Nothing was broken (the verdict was
+  reachable, unlike the Bonferroni case where the corrected alpha fell *below* the floor), but 6
+  steps is the same marginal zone that made the critical-value table unshippable, and it meant
+  p-values were quantised far more coarsely than their three printed decimals imply.
+
+  Measured: on 10-element rhythms, **3.0% of unrelated pairs and 4.0% of true matches flip
+  significance verdict purely on trial count** between 120 and 2000 trials. A modest but real
+  instability in a number this app presents as evidence.
+
+  Raised to 1000 for both matchers (kept equal so both verdicts in one report rest on the same
+  evidence and share a resolution floor). Floor becomes 0.001, 50 grid steps below 0.05. Estimated
+  cost ~5-40ms on the longest realistic rhythm sequences — still inside the "cheap enough to run
+  synchronously" budget the constant was originally chosen against. Determinism is unaffected: the
+  seed still derives from the data.
+
+  Also added **"P-value resolution"** to `AlgorithmVersion.current.constants`. The trial count was
+  already recorded, but its consequence is not obvious from the number itself; recording the floor
+  explicitly lets a reader tell whether a quoted `p = 0.003` was a real measurement or the floor of
+  a coarse test, without doing the arithmetic.
+
+  **Version 1.2.0. Two things are true about older scores at once, and they point in opposite
+  directions, so read them together:**
+
+  - A **1.1.0 score is directly comparable** to a 1.2.0 score. The estimator did not change; only
+    its resolution did. Nothing needs re-running and no old result is invalidated.
+  - A **1.1.0 p-value is quantised roughly 8× more coarsely** than its three printed decimals
+    suggest — multiples of 0.0083 rather than 0.001.
+
+  Neither claim is safe alone. On its own, the first invites treating an old p-value as though it
+  carried today's precision; the second invites discarding old scores that are in fact still valid.
+  A reader who sees one and not the other draws a wrong conclusion in a specific direction, which
+  is why they are adjacent here and in the version-history comment rather than in separate places.
+
+  **Copy fix in the same change, from Ledger's review:** both matchers' summaries read "scored this
+  well or better in only `p = 0.003` of 1000 chance trials" — a sentence frame that promises a
+  *count of trials* and was handed a *probability*, inviting the reader to parse `p = 0.003` as a
+  quantity out of 1000. Four sites. The defect existed only at the join: `pValueDisplay` returns a
+  complete labelled string and was correct, and the sentence was correct before that helper existed.
+  New `ForensicNullModel.trialCountAtLeastAsExtreme(pValue:trials:)` inverts the p-value definition
+  exactly to recover the count, verified exact across all 1001 possible counts at 1000 trials and
+  on legacy 120-trial values. Now reads "in only 3 of 1000 chance trials (p = 0.004; typical chance
+  score ~41%)". At the resolution floor the count is genuinely **0 of 1000**, which states in the
+  summary what the provenance page's "P-value resolution" constant explains — a floor p-value means
+  no chance trial matched, not zero probability.
+
+  **Printing the count then created a second, quieter problem, fixed in the same change.** A
+  permutation p-value is `(1 + matching trials) / (1 + trials)`, so it counts one more trial than
+  ran: `p = 0.003` is **2** of 1000, not 3. Before the count was printed a reader had no way to
+  check the p-value and no reason to try; with both numbers side by side they multiply, get 3, and
+  conclude one of the two figures is wrong. The notation fix made the discrepancy *visible* without
+  making it *explicable* — which is worse than the original, because the original offered nothing to
+  check and this offers a reason to distrust the report. So the "P-value resolution" constant now
+  states the add-one directly. General rule worth carrying: **exposing a quantity creates an
+  obligation to explain every relationship it now has to its neighbours.** "Only" was correct for
+  two commits and became wrong the moment a count appeared beside it; the p-value was unimpeachable
+  until it acquired a checkable neighbour.
+
+  **Two report-bound copy fixes in the same change, from applying `PROCESS.md` §4.0 to my own
+  strings.** §4.0 pulls any document the app cites by name in report-bound text inside the copy
+  lock *in its entirety*, so the citation I had added was itself the thing that created the
+  obligation. A sweep of every string literal on a non-comment line for person names, section
+  references, filenames and commit identifiers found exactly two hits, both in
+  `evaluateExclusionRule`:
+
+  - The height rule-out string cited "ALGORITHM_EXPLAINER §2" to an investigator. Removed. The
+    threshold's provenance belongs in the code comment and on the Analysis Provenance page, both
+    reviewable; in a report sentence it adds nothing the reader can act on while committing us to
+    every other line of the destination.
+  - The combined-rule string read "both conditions of Sean's hard exclusion rule are met" — a named
+    individual presented, in a prominent PDF exclusion callout, as the authority for excluding a
+    suspect. Now "the combined exclusion rule". Whose rule it is carries no actionable information,
+    and attributing an exclusion to a person rather than to the evidence raises exactly the question
+    the app should not raise. The attribution stays in the doc comment as design intent.
+
+  The second predates this work; it surfaced because the sweep was mechanical rather than aimed at
+  what I had just changed.
+
+  **Not compiled** — brace/paren balance checked; trial-count sensitivity, timing estimates and the
+  p-value/count round-trip all verified via a Python port. That covers arithmetic and syntax, not
+  type errors.
+
+  On-device checklist:
+
+  - [ ] A significant comparison's summary shows a **whole number** in the count position — "in only
+    3 of 1000 chance trials", never a decimal or a `p = …` string there. One-glance test that this
+    class of error has not returned.
+  - [ ] That count is **consistent with the p-value beside it**: count = p × 1001 − 1, rounded.
+    `p = 0.003` is 2 of 1000, not 3.
+  - [ ] The PDF provenance page's **"P-value resolution"** entry explains that add-one, so a reader
+    who multiplies and gets a different number finds the reason on the page instead of concluding
+    the report contradicts itself.
+  - [ ] A comparison at the resolution floor reads **"0 of 1000 chance trials (p < 0.001)"** — zero,
+    not blank and not 1.
+  - [ ] A **non-significant** comparison's summary does **not** contain "only" before its count.
+    With the count printed, "in only 847 of 1000" is understatement pointing the wrong way; that
+    sentence exists to say chance did this routinely.
+  - [ ] A case saved under **1.1.0** still renders its own trial count — "3 of 120 chance trials
+    (p = 0.033)" — rather than being re-expressed against 1000. The trial count travels with the
+    result; it is not read from the current constant.
+  - [ ] Determinism: re-run analysis twice and again after a force-quit, and get **identical**
+    p-values. This is the check that would catch a seeding regression.
+  - [ ] Analysis time has not regressed noticeably against the same case pre-upgrade.
+  - [ ] The results screen provenance card and the PDF "Analysis Provenance" page both show
+    **v1.2.0** and list **"P-value resolution"** among the constants.
+  - [ ] After re-running `scripts/build_pbxproj.py`, `AlgorithmVersion.swift` is still registered in
+    the target **and** `DEVELOPMENT_TEAM` survived in both configurations.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

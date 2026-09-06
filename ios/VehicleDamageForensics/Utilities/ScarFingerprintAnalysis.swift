@@ -298,6 +298,58 @@ struct ScarFingerprintMatch: Codable, Equatable {
     var suspectMinutiae: [ScarMinutia]
     var matchedPairs: [ScarMinutiaMatch]
 
+    // NOTE(AI Developer), added 2026-09. This matcher previously
+    // reported `matchScorePercent` with NO null model of any kind --
+    // the only one of the scar comparisons without one, even though it
+    // needs one most. Measured against this matcher's own greedy
+    // algorithm, two UNRELATED scars average roughly 42% when each side
+    // has 2 markings and roughly 71% when each has 8, with a
+    // better-than-even chance of clearing 50%. Worse, the score
+    // INCREASES with the number of markings found, so a richly-detailed
+    // pair of unrelated scars scores higher than a sparse pair of
+    // genuinely matching ones.
+    //
+    // The causes are structural, not a bug to be patched away:
+    //   - the position tolerance is 15% of scar length, so on a
+    //     25-sample profile a "match" only needs the two markings to
+    //     land within about +/-3.6 samples of each other;
+    //   - the denominator is min(victimCount, suspectCount), so every
+    //     marking on the smaller set has several tolerance-width
+    //     chances to find a partner in the larger one;
+    //   - only two feature types exist, so type agreement eliminates
+    //     barely any candidates.
+    // Given all that, a high raw percentage is the EXPECTED outcome for
+    // unrelated scars, and the number is uninterpretable on its own.
+    //
+    // So this now carries the same null model the tool-mark matcher
+    // has: score the real pair, then score the real victim markings
+    // against many randomly-positioned suspect marking sets with the
+    // same counts and type mix, using the identical greedy matcher.
+    // The p-value that comes out is what makes the percentage mean
+    // something. See `ScarFingerprintMatcher.nullModelBaseline`.
+
+    /// Mean percentage this same greedy matcher produced against
+    /// randomly-positioned marking sets of the same size and type mix
+    /// -- i.e. what an unrelated scar with this much detail would
+    /// typically score. `nil` when no baseline could be built.
+    var nullModelMeanPercent: Double?
+
+    /// Rank-based permutation p-value: fraction of those random trials
+    /// that scored at least as high as `matchScorePercent`. `nil`
+    /// alongside `nullModelMeanPercent`.
+    var permutationPValue: Double?
+
+    /// Number of random trials backing `permutationPValue`; bounds its
+    /// resolution.
+    var nullTrialCount: Int?
+
+    /// `nil` means no significance test was possible and must be
+    /// rendered as such -- never silently treated as either verdict.
+    var isStatisticallySignificant: Bool? {
+        guard let permutationPValue else { return nil }
+        return permutationPValue < ForensicNullModel.significanceLevel
+    }
+
     /// `nil` when either vehicle has zero extractable minutiae -- not
     /// enough signal to say anything, never scored as a negative (same
     /// non-punitive principle as `ScarDirectionCheck.notDeterminable`).
@@ -308,6 +360,24 @@ struct ScarFingerprintMatch: Codable, Equatable {
     }
 
     var isDeterminable: Bool { matchScorePercent != nil }
+
+    /// NOTE(AI Developer), added 2026-09 for the "no bare match %" rule.
+    /// The ONLY string a UI or report surface may use as this
+    /// comparison's headline. A raw percentage must never be rendered
+    /// alone -- see this struct's null-model note for why an unrelated
+    /// scar pair routinely produces a high one. `nil` when there is no
+    /// score, in which case callers show `summary` and no headline.
+    var headlineDisplay: String? {
+        guard let score = matchScorePercent else { return nil }
+        guard let p = permutationPValue, let trials = nullTrialCount else {
+            return String(format: "%.0f%% of markings aligned — significance not testable", score)
+        }
+        let pText = ForensicNullModel.pValueDisplay(p, trials: trials)
+        let verdict = (isStatisticallySignificant == true)
+            ? "above chance"
+            : "NOT distinguishable from chance"
+        return String(format: "%.0f%% of markings aligned — %@, %@", score, pText, verdict)
+    }
 
     /// Human-readable summary for UI/PDF, mirroring the plain-language
     /// framing Sean asked for elsewhere in this feature ("match the
@@ -323,8 +393,33 @@ struct ScarFingerprintMatch: Codable, Equatable {
                 return "No isolated markings were identified on the suspect vehicle's scar — not enough distinct detail to compare."
             }
         }
-        return String(format: "%d of %d comparable markings matched in position and type (%.0f%%).",
-                       matchedPairs.count, min(victimMinutiae.count, suspectMinutiae.count), score)
+        let base = String(format: "%d of %d comparable markings matched in position and type (%.0f%%).",
+                          matchedPairs.count, min(victimMinutiae.count, suspectMinutiae.count), score)
+
+        // NOTE(AI Developer), added 2026-09. The no-baseline branch says
+        // so out loud instead of returning the bare sentence above.
+        // Reporting "5 of 6 markings matched (83%)" with nothing
+        // qualifying it is precisely the presentation that produced
+        // Sean's "how do two different suspects both score 60-80%?"
+        // question, and the honest answer is that unrelated scars do
+        // that routinely.
+        guard let mean = nullModelMeanPercent,
+              let p = permutationPValue,
+              let trials = nullTrialCount,
+              let significant = isStatisticallySignificant else {
+            return base + " No chance-level baseline could be computed for this pair, so this percentage has NOT been tested against coincidence. Marking alignment of this kind occurs readily between unrelated scars, so it must not be read as evidence of a match on its own."
+        }
+        // NOTE(AI Developer), reworded 2026-09-06 per Ledger's copy
+        // review -- same category error and same fix as
+        // `ToolMarkComparison.summary`; see
+        // `ForensicNullModel.trialCountAtLeastAsExtreme`.
+        let pText = ForensicNullModel.pValueDisplay(p, trials: trials)
+        let hits = ForensicNullModel.trialCountAtLeastAsExtreme(pValue: p, trials: trials)
+        if significant {
+            return base + String(format: " Randomly-placed markings of the same number and kind aligned this well or better in only %d of %d chance trials (%@; typical chance score ~%.0f%%), so this alignment is unlikely to be coincidence.", hits, trials, pText, mean)
+        } else {
+            return base + String(format: " However, randomly-placed markings of the same number and kind aligned this well or better in %d of %d chance trials (%@; typical chance score ~%.0f%%) -- this result is NOT distinguishable from chance and must not be treated as meaningful evidence on its own.", hits, trials, pText, mean)
+        }
     }
 
     static func notDeterminable() -> ScarFingerprintMatch {
@@ -346,6 +441,22 @@ enum ScarFingerprintMatcher {
     /// not an exact physical distance.
     static let positionToleranceNormalized: Double = 0.15
 
+    /// NOTE(AI Developer), added 2026-09. Random-marking trials used to
+    /// build the null-model baseline described in
+    /// `ScarFingerprintMatch`'s note. Matched to
+    /// `ToolMarkMatcher.nullModelTrialCount` so both significance
+    /// verdicts in one report rest on the same amount of evidence and
+    /// quote p-values with the same resolution floor. Cheap: each trial
+    /// is a greedy pass over well under a dozen markings.
+    ///
+    /// NOTE(AI Developer), raised from 120 to 1000 on 2026-09-06
+    /// alongside `ToolMarkMatcher.nullModelTrialCount` -- see that
+    /// constant's note for the resolution arithmetic. Kept equal to it
+    /// deliberately so both significance verdicts in one report rest on
+    /// the same amount of evidence and quote p-values with the same
+    /// resolution floor.
+    static let nullModelTrialCount = 1000
+
     /// Greedy nearest-neighbor matching: for each victim minutia (in
     /// position order), pick the closest same-type, not-yet-used
     /// suspect minutia within tolerance. NOTE(AI Developer): greedy
@@ -361,6 +472,35 @@ enum ScarFingerprintMatcher {
             return ScarFingerprintMatch(victimMinutiae: victim, suspectMinutiae: suspect, matchedPairs: [])
         }
 
+        let pairs = greedyPairs(victim: victim, suspect: suspect)
+        let realPercent = (Double(pairs.count) / Double(min(victim.count, suspect.count))) * 100
+
+        // NOTE(AI Developer), added 2026-09 -- see
+        // `ScarFingerprintMatch`'s null-model note for the full
+        // rationale. The baseline runs this EXACT same greedy matcher
+        // against randomly-repositioned suspect marking sets, so the
+        // comparison is apples-to-apples: whatever inflation the greedy
+        // pass, the loose tolerance and the min() denominator introduce,
+        // the null trials get exactly the same inflation.
+        let baseline = nullModelBaseline(victim: victim, suspect: suspect)
+        let pValue = baseline.flatMap {
+            ForensicNullModel.permutationPValue(realScore: realPercent, nullScores: $0.scores)
+        }
+
+        return ScarFingerprintMatch(
+            victimMinutiae: victim,
+            suspectMinutiae: suspect,
+            matchedPairs: pairs,
+            nullModelMeanPercent: baseline?.mean,
+            permutationPValue: pValue,
+            nullTrialCount: baseline?.scores.count
+        )
+    }
+
+    /// The greedy nearest-neighbour pass itself, factored out of
+    /// `match` so the null-model trials can run the identical
+    /// algorithm rather than an approximation of it.
+    private static func greedyPairs(victim: [ScarMinutia], suspect: [ScarMinutia]) -> [ScarMinutiaMatch] {
         var usedSuspectIDs = Set<UUID>()
         var pairs: [ScarMinutiaMatch] = []
 
@@ -379,7 +519,52 @@ enum ScarFingerprintMatcher {
                 pairs.append(ScarMinutiaMatch(victimMinutia: vMinutia, suspectMinutia: bestCandidate, positionDeltaNormalized: bestDelta))
             }
         }
+        return pairs
+    }
 
-        return ScarFingerprintMatch(victimMinutiae: victim, suspectMinutiae: suspect, matchedPairs: pairs)
+    /// Builds the chance-level distribution for this pair.
+    ///
+    /// The null hypothesis being modelled is: "the suspect scar has this
+    /// many markings, of these types, but their POSITIONS along the scar
+    /// have nothing to do with the victim's." So each trial keeps the
+    /// suspect's marking count and type mix exactly and redraws only
+    /// `positionAlongLine` uniformly on 0-1. That isolates the one thing
+    /// a genuine match should explain -- positional agreement -- while
+    /// holding constant everything that merely reflects how much detail
+    /// the photo happened to contain.
+    ///
+    /// Deterministic: seeded from both marking sets' positions via
+    /// `ForensicNullModel.seed`, so re-running analysis on unchanged
+    /// data always reports the same p-value.
+    private static func nullModelBaseline(
+        victim: [ScarMinutia],
+        suspect: [ScarMinutia]
+    ) -> (mean: Double, scores: [Double])? {
+        let denominator = min(victim.count, suspect.count)
+        guard denominator > 0 else { return nil }
+
+        var rng = ForensicNullModel.SeededGenerator(
+            seed: ForensicNullModel.seed(from: [
+                victim.map(\.positionAlongLine),
+                suspect.map(\.positionAlongLine)
+            ])
+        )
+
+        var scores: [Double] = []
+        scores.reserveCapacity(nullModelTrialCount)
+        for _ in 0..<nullModelTrialCount {
+            let randomSuspect = suspect.map { original in
+                ScarMinutia(
+                    type: original.type,
+                    positionAlongLine: Double.random(in: 0...1, using: &rng),
+                    magnitude: original.magnitude,
+                    prominence: original.prominence
+                )
+            }
+            let trialPairs = greedyPairs(victim: victim, suspect: randomSuspect)
+            scores.append((Double(trialPairs.count) / Double(denominator)) * 100)
+        }
+        guard !scores.isEmpty else { return nil }
+        return (mean: scores.reduce(0, +) / Double(scores.count), scores: scores)
     }
 }
