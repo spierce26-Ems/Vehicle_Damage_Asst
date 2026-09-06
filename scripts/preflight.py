@@ -347,6 +347,110 @@ def _parse_field(decl):
     return m.group(1), m.group(2).strip()
 
 
+def codable_line_spans(path):
+    """1-based (start, end) line ranges of every Codable type body in `path`.
+
+    Used to scope the persisted-field check to types that actually get
+    encoded. Brace-matched rather than regex-to-end-of-type so a nested
+    type inside a Codable one is handled correctly.
+
+    Strings and comments are stripped first for brace counting only -- a
+    brace inside a string literal or a doc comment would otherwise close a
+    type early and silently shrink the checked region, which is exactly the
+    failure mode that makes a checker miss the thing it exists to catch.
+    Character offsets are preserved during stripping so line numbers stay
+    accurate.
+    """
+    try:
+        with open(os.path.join(REPO, path), encoding="utf-8") as fh:
+            src = fh.read()
+    except OSError:
+        return []
+
+    out = list(src)
+    i, n = 0, len(src)
+    while i < n:
+        two = src[i:i + 2]
+        if two == "//":
+            while i < n and src[i] != "\n":
+                out[i] = " "
+                i += 1
+        elif two == "/*":
+            depth = 1
+            out[i] = out[i + 1] = " "
+            i += 2
+            while i < n and depth:
+                if src[i:i + 2] == "/*":
+                    depth += 1
+                    out[i] = out[i + 1] = " "
+                    i += 2
+                elif src[i:i + 2] == "*/":
+                    depth -= 1
+                    out[i] = out[i + 1] = " "
+                    i += 2
+                else:
+                    if src[i] != "\n":
+                        out[i] = " "
+                    i += 1
+        elif src[i:i + 3] == '"""':
+            for k in range(i, min(i + 3, n)):
+                out[k] = " "
+            i += 3
+            while i < n and src[i:i + 3] != '"""':
+                if src[i] != "\n":
+                    out[i] = " "
+                i += 1
+            for k in range(i, min(i + 3, n)):
+                out[k] = " "
+            i += 3
+        elif src[i] == '"':
+            out[i] = " "
+            i += 1
+            while i < n and src[i] != '"':
+                if src[i] == "\\":
+                    out[i] = " "
+                    i += 1
+                    if i < n:
+                        out[i] = " "
+                        i += 1
+                    continue
+                if src[i] != "\n":
+                    out[i] = " "
+                i += 1
+            if i < n:
+                out[i] = " "
+                i += 1
+        else:
+            i += 1
+    clean = "".join(out)
+
+    line_of = {}
+    line = 1
+    for idx, ch in enumerate(clean):
+        line_of[idx] = line
+        if ch == "\n":
+            line += 1
+
+    spans = []
+    for m in re.finditer(
+            r"\b(?:struct|class|enum|actor|extension)\s+(\w+)[^{}\n]*?:"
+            r"[^{}\n]*?\bCodable\b[^{}]*?\{", clean):
+        open_idx = clean.find("{", m.end() - 1)
+        if open_idx < 0:
+            continue
+        depth = 0
+        for j in range(open_idx, len(clean)):
+            if clean[j] == "{":
+                depth += 1
+            elif clean[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    spans.append((line_of.get(open_idx, 1),
+                                  line_of.get(j, line)))
+                    break
+    return spans
+
+
 def check_persisted_model(files):
     """Persisted-model changes that survive a green build and lose case data.
 
@@ -362,20 +466,48 @@ def check_persisted_model(files):
       becoming `String?` is as destructive as the keyNotFound case and looks
       far more innocent in review.
 
-    Scoped to Models/, which is the persistence format; a non-optional stored
-    property elsewhere is not a decoding hazard. Existing fields are exempt
-    from the optionality rule -- they are already in the format.
+    Scope is every Swift file under the source root, NOT just Models/, and
+    that difference is load-bearing. Six persisted Codable types reach a
+    saved ForensicCase from Utilities/: StriationCrossSection,
+    StriationProfile and ToolMarkComparison (ToolMarkAnalysis.swift), plus
+    ScarMinutia, ScarMinutiaMatch and ScarFingerprintMatch
+    (ScarFingerprintAnalysis.swift). They persist via
+    CapturedPhoto.scarMinutiae / .toolMarkStriationProfile and
+    MatchResult.toolMarkComparison / .scarFingerprintMatch, so both hazards
+    above land on every saved case from there exactly as they would from
+    Models/. A Models/-only scope passes the real bug that motivated the
+    optionality rule -- task #6 added `exclusions` to ToolMarkComparison in
+    Utilities/ and needed a hand-written init(from:) for precisely this
+    reason -- and it would equally miss a type change on any striation or
+    minutia field.
+
+    Rather than enumerate directories (the next persisted type will land
+    somewhere new), the hazard is keyed to what creates it: the enclosing
+    type conforming to Codable. Existing fields stay exempt from the
+    optionality rule -- they are already in the format.
     """
     model_files = [f for f in files
-                   if f.startswith(MODELS_DIR) and f.endswith(".swift")]
+                   if f.startswith(SOURCE_ROOT) and f.endswith(".swift")]
     for f in model_files:
         diff = sh("git", "diff", *diff_args(), "-U0", "--", f)
         if not diff:
             continue
 
+        # Only properties inside a Codable type body are part of the
+        # persisted payload. Widening the file scope without this would
+        # report every non-optional property in a view model or service.
+        codable_spans = codable_line_spans(f)
+        if not codable_spans:
+            continue
+
         # A type change appears as a -/+ pair on the same field name, so the
         # removed side has to be collected before the added side can be
         # judged. Nothing about such a line looks dangerous in review.
+        # Removed lines are matched by field NAME only, with no span test:
+        # they describe the pre-image, whose line numbers do not map onto
+        # the current file's spans. A name collected here is only ever used
+        # to interpret an added line that has already passed the span test,
+        # so a stray match cannot by itself report anything.
         removed = {}
         for line in diff.splitlines():
             if line.startswith("-") and not line.startswith("---"):
@@ -383,8 +515,18 @@ def check_persisted_model(files):
                 if parsed:
                     removed[parsed[0]] = parsed[1]
 
+        # -U0 hunk headers carry the post-image line number of each added
+        # run, which is what maps an added property onto the Codable spans.
+        new_line = 0
         for line in diff.splitlines():
+            hunk = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
+            if hunk:
+                new_line = int(hunk.group(1))
+                continue
             if not line.startswith("+") or line.startswith("+++"):
+                continue
+            current_line, new_line = new_line, new_line + 1
+            if not any(lo <= current_line <= hi for lo, hi in codable_spans):
                 continue
             parsed = _parse_field(line[1:].strip())
             if not parsed:
