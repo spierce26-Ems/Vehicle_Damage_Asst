@@ -351,9 +351,34 @@ def check_cited_doc_copy():
                 text = fh.read()
         except OSError:
             continue
+        # Ledger checked his own §4.0 sweep and it failed: a citation
+        # planted inside `disclaimerText` passed silently, because a
+        # line-at-a-time scan that skips anything starting with `//`
+        # cannot tell a comment from a line INSIDE a multiline string
+        # literal -- and report copy is exactly where multiline literals
+        # live. His sweep reported clean partly by luck; this one had the
+        # identical gap, verified by planting a citation on a
+        # `//`-prefixed line inside a `"""` body and watching it pass.
+        #
+        # So track multiline-literal state and treat everything inside a
+        # `"""` body as copy, comment markers included. Erring toward
+        # copy is the right direction: a false citation costs one
+        # advisory naming a document, while a missed one is the whole
+        # failure this check exists for.
+        in_multiline = False
         for line in text.splitlines():
             stripped = line.strip()
-            if stripped.startswith("//") or stripped.startswith("///"):
+            fences = line.count('"""')
+            if not in_multiline and stripped.startswith(("//", "///")) \
+                    and fences == 0:
+                continue
+            if in_multiline or fences:
+                for name in re.findall(
+                        r"([A-Z][A-Z0-9_]+\.md|[A-Z][A-Z0-9_]{3,})", line):
+                    base = name[:-3] if name.endswith(".md") else name
+                    cited.add(base)
+                if fences % 2:
+                    in_multiline = not in_multiline
                 continue
             for name in re.findall(r"([A-Z][A-Z0-9_]+\.md|[A-Z][A-Z0-9_]{3,})",
                                    line):
