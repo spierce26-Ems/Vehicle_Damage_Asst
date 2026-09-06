@@ -66,7 +66,12 @@ Two things to know if you produce patches:
   `--abort` under a conflict an hour later. It is correct and it is not
   sufficient — which is the argument for the manifest regenerator over any
   amount of care, since the conflict that triggers the reflex is the one place
-  a stack collides mechanically here.
+  a stack collides mechanically here. **And note when it did work**: the one
+  advocate who caught himself mid-reach had hit that same conflict twice in the
+  preceding round. **A rule transfers when the hazard recurs often enough to be
+  expected, and not otherwise** — so put rules on the frequent hazards and
+  tooling on the rare ones. The rare ones are where a rule is guaranteed to
+  catch you cold, and they are where we have been putting rules.
 - **Never hand-pick a side when the conflict is in
   `COMPLETE_FILE_MANIFEST.md` — regenerate every row either side touched, and
   run `preflight --all` immediately after the resolution rather than after the
@@ -523,8 +528,13 @@ day.** Six sites were swept and four of us called the surface closed. **Six of
 38 is 16%; the other 32 remedies have never been performed by anyone.** Nothing
 suggests they are broken — but nothing establishes they are not, and "no
 failures reported" from a sweep that never reached them is exactly what a dead
-check looks like. Recorded as a bounded, non-blocking debt rather than left as
-an assumption: **a documented gap beats a fifth sweep declaring closure.**
+check looks like. **The honest word is *unexercised*: not suspect, not clear.**
+"Bounded, non-blocking debt" is the phrase to avoid here — it is accurate about
+the priority and it quietly implies the 32 are probably fine, which is the one
+thing nobody has established. Same discipline as grading a missing
+parenthetical *"could not be checked"* rather than passing it, applied to a
+sweep report instead of to a check. **A documented gap beats a fifth sweep
+declaring closure.**
 
 ### 4d. A conflict resolution is where prose goes missing
 
