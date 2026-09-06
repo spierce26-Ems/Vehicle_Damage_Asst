@@ -260,6 +260,36 @@ final class AnalysisViewModel: ObservableObject {
         forensicCase.matchResult?.toolMarkComparison
     }
 
+    /// NOTE(AI Developer), added 2026-09 per Ledger's EVIDENCE_APPENDIX
+    /// sec.6.2. Stamps `ToolMarkComparison.firstScoreDisplayedAt` the
+    /// first time a similarity figure is shown for this pair, and
+    /// NEVER afterwards.
+    ///
+    /// The write-once guarantee is the whole point: this instant is the
+    /// reference every exclusion's `recordedAt` is compared against, so
+    /// a value that moved on re-render would silently re-label
+    /// exclusions already recorded — turning "recorded before any figure
+    /// was displayed" into "after" without touching the exclusion. The
+    /// `guard` here is that guarantee; the checklist item that tests it
+    /// (re-render, re-enter, recompute) exists because a regression here
+    /// is invisible in the UI.
+    ///
+    /// Called from `MatchResultsView` when the tool-mark section
+    /// actually appears, not from `runAnalysis()`: the recorded fact is
+    /// "a figure was displayed to the examiner", and computing a score
+    /// the examiner never saw is not that.
+    func noteToolMarkScoreDisplayed() async {
+        guard var result = forensicCase.matchResult,
+              var comparison = result.toolMarkComparison,
+              comparison.isDeterminable,
+              comparison.firstScoreDisplayedAt == nil else { return }
+        comparison.firstScoreDisplayedAt = Date()
+        result.toolMarkComparison = comparison
+        forensicCase.matchResult = result
+        matchResult = result
+        await storage.save(forensicCase)
+    }
+
     // MARK: Per-Cross-Section Exclusion (item #4)
 
     /// NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item
@@ -294,12 +324,23 @@ final class AnalysisViewModel: ObservableObject {
         // Ignore a duplicate exclusion of the same probe rather than
         // stacking two records for one decision.
         guard !comparison.excludedIDs(for: role).contains(crossSection.id) else { return }
+        // Enforce the search-space caps here as well as in the UI: the
+        // UI disables the affordance, but the limit is a correctness
+        // property of the reported statistic, not a UI affordance, so no
+        // future caller can bypass it. See
+        // `ToolMarkMatcher.maximumExclusions`.
+        guard ToolMarkMatcher.canExclude(from: comparison, role: role) else { return }
 
         let exclusion = StriationExclusion(
             crossSectionID: crossSection.id,
             vehicleRole: role,
             positionAlongLine: crossSection.positionAlongLine,
-            reason: trimmedReason
+            reason: trimmedReason,
+            // The decision-ordering record -- the instant, not a
+            // pre-judged label. Interpreted against
+            // `firstScoreDisplayedAt`. See the field's doc comment for
+            // why this is the one mitigation that cannot be retrofitted.
+            recordedAt: Date()
         )
         result.toolMarkComparison = ToolMarkMatcher.applying(
             exclusions: comparison.exclusions + [exclusion],
@@ -307,7 +348,15 @@ final class AnalysisViewModel: ObservableObject {
         )
         forensicCase.matchResult = result
         matchResult = result
-        forensicCase.recordAudit(.striationProbeExcluded, detail: exclusion.displaySummary)
+        // The ordering fact goes into the audit detail as well as the
+        // model: the audit log is what a reviewer reads, and "was this
+        // decided before or after the examiner could see its effect" is
+        // the only thing distinguishing a legitimate exclusion from
+        // p-value shopping.
+        forensicCase.recordAudit(
+            .striationProbeExcluded,
+            detail: "\(exclusion.displaySummary) [\(exclusion.orderingSummary(firstScoreDisplayedAt: comparison.firstScoreDisplayedAt))]"
+        )
         await storage.save(forensicCase)
     }
 

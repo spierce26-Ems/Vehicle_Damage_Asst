@@ -598,15 +598,25 @@ struct PDFReportGenerator {
         }
         "Exclusions recorded for this comparison:".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 11))
         y += 16
+        // NOTE(AI Developer), 2026-09: each row prints the exclusion,
+        // its stated reason, and the DERIVED decision ordering -- all
+        // in the same neutral colour. Per Ledger's EVIDENCE_APPENDIX
+        // sec.6.3 the report states the ordering and stops: no warning
+        // icon, no colour, no ranking of the three states.
         for exclusion in comparison.exclusions {
             let stamp = DateFormatter.localizedString(from: exclusion.timestamp, dateStyle: .short, timeStyle: .short)
             ("• " + exclusion.displaySummary + " (recorded \(stamp))")
                 .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10),
                       maxWidth: rect.width - 100, color: .darkGray)
             y += 14
+            ("    " + exclusion.orderingSummary(
+                firstScoreDisplayedAt: comparison.firstScoreDisplayedAt))
+                .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 9),
+                      maxWidth: rect.width - 100, color: .darkGray)
+            y += 13
         }
         y += 6
-        "Each exclusion above was made by the investigator after reviewing the photographs, and is also recorded in this case's chain-of-custody audit log. Excluding probes after seeing a score can bias the result upward; the unfiltered score and the recomputed chance baseline are both reported here so this result can be assessed independently."
+        "Each exclusion above was made by the investigator after reviewing the photographs, and is also recorded in this case's chain-of-custody audit log. Because the excluded probes were chosen after the full similarity figure was available, statistical significance is not established for a filtered subset; the unfiltered figure above was computed without any selection and is the more defensible of the two. Both are reported here so this result can be assessed independently."
             .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 9),
                   maxWidth: rect.width - 100, color: .darkGray)
     }

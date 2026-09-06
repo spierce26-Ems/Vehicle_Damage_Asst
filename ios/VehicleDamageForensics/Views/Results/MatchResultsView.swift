@@ -64,6 +64,12 @@ struct MatchResultsView: View {
                     }
                     if let toolMarkMatch = viewModel.toolMarkComparison {
                         toolMarkSection(toolMarkMatch)
+                            // Records that a similarity figure was
+                            // actually displayed to the examiner -- the
+                            // reference instant for exclusion ordering.
+                            // Write-once in the view model, so a
+                            // re-render cannot move it.
+                            .task { await viewModel.noteToolMarkScoreDisplayed() }
                     }
                     recommendations
                     reportSection
@@ -698,6 +704,14 @@ struct MatchResultsView: View {
             } else {
                 ForEach(profile.crossSections) { cs in
                     let isExcluded = excluded.contains(cs.id)
+                    // NOTE(AI Developer), added 2026-09: at the
+                    // exclusion cap the affordance is disabled rather
+                    // than failing on tap -- see
+                    // `ToolMarkMatcher.maximumExclusions`. Restoring an
+                    // existing exclusion stays available at the cap,
+                    // otherwise an examiner who excluded two probes
+                    // could not undo either.
+                    let canExclude = ToolMarkMatcher.canExclude(from: comparison, role: role)
                     Button {
                         if let existing = comparison.exclusions.first(where: {
                             $0.crossSectionID == cs.id && $0.vehicleRole == role
@@ -733,6 +747,15 @@ struct MatchResultsView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(.plain)
+                    .disabled(!isExcluded && !canExclude)
+                }
+                if !ToolMarkMatcher.canExclude(from: comparison, role: role),
+                   !profile.crossSections.isEmpty {
+                    Text(comparison.exclusions.count >= ToolMarkMatcher.maximumExclusions
+                         ? "Exclusion limit reached (\(ToolMarkMatcher.maximumExclusions) maximum)."
+                         : "No further exclusions: too few probes would remain.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
         }
@@ -811,16 +834,21 @@ struct MatchResultsView: View {
                 Text(String(format: "%.0f%% filtered striation rhythm match", score))
                     .font(.headline)
                     .foregroundStyle(.orange)
-                if let significant = outcome.isStatisticallySignificant {
-                    Label(
-                        significant
-                        ? "Still distinguishable from chance after exclusions"
-                        : "NOT distinguishable from chance after exclusions",
-                        systemImage: significant ? "checkmark.seal" : "exclamationmark.triangle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(significant ? .secondary : .red)
-                }
+                // NOTE(AI Developer), CHANGED 2026-09: this previously
+                // rendered a significant/not-significant verdict for the
+                // filtered result. Prism measured that verdict to be a
+                // false positive for the median unrelated pair at two
+                // exclusions (57.5% vs a correct 3.3%), so it is
+                // suppressed -- see `ToolMarkFilteredOutcome`'s doc
+                // comment. The suppression is stated, not silent: an
+                // absent line reads as "not computed yet", which is a
+                // weaker claim than "cannot be established here".
+                Label(
+                    "Significance not reported for a filtered result",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.red)
             }
             if let summary = comparison.filteredSummary {
                 Text(summary).font(.caption)
@@ -831,7 +859,22 @@ struct MatchResultsView: View {
             ForEach(comparison.exclusions) { exclusion in
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Image(systemName: "slash.circle")
-                    Text(exclusion.displaySummary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(exclusion.displaySummary)
+                        // The decision-ordering record. Shown because it
+                        // is the only thing distinguishing a legitimate
+                        // exclusion from p-value shopping, and a reader
+                        // who cannot see it has to take the exclusion on
+                        // trust.
+                        // Locked copy, and deliberately NOT styled by
+                        // state: no warning colour on the "after" case.
+                        // sec.6.3 -- "after" is not evidence of bad
+                        // faith, and colouring it as such accuses an
+                        // investigator of something the app cannot know.
+                        Text(exclusion.orderingSummary(
+                            firstScoreDisplayedAt: comparison.firstScoreDisplayedAt))
+                            .foregroundStyle(.tertiary)
+                    }
                     Spacer(minLength: 8)
                     Button("Restore") {
                         Task { await viewModel.restoreCrossSection(exclusion) }

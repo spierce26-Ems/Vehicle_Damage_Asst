@@ -610,10 +610,62 @@ struct StriationExclusion: Codable, Equatable, Identifiable {
     var reason: String
     var timestamp: Date = Date()
 
+    // NOTE(AI Developer), added 2026-09 per the Tech Lead's required
+    // change and Ledger's EVIDENCE_APPENDIX sec.6 spec. THE ONE
+    // MITIGATION HERE THAT CANNOT BE RETROFITTED.
+    //
+    // A legitimate exclusion (the probe wandered onto a tape measure)
+    // and p-value shopping (excluding until the number improves) are
+    // statistically IDENTICAL -- nothing in the data separates them.
+    // The only discriminator is whether the examiner decided BEFORE or
+    // AFTER seeing what the exclusion did to the result. That ordering
+    // exists only at the instant of the decision; once the case is
+    // saved it is gone forever. Every other mitigation on Prism's list
+    // (exclusion caps, shopping-aware critical values, higher trial
+    // counts) can be added later and applied retroactively. This one
+    // cannot, for any case recorded without it.
+    //
+    // Per Ledger's spec this stores the INSTANT, not a pre-judged
+    // before/after label: storing the label would freeze today's
+    // interpretation into every saved case, whereas storing the two
+    // timestamps records only what is known and lets the rendering rule
+    // change later without invalidating history. The ordering is
+    // derived at render time -- see `orderingSummary` and
+    // `ToolMarkComparison.firstScoreDisplayedAt`.
+    //
+    // Optional per the persisted-model rule in PROCESS.md sec.1 and
+    // Compass's preflight check: a non-optional field on a Codable type
+    // throws `keyNotFound` for every case saved before it existed.
+    var recordedAt: Date?
+
     /// One-line rendering for the audit log, the results UI, and the PDF.
     var displaySummary: String {
         String(format: "%@ probe at %.0f%% along the scar -- %@",
                vehicleRole.displayName, positionAlongLine * 100, reason)
+    }
+
+    /// Report/audit rendering of the decision ordering, DERIVED from
+    /// this exclusion's `recordedAt` and the comparison's
+    /// `firstScoreDisplayedAt`. Wording is locked copy -- Ledger's
+    /// EVIDENCE_APPENDIX sec.6.3.
+    ///
+    /// Three states, never two. `nil` on either timestamp means the
+    /// ordering was never captured, which is UNKNOWN and not CLEAN:
+    /// rendering the "before" line for a `nil` would make an absence
+    /// assert the one property this record exists to establish.
+    ///
+    /// States the ordering and stops -- sec.6.3. No adjudication, no
+    /// ranking, no warning styling on the "after" case. "After" is not
+    /// evidence of bad faith, and an app that renders it as such
+    /// accuses an investigator of something it cannot know. The fact
+    /// belongs in the report; the inference belongs to the reader.
+    func orderingSummary(firstScoreDisplayedAt: Date?) -> String {
+        guard let recordedAt, let shown = firstScoreDisplayedAt else {
+            return "Ordering not recorded."
+        }
+        return recordedAt < shown
+            ? "Recorded before any similarity figure was displayed for this comparison."
+            : "Recorded after a similarity figure had been displayed for this comparison."
     }
 }
 
@@ -653,10 +705,39 @@ struct ToolMarkFilteredOutcome: Codable, Equatable {
 
     var isDeterminable: Bool { matchScorePercent != nil }
 
-    var isStatisticallySignificant: Bool? {
-        guard let zScore else { return nil }
-        return zScore >= ToolMarkMatcher.significanceZScoreThreshold
-    }
+    // NOTE(AI Developer), 2026-09: there is deliberately NO
+    // `isStatisticallySignificant` on the filtered outcome, and this
+    // absence is the point -- see `ToolMarkComparison.filteredSummary`.
+    //
+    // Prism measured the multiple-comparisons cost of exclusion on
+    // unrelated pairs, with the null recomputed per filtered view exactly
+    // as this feature does it: 3.3% false-positive with no exclusions,
+    // 27.5% at best-of-one-exclusion, 57.5% at best-of-two. A 15.6x
+    // inflation at two exclusions, and the MEDIAN unrelated pair lands on
+    // p=0.05 once shopped. Recomputing the baseline for the filtered
+    // subset (which this code does, and which was the right call) fixes
+    // the wrong-baseline error but CANNOT fix this one: the reported
+    // statistic is no longer "is this score significant" but "is the best
+    // score over every subset the examiner could reach significant," and
+    // that search needs its own null.
+    //
+    // The textbook correction is unshippable here. Bonferroni over the
+    // reachable views needs alpha=0.0017 at 7 probes / 2 exclusions, but
+    // a permutation p-value from `nullModelTrialCount` = 120 trials has a
+    // hard floor of 1/121 = 0.0083 -- ABOVE that threshold. So it would
+    // not make the test conservative, it would make it impossible to
+    // pass, rejecting every true match as well. A shopping-aware critical
+    // value (Prism measures the 5th percentile at p <= 0.016) plus an
+    // exclusion cap is the real fix, and it needs a calibration table
+    // that does not exist yet.
+    //
+    // Until it does, this type reports similarity and NOT a verdict.
+    // Emitting `significant` at the unadjusted threshold would be stating
+    // a conclusion we have measured to be wrong more than half the time.
+    // The audit trail records that exclusions happened; it cannot record
+    // that the number stopped meaning what it says. Same principle as the
+    // no-baseline case: when a number can't be defended, say so rather
+    // than showing a verdict that reads as though it can.
 }
 
 /// Result of comparing two vehicles' `StriationProfile`s. NOTE(AI
@@ -748,6 +829,19 @@ struct ToolMarkComparison: Codable, Equatable {
     /// -- see `ToolMarkFilteredOutcome`'s doc comment.
     var filteredOutcome: ToolMarkFilteredOutcome?
 
+    /// NOTE(AI Developer), added 2026-09 per Ledger's EVIDENCE_APPENDIX
+    /// sec.6.2. WRITE-ONCE: set the first time any similarity figure for
+    /// this pair is rendered to the screen, and never overwritten -- not
+    /// on re-render, not on re-entry, not on recompute. It is the
+    /// reference instant that makes each exclusion's `recordedAt`
+    /// interpretable, so a value that moved would silently re-label
+    /// every exclusion already recorded against it.
+    ///
+    /// Optional both because it is a new field on a persisted model
+    /// (PROCESS.md sec.1) and because `nil` is meaningful: no figure has
+    /// been displayed yet, so no exclusion can have been made after one.
+    var firstScoreDisplayedAt: Date?
+
     // NOTE(AI Developer), added 2026-09 alongside item #4's `exclusions`
     // field. This custom `init(from:)` is REQUIRED, not stylistic: Swift's
     // synthesized `Codable` conformance does NOT fall back to a stored
@@ -784,6 +878,7 @@ struct ToolMarkComparison: Codable, Equatable {
         nullTrialCount = try c.decodeIfPresent(Int.self, forKey: .nullTrialCount)
         exclusions = try c.decodeIfPresent([StriationExclusion].self, forKey: .exclusions) ?? []
         filteredOutcome = try c.decodeIfPresent(ToolMarkFilteredOutcome.self, forKey: .filteredOutcome)
+        firstScoreDisplayedAt = try c.decodeIfPresent(Date.self, forKey: .firstScoreDisplayedAt)
     }
 
     /// Memberwise init, restored explicitly because declaring
@@ -800,7 +895,8 @@ struct ToolMarkComparison: Codable, Equatable {
         permutationPValue: Double? = nil,
         nullTrialCount: Int? = nil,
         exclusions: [StriationExclusion] = [],
-        filteredOutcome: ToolMarkFilteredOutcome? = nil
+        filteredOutcome: ToolMarkFilteredOutcome? = nil,
+        firstScoreDisplayedAt: Date? = nil
     ) {
         self.victimProfile = victimProfile
         self.suspectProfile = suspectProfile
@@ -814,6 +910,7 @@ struct ToolMarkComparison: Codable, Equatable {
         self.nullTrialCount = nullTrialCount
         self.exclusions = exclusions
         self.filteredOutcome = filteredOutcome
+        self.firstScoreDisplayedAt = firstScoreDisplayedAt
     }
 
     var isDeterminable: Bool { matchScorePercent != nil }
@@ -943,18 +1040,32 @@ struct ToolMarkComparison: Codable, Equatable {
             return lead + " After those exclusions there is no longer enough striation detail on both scars to produce a comparison at all."
         }
         var text = lead + String(format: " Filtered striation spacing rhythm correlates at %.0f%% across %d overlapping marks.", score, overlap)
-        // The recomputed baseline, not the unfiltered one -- see
-        // `ToolMarkFilteredOutcome`'s doc comment for why this
-        // distinction matters.
-        if let baselineMean = outcome.nullModelMeanPercent, let significant = outcome.isStatisticallySignificant {
-            if significant {
-                text += String(format: " Against a baseline recomputed for this shorter sequence (~%.0f%% by chance), the filtered correlation is still statistically distinguishable from random.", baselineMean)
-            } else {
-                text += String(format: " Against a baseline recomputed for this shorter sequence, unrelated patterns of this length score around %.0f%% by chance, so the filtered result is NOT statistically distinguishable from random.", baselineMean)
-            }
-        } else {
-            text += " Too few values remain to recompute a chance baseline, so no significance test can be offered for the filtered result."
+        // NOTE(AI Developer), CHANGED 2026-09 per Prism's
+        // multiple-comparisons measurement -- see the note on
+        // `ToolMarkFilteredOutcome` for the numbers.
+        //
+        // This block previously reported a significance VERDICT against
+        // the recomputed baseline ("still statistically distinguishable
+        // from random"). That was wrong, and wrong in the dangerous
+        // direction: at two exclusions the median UNRELATED pair reaches
+        // p=0.05, so the verdict was measured to be a false positive
+        // more than half the time. The baseline recomputation was
+        // necessary but not sufficient -- once the examiner picks the
+        // subset after seeing the score, the statistic being tested is
+        // the best over all reachable subsets, and the unadjusted
+        // threshold does not test that.
+        //
+        // So the verdict is SUPPRESSED whenever exclusions are active,
+        // and the suppression is stated rather than silent: an omitted
+        // significance line would read as "not yet computed," which is a
+        // different and more forgiving claim than "cannot be established
+        // for a filtered subset." The recomputed chance baseline is
+        // still reported, because it is real and useful context; only
+        // the significant/not-significant conclusion is withheld.
+        if let baselineMean = outcome.nullModelMeanPercent {
+            text += String(format: " Unrelated patterns of this length score around %.0f%% by chance against a baseline recomputed for this shorter sequence.", baselineMean)
         }
+        text += " Statistical significance is deliberately NOT reported for a filtered result: because the probes were chosen after seeing the full score, the usual test would treat the best of several possible subsets as if it were a single prediction, which measurably overstates significance. Treat the filtered figure as a similarity measurement, not as evidence of a meaningful correlation, and rely on the unfiltered result above for that judgement."
         // NOTE(AI Developer): the comparison against the unfiltered
         // score is stated explicitly rather than left for the reader to
         // compute, because the direction of that change is the single
@@ -1092,6 +1203,37 @@ enum ToolMarkMatcher {
     /// it.
     @available(*, deprecated, message: "Significance now uses ForensicNullModel.permutationPValue; this constant is retained only to interpret previously-persisted zScore values.")
     static let significanceZScoreThreshold = 2.0
+
+    // NOTE(AI Developer), added 2026-09 per the Tech Lead's accepted
+    // mitigations, from Prism's multiple-comparisons analysis. These two
+    // caps bound the SEARCH SPACE an examiner can explore, which is a
+    // more effective control than any statistical correction applied
+    // afterwards: the false-positive inflation comes from the number of
+    // reachable subsets, so limiting that number attacks the cause
+    // rather than adjusting for the symptom. Measured cost of an
+    // unbounded search: 3.3% false-positive at zero exclusions, 27.5% at
+    // one, 57.5% at two, and 90% at three on a 10-probe profile.
+    /// The most exclusions allowed on one comparison.
+    static let maximumExclusions = 2
+
+    /// The fraction of each side's cross-sections that must survive
+    /// filtering. Stops the cap above from being circumvented on a
+    /// profile with few probes to begin with, where 2 exclusions could
+    /// otherwise remove most of the data.
+    static let minimumSurvivingProbeFraction = 0.60
+
+    /// Whether one more exclusion is permitted on `comparison` for
+    /// `role`. The UI uses this to disable the affordance rather than
+    /// letting an examiner make a choice that will be refused.
+    static func canExclude(from comparison: ToolMarkComparison, role: VehicleRole) -> Bool {
+        guard comparison.exclusions.count < maximumExclusions else { return false }
+        let profile = role == .victim ? comparison.victimProfile : comparison.suspectProfile
+        let total = profile.crossSections.count
+        guard total > 0 else { return false }
+        let alreadyExcluded = comparison.excludedIDs(for: role).count
+        let survivingAfter = Double(total - alreadyExcluded - 1) / Double(total)
+        return survivingAfter >= minimumSurvivingProbeFraction
+    }
 
     /// Compares two vehicles' extracted striation rhythms.
     static func compare(victim: StriationProfile, suspect: StriationProfile) -> ToolMarkComparison {
