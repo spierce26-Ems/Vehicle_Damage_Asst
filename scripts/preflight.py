@@ -556,51 +556,12 @@ def check_manifest_line_counts():
         text = fh.read()
     rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*(\d+)\s*\|", text, re.M)
 
-    # The TOTALS SENTENCE, which three layers of validation never touched.
-    # Ledger found 309f25b's header asserting 19887 Swift lines against a tree
-    # of 19890, clear on every check, twice, from a fresh clone. The rows are
-    # checked below; check_manifest_drift checks the file and Swift COUNTS;
-    # the parenthetical "(N lines)" was compared to nothing. So the document
-    # could be internally perfect -- every row right, both counts right -- and
-    # still open with a wrong number.
-    #
-    # It is the WIDEST claim in the file and was the only one a reader could
-    # not test, which is exactly why it is the one people quote. The general
-    # form, which is worth more than this check: THE SUMMARY LINE IS THE
-    # LEAST-CHECKED ASSERTION IN A GENERATED FILE, because validation gets
-    # written against the rows. Fourth artefact today that was clean
-    # everywhere a check looked and wrong where nobody did.
-    #
-    # Advisory, matching the rest of this check: a wrong total misleads a
-    # reader but does not make the tree wrong, and the remedy is the same
-    # regeneration.
-    m = re.search(r"Totals:\s*(\d+) tracked files, of which (\d+) Swift "
-                  r"sources \((\d+) lines\)", text)
-    if not m:
-        warn("manifest-lines",
-             "no `Totals:` sentence parsed from COMPLETE_FILE_MANIFEST.md "
-             "-- the header's own line total was NOT checked",
-             "keep the sentence as 'Totals: N tracked files, of which N "
-             "Swift sources (N lines).', or re-point this check alongside "
-             "the wording. This says nothing about the tree.")
-    else:
-        swift = [f for f in tracked_swift()]
-        actual = 0
-        for f in swift:
-            try:
-                with open(os.path.join(REPO, f), encoding="utf-8",
-                          errors="replace") as fh:
-                    actual += sum(1 for _ in fh)
-            except OSError:
-                actual = None
-                break
-        if actual is not None and int(m.group(3)) != actual:
-            warn("manifest-lines",
-                 f"the Totals: header says {m.group(3)} Swift lines; the "
-                 f"tree has {actual}",
-                 "run `python3 scripts/regen_manifest.py` -- the header is "
-                 "the widest claim in that document and the one a reader "
-                 "quotes, so a wrong total travels further than a wrong row")
+    # The Totals: header check that was here is now in
+    # check_manifest_drift, beside the file and Swift counts it belongs with
+    # -- Prism's version, which also refuses to assert a total measured over
+    # a Swift file it could not read and defers to the path-drift finding
+    # instead of reporting a partial sum. Two checks for one assertion is the
+    # duplicate-work waste; his is the better of the two.
     if not rows:
         warn("manifest-lines",
              "no `path | lines` rows parsed from COMPLETE_FILE_MANIFEST.md "
@@ -983,8 +944,31 @@ def _sha_is_reachable(sha):
     # requirement -- sec.5b's own rule about asserting a remote fact. What
     # this now cannot do is pass a sha kept alive only by a local branch,
     # which is what it was doing.
+    # refs/tags is NOT in this set, and the reason is measured rather than
+    # argued. `git tag` creates a purely LOCAL ref -- nothing about a tag says
+    # whether it was ever pushed. Verified on this predicate as landed: an
+    # empty commit off origin/main, its branch deleted, one `git tag` on it,
+    # and a cited sha reachable from that tag alone passed `--all` clean at
+    # zero advisories. So a tag is a claim about the remote only when it
+    # happens to have been pushed, and no local command distinguishes the two
+    # cases.
+    #
+    # That is the same substitution one notation further out: the local
+    # namespace wearing the one form this check treats as published. It was
+    # already firing twice today -- Vector's first verification run passed
+    # because a leftover `_tt` from this check's own test suite still pointed
+    # at 3c262e2, so the check had never fired; the Tech Lead reproduced the
+    # tag case and recorded it as accepted by design. It should not be: the
+    # accepted bound is "a remote-tracking ref can be stale", which a fetch
+    # fixes, not "any local tag vouches for a sha", which nothing fixes.
+    #
+    # Cost of excluding tags: a sha reachable ONLY from a pushed tag and from
+    # no branch now blocks. That is rare -- a release tag is normally an
+    # ancestor of a branch, so refs/remotes already covers it -- and
+    # CITED_SHA_EXEMPT takes the exception with a reason. Right trade: a false
+    # block is visible and gets argued, a false pass is neither.
     refs = sh("git", "for-each-ref", "--format=%(refname)",
-              "--contains", sha, "refs/remotes", "refs/tags").strip()
+              "--contains", sha, "refs/remotes").strip()
     return bool(refs)
 
 
@@ -1125,6 +1109,57 @@ def check_manifest_drift():
                  f"({len(swift)})",
                  "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md from "
                  "git ls-files (regenerate, never hand-edit)")
+
+        # The LINE TOTAL in the same sentence, which nothing compared until
+        # 309f25b was found to claim 19887 against a tree of 19890. Three
+        # layers validate this document -- per-file rows
+        # (check_manifest_line_counts), file and Swift counts (just above),
+        # path presence (below) -- and none of them touched the header's own
+        # number, so the manifest could be internally perfect and still open
+        # with a false one.
+        #
+        # Ledger's general form, which is why this is a check rather than the
+        # edit that corrected it: the summary line is the least-checked
+        # assertion in a generated file, because validation gets written
+        # against the rows. It is also the widest claim in the document and
+        # the only one a reader cannot test by inspection, which makes it the
+        # number people quote.
+        #
+        # Advisory, matching the rest of this check, and it reports the
+        # absence of the parenthetical rather than going quiet -- a signal
+        # that vanishes when the wording changes reads as a pass.
+        lm = re.search(r"Swift sources\s*\((\d+)\s*lines\)", text)
+        if lm is None:
+            warn("manifest",
+                 f"{rel} states no machine-readable Swift LINE total -- "
+                 "that half of the totals sentence could not be checked",
+                 "keep the parenthetical of the form "
+                 "'M Swift sources (L lines)', or update this check's "
+                 "pattern alongside the wording")
+        else:
+            claimed_lines = int(lm.group(1))
+            actual_lines = 0
+            for f in swift:
+                try:
+                    with open(os.path.join(REPO, f), "rb") as sfh:
+                        actual_lines += sum(1 for _ in sfh)
+                except OSError:
+                    # A tracked path that will not open is check_manifest_
+                    # drift's own subject below; do not assert a total
+                    # measured over a file we could not read.
+                    actual_lines = None
+                    break
+            if actual_lines is None:
+                warn("manifest",
+                     f"{rel}'s Swift line total NOT checked -- a tracked "
+                     "Swift file could not be read",
+                     "see the path-drift finding below; fix that first")
+            elif claimed_lines != actual_lines:
+                warn("manifest",
+                     f"{rel} asserts {claimed_lines} Swift lines; the tree "
+                     f"has {actual_lines}",
+                     "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md "
+                     "from git ls-files (regenerate, never hand-edit)")
 
     listed = set(re.findall(r"`([^`]+)`", text))
     missing = [f for f in tracked if f not in listed]
