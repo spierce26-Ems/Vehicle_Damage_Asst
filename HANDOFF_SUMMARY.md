@@ -40,7 +40,11 @@ connectivity at a scene.
 
 **Source of truth**: `https://github.com/spierce26-Ems/Vehicle_Damage_Asst`,
 branch `main` (the only branch). Owned by GitHub user `spierce26-Ems`.
-Team members need to be added as collaborators — see §5.1.
+
+**Agents cannot be GitHub collaborators — they have no GitHub accounts.** All
+agent work reaches `main` through the tech lead's write access: hand over a
+patch or the file content plus a commit message, and it is landed authored to
+you. See `docs/PROCESS.md` §0.
 
 A secondary `genspark` git remote received auto-pushed backups from the earlier
 AI session. It is a safety net, not a place to work. GitHub is the only source
@@ -91,10 +95,10 @@ The one acknowledged technical-debt area is the hand-rolled pixel and
 statistics math in the matching engine. It is being hardened incrementally with
 real statistical rigour rather than replaced — see plan item 3.
 
-The repo root also carries a Vite/Cloudflare web scaffold (`src/`,
-`package.json`, `vite.config.ts`, `wrangler.jsonc`) left over from an earlier
-prototype. It is not built, shipped, or referenced by the iOS target. Deleting
-it is an open decision (§6).
+A Vite/Cloudflare web scaffold left over from an earlier prototype used to sit
+at the repo root; Sean approved deleting it and it was removed at `34754e2`
+after verifying nothing in `ios/` referenced it. The repo root is now the iOS
+project, the docs, and the pbxproj scripts — nothing else.
 
 ---
 
@@ -121,18 +125,22 @@ The live status table for the 5-item improvement plan and the P0 foundation
 work is maintained in `ios/README.md` under "Improvement Plan & Work Status".
 Headlines:
 
-- **Item 5 is still open** — Sean has not answered Option A vs B. Two agents
-  have recommended B (the duplicate-case clone); that is a recommendation, not
-  a decision, and it is recorded as an open box in the status block. Work is
-  scoped and queued as B because B is the low-risk default if he never weighs
-  in. Option A — refactoring `suspectVehicle` into an array, ~88 references
-  across 15 files, on code that has never compiled — stays not-recommended for
-  the reasons in the status block.
+- **Item 5 is decided: Option B**, confirmed by Sean — a duplicate-case clone
+  action (`sourceCaseID`, regenerated ids, suspect vehicle and match results
+  cleared). Option A, refactoring `suspectVehicle` into an array across ~88
+  references in 15 files on code that has never compiled, is not being done.
+  Recorded so it comes back as a deliberate reopening if a single combined
+  multi-suspect report is ever genuinely required, rather than being
+  re-litigated from scratch.
 - **Item 1 is 3-of-4 landed**; the reverted `ScarCaptureView` focus-region UI
   is the remaining piece, gated on a green build.
 - **Item 2 was promoted ahead of item 1's UI** — per-shot capture guidance plus
   a close-focus quality gate is the cheaper root fix for the same tape-measure
-  contamination bug. Its spec is accepted; the code is not written.
+  contamination bug. Its spec is accepted; the code is not written. Sean
+  decided the gate **hard-blocks** auto-capture, with the manual shutter as the
+  documented override — a forced shot is saved and recorded (`gateOverridden`)
+  rather than being indistinguishable from a clean one. The warn-only variant
+  is not being built.
   **One thing on the record so it is not re-derived**: item 2 is *not* a blanket
   "no rulers" rule. The protocol's height-reference shot is deliberately a
   ruler/tape-measure shot — wanted evidence. The bug is confined to the shots
@@ -150,16 +158,27 @@ Headlines:
   A tool that lets a user silently delete the evidence that disagrees with them
   is worse than no tool.
 
-The foundation work (repo access and signing, first green build, first
-end-to-end device run, documentation process, and the "trust the number"
-version stamp / p-value display) blocks everything else and is tracked in the
-same table.
+The foundation work (signing, first green build, first end-to-end device run,
+documentation process, and the "trust the number" version stamp / p-value
+display) is tracked in the same table. Documentation process is done. The one
+remaining hard input is the Apple Developer Team ID (§5.1) — it blocks every
+device run and nothing else can substitute for it.
 
 ---
 
 ## 5. Known issues and standing context
 
-### 5.1 No Apple Developer team configured for signing
+### 5.1 No Apple Developer team configured for signing — root-caused
+`DEVELOPMENT_TEAM` is absent from **both** the Debug and Release configurations
+in `project.pbxproj`; it appears nowhere in the project. `CODE_SIGN_STYLE =
+Automatic` and the bundle id are already correct in both configs, so nothing
+else needs touching. **One 10-character Apple Developer Team ID closes it** — a
+public identifier, not a secret.
+
+Setting it in the live pbxproj alone is not enough: `scripts/pbxproj_skeleton.txt`
+carries the same two config blocks, and the generator would silently drop the
+Team ID the next time anyone registered a new Swift file (§5.5). Both files.
+
 Xcode reports "Signing for 'VehicleDamageForensics' requires a development
 team" (Team: None). A team must be selected in Signing & Capabilities before
 anyone can build to a device or ship to TestFlight. Sean holds an active Apple
@@ -212,11 +231,17 @@ should be expected to produce a real error list, and that list is information,
 not failure. Do a full clean build and walk the main flows before treating any
 commit as working.
 
-### 5.5 New Swift files must be registered in `project.pbxproj`
-An unregistered file silently does not compile into the target. This has
+### 5.5 The pbxproj is generated — edit both files
+An unregistered Swift file silently does not compile into the target, which has
 already caused two confusing build failures (`bf3bc5a`, `3f56117`).
-`scripts/build_pbxproj.py` generates the pbxproj from
+`scripts/build_pbxproj.py` regenerates `project.pbxproj` from
 `scripts/pbxproj_skeleton.txt`.
+
+The consequence that bites: **a build setting changed only in the live pbxproj
+is discarded the next time the generator runs.** It disappears in a commit that
+looks like it was about registering a new file, and presents as configuration
+breaking itself for no reason. Change both files, every time. Signing was the
+first place this would have bitten — see §5.1.
 
 ### 5.6 LiDAR requires a real device
 Nothing in the LiDAR or depth path can be tested in Simulator. Same for camera
@@ -231,17 +256,16 @@ initial setup and never pulled again — not the one to use.
 
 ## 6. Open decisions
 
-These need a product answer, not an engineering one. All four are Sean's, all
-four are open, and each carries a recommendation so work can proceed on a
-default. The full list with rationale lives in `ios/README.md`'s status block.
+These need a product answer, not an engineering one. The full list, decided and
+open, lives in `ios/README.md`'s status block.
 
-1. **Item 5: Option A or Option B.** Recommended: B (duplicate-case clone).
-2. **Capture quality gate: hard-block or warn only?** Recommended: hard-block,
-   with the manual shutter as the documented override.
-3. **The leftover web scaffold** — delete it, or keep it with a stated reason?
-   Recommended: delete. It is dead weight in a repo where a new reader needs to
-   find the iOS app immediately.
-4. **Distribution target** — TestFlight, or continue direct-to-device installs?
+**Decided by Sean:** item 5 is **Option B** (duplicate-case clone). The capture
+quality gate **hard-blocks** auto-capture, with the manual shutter as the
+documented override. The leftover web scaffold was deleted.
+
+Still open:
+
+1. **Distribution target** — TestFlight, or continue direct-to-device installs?
    Recommended: direct installs for now. This decides how urgent App Store
    Connect and IAP setup becomes
    (`ios/reference/APP_STORE_CONNECT_SETUP.md`).

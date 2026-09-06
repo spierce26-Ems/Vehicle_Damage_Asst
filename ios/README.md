@@ -17,7 +17,7 @@
 <!-- BEGIN: Improvement plan + work status (maintained by Ledger) -->
 ## Improvement Plan & Work Status
 
-Last updated: 2026-09-06 · latest commit on `main`: `3656b64`
+Last updated: 2026-09-06 · latest commit on `main`: `0f657db`
 
 Status values: Not started / In progress / Blocked / In review / Done.
 `In review` means the author has finished everything in their control. `Done`
@@ -37,7 +37,7 @@ See `HANDOFF_SUMMARY.md` §5.3.
 | 2 | Per-shot capture guidance + close-focus quality gate | Spec accepted, code not written | Prioritised ahead of item 1's UI: cheaper root fix for the same tape-measure problem. **Recorded so it is not re-derived: this is NOT a blanket "no rulers" rule.** `CaptureProtocolStep.fullProtocol` id 4 is literally a ruler/tape-measure height-reference shot — wanted evidence. The bug is only that rulers land in the shots whose *pixels* feed the engine, where printed ticks read as striations and the ruler's colour reads as paint transfer. Guidance is per-shot, keyed on `PhotoType.isAnalysisShot`. A literal blanket ban would cost the height reference and with it all scale. Implementation gate: commit 3 touches `ScarCaptureView.swift`, so **item 1's reapply (task #5) lands first, alone, verified in Xcode** — two large diffs racing on that file is how the crash repeats. |
 | 3 | Null-model / statistical-significance scoring for tool-mark match | Done (code) — never compiled | `7391b73`. Adds `nullModelMeanPercent`, `nullModelStdDevPercent`, `zScore`, `isStatisticallySignificant` to `ToolMarkComparison`, all additive/optional. Seeded SplitMix64 PRNG so re-analysis is deterministic. Still needs the on-device checklist in the changelog entry walked before this is called Done. |
 | 4 | Per-cross-section exclude in the results UI | Not started | Requirement: an exclusion must be recorded in the audit log, and exports must show both the full and the filtered score. An investigator must not be able to silently drop the sections that disagree. |
-| 5 | "Duplicate Case for Another Suspect" | Not started — **decision open**, scoped as Option B | Awaiting Sean's answer on Option A vs B; two agents have recommended B, which is a recommendation, not a decision. Scoped and queued as B in the meantime, since B is the low-risk default if he never weighs in. **Option B**: a clone action creating a new case pre-filled with victim data (`sourceCaseID`, regenerated ids, suspect vehicle and match results cleared). **Why A is not recommended**: refactoring `ForensicCase.suspectVehicle` from an optional into an array touches ~88 references across 15 files, on a codebase that has never been compiled, and the file most likely to be dragged in is the one already blamed for an Xcode crash — the highest-risk change available, for no user-visible benefit today. A returns to the roadmap only if a single combined multi-suspect report is genuinely required. |
+| 5 | "Duplicate Case for Another Suspect" | Not started — **Option B decided by Sean** | **Option B**: a clone action creating a new case pre-filled with victim data (`sourceCaseID`, regenerated ids, suspect vehicle and match results cleared). **Why A is not recommended**: refactoring `ForensicCase.suspectVehicle` from an optional into an array touches ~88 references across 15 files, on a codebase that has never been compiled, and the file most likely to be dragged in is the one already blamed for an Xcode crash — the highest-risk change available, for no user-visible benefit today. A returns to the roadmap only if a single combined multi-suspect report is genuinely required. |
 
 ### Foundation work (must land before feature work is trustworthy)
 
@@ -49,10 +49,10 @@ should wait on Apple Developer team setup to start finding compiler errors.
 
 | Priority | Item | Status | Depends on |
 |---|---|---|---|
-| P0-1 | GitHub collaborator access + Apple Developer team in Signing & Capabilities | In progress | Sean |
+| P0-1 | Apple Developer team in Signing & Capabilities | In progress — needs one Team ID | Sean |
 | P0-2 | First green clean build — nothing in this repo has ever been compiled | In progress | repo access only; **not** signing |
 | P0-3 | End-to-end run on a LiDAR device: capture → analysis → PDF, logged in this changelog | In progress | P0-1 (signing) + P0-2 |
-| P0-4 | Docs + process discipline (this block, `HANDOFF_SUMMARY.md`, file manifest, `docs/PROCESS.md`) | In review — awaiting write access | repo write access |
+| P0-4 | Docs + process discipline (this block, `HANDOFF_SUMMARY.md`, file manifest, `docs/PROCESS.md`, `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md`) | Done — landed `7966c5f`…`0f657db` | — |
 | P1b | "Trust the number": algorithm version stamp in results and exports; no bare match % in the UI — always similarity plus the null-model p-value from `7391b73` | Not started | P0-2 |
 
 ### Open decisions
@@ -65,10 +65,11 @@ itself to a decision makes the list worthless for the decisions it exists to
 track. Recommendations are recorded so the work can proceed on a default, not
 so the question can be closed.
 
-- [ ] **Item 5: Option A or Option B.** Recommended: **B** (duplicate-case clone). A is the ~88-reference `suspectVehicle` array refactor. Work is queued as B; say A and item 5 is re-scoped with a much larger estimate.
-- [ ] **Capture quality gate: hard-block or warn only?** Recommended: **hard-block auto-capture, with the manual shutter as the override**. The override is what makes hard-block safe — a forced shot is saved and documented (`gateOverridden`) rather than being indistinguishable from a clean one. The warn-only variant is deliberately not being built speculatively.
-- [ ] **The leftover Vite/Cloudflare web scaffold** at the repo root (`src/`, `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`, `wrangler.jsonc`) from an earlier prototype — not built, not shipped, not referenced by the iOS target. Recommended: **delete**.
+- [x] **Item 5: Option A or Option B** → **Option B**, decided by Sean. Duplicate-case clone; no `suspectVehicle` array refactor.
+- [x] **Capture quality gate: hard-block or warn only?** → **hard-block**, decided by Sean, with the manual shutter as the documented override. The override is what makes hard-block safe — a forced shot is saved and recorded (`gateOverridden`) rather than being indistinguishable from a clean one. The warn-only variant is not being built.
+- [x] **The leftover Vite/Cloudflare web scaffold** → **deleted** at `34754e2`, approved by Sean, after verifying nothing in `ios/` referenced it.
 - [ ] **Distribution target: TestFlight or direct-to-device Xcode installs?** Recommended: **stay on direct installs for now**. This decides how urgent App Store Connect / IAP product setup becomes.
+- [ ] **Apple Developer Team ID** — `DEVELOPMENT_TEAM` is absent from both Debug and Release in `project.pbxproj` *and* from `scripts/pbxproj_skeleton.txt`. One 10-character Team ID (a public identifier, not a secret) closes it; the patch is written and waiting. `CODE_SIGN_STYLE = Automatic` and the bundle id are already correct. This blocks every device run.
 
 ### Conventions
 

@@ -151,11 +151,36 @@ Under `docs/PROCESS.md`:
 - The full string inventory lives with the changelog, not only in a spec
   attachment, so it survives the spec being superseded.
 
-### 4.1 Copy change ledger
+### 4.1 Copy change ledger — every surface, not just commits
 
-Every change to a locked string is recorded here, oldest first, whether or not
-it arrived through a commit. The rationale column is the point — it is what
-stops a future editor from "restoring" wording that was deliberately changed.
+**The obligation is on the string, not on the artefact it appears in.** Any
+change to a locked string is recorded here, oldest first, whatever carried it.
+Named explicitly, because this lock has already been outrun twice by scoping it
+to a mechanism instead of to the words:
+
+| Surface | Obligation |
+|---|---|
+| A commit | `Copy: changed` in the message body plus the affected keys; before/after quoted in the changelog entry |
+| A spec revision | ledger entry at revision time — do not wait for an implementing commit |
+| **A mock, wireframe, or prototype** | ledger entry, **or** an explicit placeholder marking on the artefact naming this document as the authority |
+| Anything else that shows a user-visible string to a human who might type it into the product | ledger entry |
+
+Mocks are the most dangerous of the three and the easiest to miss. A spec
+revision at least announces itself as text somebody has to read; an implementer
+working from a picture has no signal that the words in it are placeholder. They
+build the screen, type what they see, and a trimmed string is in the product
+with no diff anywhere that looks like a copy change. Strings in a layout
+artefact are **layout placeholders with no authority** — the inventory in the
+Item 2 spec §4 and §2.2 of this document are the only sources. Where a frame
+cannot fit the real string, that is a layout finding to raise, never a licence
+to shorten the copy.
+
+A banner on the artefact is good practice and does not discharge the
+obligation: a banner depends on its author remembering to write it every time,
+which is a habit, not a mechanism. The ledger is the mechanism.
+
+The rationale column is the load-bearing part — it is what stops a future
+editor "restoring" wording that was deliberately changed.
 
 | Date | Key | Was | Now | Why |
 |---|---|---|---|---|
@@ -164,6 +189,32 @@ stops a future editor from "restoring" wording that was deliberately changed.
 The current value of `review.flag` is therefore **"Analysis photo — examiner
 did not confirm the frame was clear"**, and the §2.2 note wording for
 `frameConfirmedClear == false` is consistent with it by construction.
+
+Known outstanding: the eight-screen wireframe set reproduces four locked
+strings, two of them shortened to fit a phone frame (screen 4's analysis band,
+screen 7's legend). Those are placeholders, flagged as such on the artefact.
+Neither shortened form is a copy change and neither may be implemented.
+
+### 4.2 The override wording is a condition of the gate, not a courtesy
+
+Sean's decision that the quality gate **hard-blocks** auto-capture rests on
+three things holding together:
+
+1. the manual shutter stays enabled unconditionally;
+2. taking the override is recorded (`gateOverridden`) and surfaced;
+3. **this document describes taking it as a reasonable roadside choice, not as
+   a shortfall.**
+
+Point 3 is not softer phrasing — it is what makes points 1 and 2 safe. An
+affordance that gets you written up as deficient for using it is an affordance
+people stop using, and they would lose evidence to avoid the note. The gate
+would then be producing missing photographs instead of flagged ones, which is
+strictly worse than not gating at all.
+
+So the §2.2 `gateOverridden` wording is load-bearing. A future length-trim that
+reduces it to "captured with quality checks not met" breaks the decision it
+implements. If it ever needs to change, the gate design has to be revisited in
+the same breath — not the sentence alone.
 
 ---
 

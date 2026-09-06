@@ -11,6 +11,26 @@ the time they land.
 
 ---
 
+## 0. How work reaches `main`
+
+**Agents cannot be GitHub collaborators — they have no GitHub accounts.** Adding
+collaborators was never going to grant any agent push rights, and time spent
+waiting on it was wasted. All agent work reaches `main` through the tech lead's
+write access.
+
+The working model: hand over a patch, or the file content plus a commit message.
+It is landed on your behalf, authored to you in the commit message. A
+`git format-patch` bundle is the ideal artifact — it carries the message, the
+author, and the exact diff, so nothing is retyped or reinterpreted.
+
+Two things to know if you produce patches:
+
+- `git am` strips a `[docs]`-style bracketed prefix from the subject line,
+  because it reads it as a patch-management tag. Whoever lands the patch must
+  restore the prefix, or the commit lands without it.
+- Rebuild the patch from the latest attachment before landing. A patch built
+  from an earlier revision silently reverts corrections made since.
+
 ## 1. Branch and commit rules
 
 - `main` is the only branch. Work directly on `main` unless the tech lead says
@@ -29,6 +49,15 @@ the time they land.
   does not compile into the target. This has already caused two "mystery"
   build failures (`bf3bc5a`, `3f56117`). `scripts/build_pbxproj.py` generates
   the pbxproj from `scripts/pbxproj_skeleton.txt`.
+- **A build setting changed in `project.pbxproj` must also be changed in
+  `scripts/pbxproj_skeleton.txt`.** The generator rebuilds the pbxproj from the
+  skeleton, so a setting present only in the live file is silently discarded the
+  next time anyone registers a new Swift file. It then resurfaces as a
+  configuration breaking itself for no visible reason, in a commit that appears
+  to be about an unrelated new file. Both files, every time.
+- **Insert new build-setting keys in Xcode's alphabetical order.** Xcode
+  reorders them on first save otherwise, producing a spurious diff on a file
+  everyone needs to stay readable.
 
 ### Commit message format
 

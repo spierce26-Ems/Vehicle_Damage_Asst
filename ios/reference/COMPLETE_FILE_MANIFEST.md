@@ -1,12 +1,12 @@
 # Complete File Manifest — Vehicle_Damage_Asst
 
-Generated from the actual tracked tree at commit `3656b64` (2026-09-06). Line counts are exact at that commit.
+Generated from the actual tracked tree at commit `0f657db` (2026-09-06). Line counts are exact at that commit.
 
 This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 74 tracked files, of which 41 Swift sources (15981 lines).
+Totals: 68 tracked files, of which 41 Swift sources (15981 lines).
 
 ## iOS app — Xcode project
 
@@ -145,21 +145,11 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 310 |
 
-## Legacy web scaffold (not part of the iOS app)
-
-Vite/Cloudflare leftovers from an earlier web prototype. Not built, not shipped, not referenced by the iOS target. Candidate for deletion — see the open decisions list in `HANDOFF_SUMMARY.md`.
+## Repo root
 
 | File | Lines |
 |---|---:|
 | `.gitignore` | 46 |
-| `package-lock.json` | 2680 |
-| `package.json` | 20 |
-| `public/static/style.css` | 1 |
-| `src/index.tsx` | 12 |
-| `src/renderer.tsx` | 12 |
-| `tsconfig.json` | 15 |
-| `vite.config.ts` | 14 |
-| `wrangler.jsonc` | 34 |
 
 ## Regenerating this file
 
