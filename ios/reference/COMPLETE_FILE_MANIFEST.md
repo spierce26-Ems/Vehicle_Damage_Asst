@@ -1,12 +1,12 @@
 # Complete File Manifest — Vehicle_Damage_Asst
 
-Generated from the actual tracked tree at commit `1e8f29e` (2026-09-06). Line counts are exact at that commit.
+Generated from the actual tracked tree at commit `4122028` (2026-09-06). Line counts are exact at that commit.
 
 This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 72 tracked files, of which 42 Swift sources (17338 lines).
+Totals: 72 tracked files, of which 42 Swift sources (19843 lines).
 
 ## iOS app — Xcode project
 
@@ -14,7 +14,7 @@ Single target, `com.spearitnow.vehicledamageforensics`, iOS 17.0 min, Swift 5.0 
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics.xcodeproj/project.pbxproj` | 613 |
+| `ios/VehicleDamageForensics.xcodeproj/project.pbxproj` | 615 |
 
 ## App entry point
 
@@ -28,38 +28,38 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 509 |
-| `ios/VehicleDamageForensics/Models/Case.swift` | 512 |
+| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 551 |
+| `ios/VehicleDamageForensics/Models/Case.swift` | 857 |
 | `ios/VehicleDamageForensics/Models/MatchResult.swift` | 709 |
 | `ios/VehicleDamageForensics/Models/PaintSampleKit.swift` | 140 |
-| `ios/VehicleDamageForensics/Models/Vehicle.swift` | 775 |
+| `ios/VehicleDamageForensics/Models/Vehicle.swift` | 922 |
 
 ## ViewModels — @ObservableObject (MVVM)
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/ViewModels/AnalysisViewModel.swift` | 302 |
-| `ios/VehicleDamageForensics/ViewModels/CaptureViewModel.swift` | 1068 |
-| `ios/VehicleDamageForensics/ViewModels/CaseListViewModel.swift` | 141 |
+| `ios/VehicleDamageForensics/ViewModels/AnalysisViewModel.swift` | 426 |
+| `ios/VehicleDamageForensics/ViewModels/CaptureViewModel.swift` | 1256 |
+| `ios/VehicleDamageForensics/ViewModels/CaseListViewModel.swift` | 218 |
 
 ## Views — SwiftUI, grouped by feature
 
 | File | Lines |
 |---|---:|
 | `ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift` | 534 |
-| `ios/VehicleDamageForensics/Views/Capture/CaptureFlowView.swift` | 313 |
+| `ios/VehicleDamageForensics/Views/Capture/CaptureFlowView.swift` | 423 |
 | `ios/VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift` | 537 |
 | `ios/VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift` | 212 |
 | `ios/VehicleDamageForensics/Views/Capture/PhotoReviewView.swift` | 329 |
-| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1052 |
+| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1350 |
 | `ios/VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift` | 189 |
-| `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift` | 466 |
-| `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift` | 274 |
+| `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift` | 596 |
+| `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift` | 319 |
 | `ios/VehicleDamageForensics/Views/Dashboard/OnboardingView.swift` | 132 |
-| `ios/VehicleDamageForensics/Views/LiDAR/LiDARScanView.swift` | 365 |
+| `ios/VehicleDamageForensics/Views/LiDAR/LiDARScanView.swift` | 809 |
 | `ios/VehicleDamageForensics/Views/Paywall/PaywallView.swift` | 265 |
 | `ios/VehicleDamageForensics/Views/Reports/PDFReportView.swift` | 41 |
-| `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift` | 757 |
+| `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift` | 1023 |
 
 ## Services — camera, ARKit/LiDAR, storage, PDF, StoreKit
 
@@ -68,7 +68,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Services/CameraService.swift` | 1000 |
 | `ios/VehicleDamageForensics/Services/HeadingProvider.swift` | 60 |
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
-| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 787 |
+| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 950 |
 | `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
 | `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 461 |
 | `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
@@ -83,9 +83,9 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | `ios/VehicleDamageForensics/Utilities/ColorAnalysis.swift` | 471 |
 | `ios/VehicleDamageForensics/Utilities/MeasurementHelpers.swift` | 166 |
 | `ios/VehicleDamageForensics/Utilities/ModelExtensions.swift` | 53 |
-| `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 570 |
+| `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 584 |
 | `ios/VehicleDamageForensics/Utilities/ScarLineSuggester.swift` | 153 |
-| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 989 |
+| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 1477 |
 
 ## ForensicEngine — scoring/matching orchestration
 
@@ -94,7 +94,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | `ios/VehicleDamageForensics/ForensicEngine/AlgorithmVersion.swift` | 271 |
 | `ios/VehicleDamageForensics/ForensicEngine/DeformationMatcher.swift` | 215 |
 | `ios/VehicleDamageForensics/ForensicEngine/HeightAlignmentAnalyzer.swift` | 100 |
-| `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift` | 748 |
+| `ios/VehicleDamageForensics/ForensicEngine/MatchScoreCalculator.swift` | 823 |
 | `ios/VehicleDamageForensics/ForensicEngine/PaintTransferAnalyzer.swift` | 148 |
 
 ## iOS app — other target files
@@ -114,11 +114,11 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 463 |
-| `docs/PROCESS.md` | 409 |
-| `HANDOFF_SUMMARY.md` | 315 |
+| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 655 |
+| `docs/PROCESS.md` | 708 |
+| `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
-| `ios/README.md` | 1177 |
+| `ios/README.md` | 1231 |
 
 ## Reference material (`ios/reference/`)
 
@@ -126,9 +126,9 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 
 | File | Lines |
 |---|---:|
-| `ios/reference/ALGORITHM_EXPLAINER.md` | 279 |
+| `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 157 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 180 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -151,9 +151,9 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `scripts/build_pbxproj.py` | 110 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
-| `scripts/pbxproj_skeleton.txt` | 310 |
-| `scripts/preflight.py` | 787 |
-| `scripts/check_doc_drift.py` | 291 |
+| `scripts/pbxproj_skeleton.txt` | 312 |
+| `scripts/preflight.py` | 1373 |
+| `scripts/check_doc_drift.py` | 305 |
 | `scripts/set_dev_team.sh` | 44 |
 
 ## Repo root

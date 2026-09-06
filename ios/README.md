@@ -1172,6 +1172,60 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] After re-running `scripts/build_pbxproj.py`, `AlgorithmVersion.swift` is still registered in
     the target **and** `DEVELOPMENT_TEAM` survived in both configurations.
 
+- **Focus-region box reapplied in `ScarCaptureView` (item 1/5, task #5).** `a0438c5`. Closes the
+  last sub-commit of item 1 and lands the UI the user actually touches — the three model and
+  engine sub-commits (`6cc8629`, `caac5a8`, `89f5165`) had been on `main` since July with no way
+  to draw the box.
+
+  **Why**: Sean's on-device report that tool-mark analysis "somehow use part of the image of the
+  tape measure as part of the vehicle damage." A ruler's printed tick marks are fine parallel
+  lines — exactly what the striation matcher looks for — so a tape measure inside the analyzed
+  area can be scored as a real tool mark.
+
+  **What changed**: a new `.focusRegion` stage in `ScarCaptureView`, inserted between `.aiming`
+  and `.marking`. The user drags a resizable box bounding just the scar; it is stamped onto
+  `CapturedPhoto.scarFocusRegion` and becomes a hard boundary for every downstream extractor.
+  Four corner handles resize (`resizeFocusRegion(handle:to:)`, one corner at a time so the
+  untouched corner never shifts), and a drag anywhere inside moves the box without resizing.
+  `minimumFocusRegionSize = 0.08` stops a drag collapsing the box to a zero or negative `CGRect`,
+  which would hand the extractors an unusable crop. Everything outside the box is dimmed, so what
+  will and will not be analyzed is visible rather than inferred. Re-editing an already-marked scar
+  skips the stage — an existing box is restored if present, and a scar marked before this feature
+  existed keeps `scarFocusRegion == nil` and the defaults, which is the honest absence rather
+  than a box nobody drew.
+
+  Two ordering decisions are deliberate and recorded so they are not re-litigated. The stage sits
+  **before** `.marking`, so the line is drawn on an already-bounded frame instead of the user
+  having to remember afterwards to keep the box clear of the line. And this branch landed
+  **first and alone** (`docs/PROCESS.md` §1): `ScarCaptureView.swift` is the file blamed for the
+  Xcode crash, so it gets a diff of its own for attributability.
+
+  **Files touched**: `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift`
+
+  **Commit(s)**: `a0438c5` (merge), branch `reapply-focus-ui` head `0e47398`
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
+  checked; `preflight --all` clear at zero advisories on the merged tree. That means "worth
+  compiling" and nothing more.
+
+  **On-device test checklist**:
+  - [ ] Capture a scar photo with a tape measure deliberately in frame. The new "Box in just the
+    scar" screen appears **after** the shutter and **before** line marking.
+  - [ ] Drag each of the four corner handles in turn. Only the corner being dragged moves — the
+    diagonally opposite corner stays where it was.
+  - [ ] Drag from inside the box. It moves without changing size, and stops at the image edge
+    rather than going partly off-frame.
+  - [ ] Try to collapse the box by dragging one corner past the opposite one. It stops at roughly
+    8% of the frame on each axis and never inverts.
+  - [ ] Confirm the area outside the box is visibly dimmed, and that the tape measure is outside it.
+  - [ ] Complete the marking, run analysis, and confirm the tool-mark result no longer reflects the
+    ruler — compare against the same pair of photos analyzed with the box left at its default.
+  - [ ] **Negative case**: reopen an already-marked scar. It goes straight to line marking with no
+    box screen, and the previously drawn box is still in place.
+  - [ ] **Negative case**: open a scar marked before this build. It also skips the box screen, and
+    nothing on screen claims a focus region was set.
+  - [ ] Retake from the box screen returns to the live camera with a working session.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
