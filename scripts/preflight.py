@@ -328,9 +328,18 @@ def check_cited_doc_copy():
     user-visible string is scanned for the framing the app abandoned; a doc
     nobody cites is documentation and not this check's business.
 
+    Scope, stated because a clear run should not read as stronger than it is:
+    the check assumes user-visible copy lives in Swift source as literals,
+    which is true today. `NSLocalizedString("some.key", ...)` passes silently
+    and honestly -- the copy is not in the file. If localisation ever lands,
+    the strings move into .strings/.stringsdict catalogues and this check has
+    to follow them; the anchor assertion below is what makes that move loud
+    instead of silent.
+
     Advisory, and it never rewrites prose -- ios/reference/ is Ledger's. Found
     by Prism while closing out the ALGORITHM_EXPLAINER advisory on his own
-    scoring commits.
+    scoring commits; the multiline blind spot was found by Prism testing the
+    check against the one string it could not see.
     """
     banned = [
         (r"\|\s*\d+\s*-\s*\d+\s*\|\s*\d+\s*-\s*\d+\s*%",
@@ -343,6 +352,7 @@ def check_cited_doc_copy():
     ]
 
     cited = set()
+    scanned_literals = 0
     for f in sh("git", "ls-files", f"{SOURCE_ROOT}/*.swift").splitlines():
         if not f:
             continue
@@ -351,39 +361,56 @@ def check_cited_doc_copy():
                 text = fh.read()
         except OSError:
             continue
-        # Ledger checked his own §4.0 sweep and it failed: a citation
-        # planted inside `disclaimerText` passed silently, because a
-        # line-at-a-time scan that skips anything starting with `//`
-        # cannot tell a comment from a line INSIDE a multiline string
-        # literal -- and report copy is exactly where multiline literals
-        # live. His sweep reported clean partly by luck; this one had the
-        # identical gap, verified by planting a citation on a
-        # `//`-prefixed line inside a `"""` body and watching it pass.
+
+        # Multiline literals come out FIRST, before any comment stripping.
+        # A line-oriented sweep sees only the `"""` delimiters, and the
+        # single-line literal pattern below excludes \n by construction, so a
+        # Swift multiline string was invisible either way. There is exactly
+        # one in the app: MatchResult.disclaimerText, drawn in the PDF's
+        # boxed cover callout. It is the legally load-bearing copy and the
+        # string most likely to acquire a "see X for scoring detail" line, so
+        # a check covering every report string EXCEPT that one fails open on
+        # the string whose framing is guaranteed to reach a reader.
         #
-        # So track multiline-literal state and treat everything inside a
-        # `"""` body as copy, comment markers included. Erring toward
-        # copy is the right direction: a false citation costs one
-        # advisory naming a document, while a missed one is the whole
-        # failure this check exists for.
-        in_multiline = False
-        for line in text.splitlines():
-            stripped = line.strip()
-            fences = line.count('"""')
-            if not in_multiline and stripped.startswith(("//", "///")) \
-                    and fences == 0:
-                continue
-            if in_multiline or fences:
-                for name in re.findall(
-                        r"([A-Z][A-Z0-9_]+\.md|[A-Z][A-Z0-9_]{3,})", line):
-                    base = name[:-3] if name.endswith(".md") else name
-                    cited.add(base)
-                if fences % 2:
-                    in_multiline = not in_multiline
-                continue
+        # Blanking each span (newlines preserved) also stops a `//` inside
+        # disclaimer prose reading as a comment, and stops the closing
+        # delimiter being re-matched as an empty single-line literal.
+        literals = []
+
+        def _lift(match):
+            literals.append(match.group(0))
+            return "\n" * match.group(0).count("\n")
+
+        text = re.sub(r'"""(?:.|\n)*?"""', _lift, text)
+        text = re.sub(r"/\*(?:.|\n)*?\*/", "", text)
+        text = re.sub(r"(?m)//.*$", "", text)
+        literals.extend(re.findall(r'"(?:\\.|[^"\\\n])*"', text))
+        scanned_literals += len(literals)
+
+        # Harvest from string literals ONLY. The previous sweep read whole
+        # non-comment lines, so a TRAILING `// see ALGORITHM_EXPLAINER
+        # section 2` pulled that document into the lock -- penalising exactly
+        # the provenance form sec.4.0 asks people to use. Only a name a
+        # reader can see cites anything.
+        for lit in literals:
             for name in re.findall(r"([A-Z][A-Z0-9_]+\.md|[A-Z][A-Z0-9_]{3,})",
-                                   line):
+                                   lit):
                 base = name[:-3] if name.endswith(".md") else name
                 cited.add(base)
+
+    # Anchor assertion: a harness that finds nothing must distinguish "no
+    # citations" from "no subject". A rename of SOURCE_ROOT, or report copy
+    # moving into .strings catalogues under localisation, empties the literal
+    # set and this check would print clear on a codebase it never read.
+    if not scanned_literals:
+        warn("cited-doc",
+             f"no Swift string literals found under {SOURCE_ROOT} -- "
+             "this check read nothing",
+             "the check assumes user-visible copy lives in source as "
+             "literals; if the path moved or the strings went into "
+             ".strings catalogues, point it at the strings before "
+             "trusting a clear result")
+        return
 
     for doc in sh("git", "ls-files", "ios/reference/*.md",
                   "docs/*.md").splitlines():
