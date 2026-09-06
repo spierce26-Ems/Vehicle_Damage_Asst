@@ -1428,6 +1428,25 @@ def check_persisted_model(files):
     Blocking under PROCESS.md sec.5b kind 2: the compiler cannot catch either
     of these, and the cost lands on the user rather than the developer.
 
+    KNOWN LIMIT, and it is the same one that made check_decoder_completeness
+    unreachable (see the comment at the call site): both hazards below are
+    TRANSITIONS -- an old payload that exists versus a new declaration -- so
+    unlike a decoder's completeness they cannot be read off the tree at all.
+    A `let x: String?` that has always been `String?` is correct; the defect
+    is only visible as a -/+ pair. That means this check needs a diff, and a
+    MERGE RESOLUTION STAGES NOTHING: `--all` on a merged tree reports clear
+    for a type change that will throw typeMismatch on every saved case.
+
+    Moving it tree-wide is therefore not the fix -- there is nothing tree-wide
+    to test. The fix is to give it a base: `--since origin/main` after a merge
+    resolution catches it, and that is what the hook cannot do on its own.
+    Verified: `examinerName` String? -> Int? committed rather than staged is
+    silent under `--all` and blocking under `--since HEAD~1`.
+
+    So the gap is real but the remedy is a diff base, not a scope change --
+    which is the test for whether a check belongs in the commit-shaped group:
+    ask whether its subject is a property of the tree or of a transition.
+
     - A new NON-OPTIONAL field -> keyNotFound on every existing case file.
       Swift's synthesized init(from:) never consults the property's default
       value, so `= false` in the declaration does not make decoding tolerant.
