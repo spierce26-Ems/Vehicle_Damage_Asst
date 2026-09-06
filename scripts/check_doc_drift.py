@@ -42,25 +42,31 @@ Known limits, so a clear run is not read as stronger than it is:
   - `require_stored_constant` guards the `let` -> computed-property rename:
     a same-named computed property would satisfy a bare name search while no
     longer being a constant anyone can compare.
-  - **The graded bands are PARSED, not executed, and the parse is weaker than
-    it looks.** `_score_band` reads `heightAlignmentScore`'s guards as an
-    ordered list and assumes the default `toleranceInches = 2.0`. That
-    argument is caller-configurable and `HeightAlignmentAnalyzer` threads a
-    caller value through all four call sites, so guard ORDER matters in ways
-    the parse cannot see. Verified: hoisting `if diff <= toleranceInches`
-    above the rule-out guard produces byte-identical parser output while
-    restoring the pre-#10a defect -- a caller passing a tolerance above 6"
-    then scores 100 for a height difference that should exclude. The honest
-    fix is to execute the function, which needs the Swift test target; a
-    cleverer parser would be the same mistake one level deeper, since it
-    would still be a representation of the behaviour rather than the
-    behaviour (PROCESS.md sec.5b). Until then this file checks that the band
-    NUMBERS agree, not that the scorer applies them in the documented order.
+  - **The graded bands are EXECUTED when a Swift compiler is present and
+    only PARSED when one is not**, and every band failure says which, so the
+    weaker method never reports under the stronger one's wording. The gap
+    between them is not academic: `_score_band` reads
+    `heightAlignmentScore`'s guards as an ordered list and assumes the
+    default `toleranceInches = 2.0`, but that argument is caller-supplied and
+    `HeightAlignmentAnalyzer` threads a caller value through all four call
+    sites. Hoisting `if diff <= toleranceInches` above the rule-out guard
+    produces BYTE-IDENTICAL parser output while restoring the pre-#10a
+    defect -- a caller passing 8" then scores 100 for a 7" difference that
+    must exclude. The executed path catches it, because a caller-supplied
+    tolerance is just an argument. A cleverer parser would have been the same
+    mistake one level deeper: still a representation of the behaviour rather
+    than the behaviour (PROCESS.md sec.5b).
+  - Without a compiler the guard-order probe does not run at all, and says
+    so as a `doc-anchor` failure rather than passing quietly.
 
 Usage: python3 scripts/check_doc_drift.py [repo_root]
 """
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import pathlib
 
 DOC = "ios/reference/ALGORITHM_EXPLAINER.md"
@@ -173,7 +179,7 @@ def require_stored_constant(src, name, kind="Double"):
 
 def main(root="."):
     root = pathlib.Path(root)
-    fmt, anchor, drift = [], [], []
+    fmt, anchor, drift, unverified = [], [], [], []
 
     try:
         doc = (root / DOC).read_text()
@@ -225,18 +231,59 @@ def main(root="."):
             drift.append(f'height rule-out: doc >{doc_ro[0]}" != code {ro}"')
 
         # The graded bands the document states must also be what the scorer
-        # returns. The 6.1" case that scored 39/100 lived here, not in the
+        # RETURNS. The 6.1" case that scored 39/100 lived here, not in the
         # rule-out constant.
+        #
+        # EXECUTED against the real function when a Swift compiler is
+        # available; parsed only as a fallback, and any failure says which
+        # method produced it so the weaker one never borrows the stronger
+        # one's authority. The difference is not academic -- see the
+        # guard-order probe below.
+        executed = _score_bands_executed(root, bands)
+        how = "executed" if executed is not None else "parsed"
         for upper, pct in bands:
             if pct == 0:
                 continue
-            got = _score_band(mh, upper)
+            got = executed.get(upper) if executed is not None else _score_band(mh, upper)
             if got is None:
-                anchor.append(f"heightAlignmentScore not parseable -- cannot verify the "
-                              f'{upper}" band')
+                anchor.append(f"heightAlignmentScore not {how} -- cannot verify "
+                              f'the {upper}" band')
                 break
             if got != pct:
-                drift.append(f'height band <= {upper}": doc {pct}% != code {got}%')
+                drift.append(f'height band <= {upper}" ({how}): doc {pct}% '
+                             f"!= code {got}%")
+
+        # GUARD ORDER, which only execution can see, and which the parse
+        # missed by construction. `toleranceInches` is caller-supplied and
+        # HeightAlignmentAnalyzer threads a caller value through all four
+        # call sites, so a tolerance wider than the rule-out is reachable.
+        # The rule-out must still win. Hoisting `if diff <= toleranceInches`
+        # above the rule-out guard produced byte-identical output from
+        # _score_band while restoring the pre-#10a defect -- a caller
+        # passing 8" then scores 100 for a 7" difference that must exclude.
+        # PROCESS.md sec.5b: assert on behaviour, not on a representation
+        # of it. This probe is that rule applied to this file's own method.
+        wide = executed.get("_wide_tolerance") if executed is not None else None
+        if wide is None:
+            # Advisory, not blocking, and graded the same way preflight's
+            # parse check grades a missing toolchain: an environment without
+            # a compiler must not be refused, but it must not print a clean
+            # line asserting what it could not test either. Blocking here
+            # would refuse every commit on a toolchain-less machine, which
+            # is how a check trains the bypass habit for the checks beside
+            # it.
+            unverified.append(
+                "guard-order probe did NOT run (no Swift compiler found) -- the "
+                "band numbers above were PARSED, and a parse cannot see guard "
+                "order. That the rule-out survives a caller-supplied tolerance "
+                "is UNVERIFIED here, not verified")
+        else:
+            if wide != 0:
+                drift.append(
+                    "guard order: heightAlignmentScore(0, 7, toleranceInches: 8) "
+                    f"returns {wide}, not 0 -- a caller-supplied tolerance above "
+                    "the rule-out defeats it, which is the pre-#10a defect. The "
+                    "rule-out guard must be evaluated before the tolerance band.")
 
     for m in fmt:
         print(f"FAIL [doc-format] {m}")
@@ -248,6 +295,12 @@ def main(root="."):
     if anchor:
         print("     -> the check lost its subject in the Swift. Re-point it, or retire "
               "it for that claim. Do NOT read this as a scoring regression.")
+    for m in unverified:
+        print(f"warn [doc-unverified] {m}")
+    if unverified:
+        print("     -> install a Swift toolchain (swift.org Linux tarball is "
+              "enough -- no iOS SDK) or set SWIFT_C, and this becomes a real "
+              "check in this environment")
     for m in drift:
         print(f"FAIL [doc-drift]  {m}")
     if drift:
@@ -255,10 +308,80 @@ def main(root="."):
               "been correct and the code wrong before (task #10).")
 
     if not (fmt or anchor or drift):
-        print(f"doc-drift: clear ({len(dw)} weights, {len(bands)} height bands checked; "
-              f"numeric claims only -- see the limits in this script's docstring)")
+        how = "executed" if executed is not None else "parsed"
+        print(f"doc-drift: clear ({len(dw)} weights, {len(bands)} height bands "
+              f"{how}; numeric claims only -- see the limits in this script's "
+              f"docstring)")
         return 0
     return 1
+
+
+def _score_bands_executed(root, bands):
+    """Run heightAlignmentScore for real, when a Swift compiler exists.
+
+    Returns {upper_bound: score} plus a `_wide_tolerance` probe, or None when
+    no compiler is available -- in which case the caller falls back to
+    _score_band's parse AND labels its findings `parsed`, so a weaker method
+    never reports under the stronger one's wording.
+
+    MeasurementHelpers.swift imports only Foundation, so this builds on Linux
+    from a swift.org tarball: no iOS SDK, no Xcode. That is the whole reason
+    the honest version of this check is reachable off a Mac. Discovery order
+    matches preflight.py's parse check, durable paths before ephemeral ones.
+
+    Any build or run failure returns None rather than a verdict: a probe that
+    could not run must not be reported as agreement.
+    """
+    swiftc = os.environ.get("SWIFT_C") or shutil.which("swiftc")
+    if swiftc is None:
+        for cand in (os.path.expanduser("~/toolchains/swift/usr/bin/swiftc"),
+                     os.path.expanduser("~/toolchains/swift-5.10.1/usr/bin/swiftc"),
+                     os.path.expanduser("~/toolchains/swift-6.0.3/usr/bin/swiftc"),
+                     "/usr/local/bin/swiftc",
+                     "/usr/local/swift/usr/bin/swiftc",
+                     "/tmp/swift/usr/bin/swiftc"):
+            if os.path.exists(cand):
+                swiftc = cand
+                break
+    if swiftc is None:
+        return None
+    helpers = os.path.join(root, MEASUREMENT_HELPERS)
+    if not os.path.exists(helpers):
+        return None
+
+    lines = ["import Foundation"]
+    for upper, pct in bands:
+        if pct == 0:
+            continue
+        lines.append(f'print("{upper}", MeasurementHelpers'
+                     f".heightAlignmentScore(0, {upper}), separator: \"=\")")
+    lines.append('print("_wide_tolerance", MeasurementHelpers'
+                 '.heightAlignmentScore(0, 7, toleranceInches: 8), '
+                 'separator: "=")')
+
+    tmp = tempfile.mkdtemp(prefix="docdrift-")
+    try:
+        main = os.path.join(tmp, "main.swift")
+        with open(main, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+        binary = os.path.join(tmp, "probe")
+        if subprocess.run([swiftc, "-o", binary, helpers, main],
+                          capture_output=True, text=True).returncode != 0:
+            return None
+        run = subprocess.run([binary], capture_output=True, text=True)
+        if run.returncode != 0:
+            return None
+        out = {}
+        for line in run.stdout.splitlines():
+            key, _, val = line.partition("=")
+            try:
+                num = float(val)
+            except ValueError:
+                continue
+            out[key if key.startswith("_") else float(key)] = int(num)
+        return out or None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _score_band(src, upper):
