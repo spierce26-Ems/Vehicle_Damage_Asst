@@ -508,12 +508,23 @@ told.** *"The condition persists after the remedy"* is the signature of a
 **correct reminder** and of a **broken drift-check remedy** at once: one
 observation, two opposite verdicts, which is this document's own
 predicate-one-short shape aimed at the fix for it. The class is not marginal —
-`preflight.py` carries 38 remedy call sites (26 `warn()` + 12 `fail()`; a bare
-grep says 27/13 because it counts the two function definitions) against 7 uses
-of `diff_args()`, so 18% of the surface is diff-keyed and every one of those
-correctly refuses to clear. Six of the 38 have ever been swept. A harness that guessed would flag them as
-broken and train the bypass habit the grading rules exist to prevent.
+`preflight.py` carries **38 remedy call sites (26 `warn()` + 12 `fail()`)**
+against **7** uses of `diff_args()`, so 18% of the surface is
+diff-keyed and every one of those correctly refuses to clear. A harness that
+guessed would manufacture seven false positives inside the tool built to end
+false remedies, and train the bypass habit the grading rules exist to prevent.
 **Declare the kind at the call site; do not derive it from behaviour.**
+(Count the calls, not the greps: a bare `warn(`/`fail(` grep also matches the
+two function definitions, which is how 37, 38 and 40 were all quoted for the
+same file within one hour.)
+
+**The denominator is the finding, and it is the last wrong all-clear of the
+day.** Six sites were swept and four of us called the surface closed. **Six of
+38 is 16%; the other 32 remedies have never been performed by anyone.** Nothing
+suggests they are broken — but nothing establishes they are not, and "no
+failures reported" from a sweep that never reached them is exactly what a dead
+check looks like. Recorded as a bounded, non-blocking debt rather than left as
+an assumption: **a documented gap beats a fifth sweep declaring closure.**
 
 ### 4d. A conflict resolution is where prose goes missing
 
