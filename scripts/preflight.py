@@ -22,6 +22,7 @@ Exit codes: 0 = clear, 1 = blocking failure, 0 with warnings = proceed.
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -626,6 +627,107 @@ def check_conflict_markers():
              "sides are additive (keep both) or actually contradict; then "
              "re-run, because a file with a marker in it does not compile "
              "and every other clean line in this report was measured on it")
+
+
+def _swift_parser():
+    """Locate a Swift frontend able to PARSE (not compile) a source file.
+
+    Order: SWIFT_FRONTEND from the environment, then `swiftc`/`swift-frontend`
+    on PATH, then a toolchain unpacked under /tmp. No iOS SDK is needed --
+    parsing is syntax only, which is exactly the question this check asks and
+    the reason it can run without Xcode.
+    """
+    cand = []
+    env = os.environ.get("SWIFT_FRONTEND")
+    if env:
+        cand.append(env)
+    for name in ("swift-frontend", "swiftc"):
+        found = shutil.which(name)
+        if found:
+            cand.append(found)
+    cand.append("/tmp/swift/usr/bin/swift-frontend")
+    for c in cand:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def check_swift_parses():
+    """Does every tracked Swift file actually parse?
+
+    This is the check that would have caught the worst defect of 2026-09-06,
+    and it is the only one here that asks whether the tree is VALID rather
+    than whether it is consistent. f7921d8 merged two unresolved conflict
+    hunks into Models/Case.swift; they reached main and survived five
+    commits. Through all of it `--all` printed "clear -- whole tree", three
+    of us reported that clean line, and a structural audit confirmed 42 files
+    registered in the Sources phase with no duplicate types -- all true, and
+    all measured on a tree that did not parse. The proxy is not the parse.
+
+    Every other check here is a proxy, and each was correct about what it
+    measured: delimiter_balance passes a conflict whose two sides are each
+    brace-balanced; pbxproj registration asks about membership; manifest and
+    doc-drift ask whether documents match the tree. Proxies are cheap and
+    they are worth having. What they cannot do is answer the compiler's
+    question, and adjacency is what made them feel sufficient.
+
+    Blocking when a parser is available: a file that does not parse cannot
+    compile, so unlike a stale line count this is not a matter of degree.
+    There is no window in which it is legitimately broken, which is the
+    standing advisory-vs-blocking test -- a check that refuses only genuinely
+    invalid trees trains no bypass habit.
+
+    ADVISORY, and explicitly named, when no toolchain is present. This
+    matters more than the check: only one of the four agent environments
+    working on this repo has a Swift toolchain, so "42 files parse" is a
+    claim most of us cannot make. A silent skip would turn that into a clean
+    line asserting the one property nothing verified -- today's defect
+    exactly, rebuilt inside the check written to prevent it. So an absent
+    parser is reported, with what to install.
+
+    Parse-only via `-frontend -parse`: no SDK, no linking, no build. It does
+    NOT mean the tree compiles -- type checking, imports and the iOS SDK are
+    still Xcode's job, per sec.4 clauses 4-6. It means the tree is syntax.
+    """
+    swift = [f for f in sh("git", "ls-files").splitlines()
+             if f.endswith(".swift")]
+    if not swift:
+        return
+    parser = _swift_parser()
+    if parser is None:
+        warn("swift-parse",
+             f"no Swift frontend found -- {len(swift)} tracked Swift file(s) "
+             "were NOT parsed, and no other check here asks whether they are "
+             "valid",
+             "install a Swift toolchain (swift.org, Linux tarball is enough "
+             "-- parsing needs no iOS SDK) or set SWIFT_FRONTEND to one; "
+             "until then a clear report says nothing about whether this tree "
+             "parses")
+        return
+
+    args = ([parser, "-frontend", "-parse"] if parser.endswith("swift-frontend")
+            else [parser, "-parse", "-"])
+    bad = []
+    for f in swift:
+        proc = subprocess.run(args[:-1] + [f] if args[-1] == "-"
+                              else args + [f],
+                              cwd=REPO, capture_output=True, text=True)
+        if proc.returncode != 0:
+            first = ""
+            for line in (proc.stderr or proc.stdout).splitlines():
+                if ": error:" in line:
+                    first = line.split(": error:", 1)[1].strip()
+                    break
+            bad.append((f, first or "did not parse"))
+    if bad:
+        shown = "; ".join(f"{f}: {why}" for f, why in bad[:3])
+        more = f" (+{len(bad) - 3} more)" if len(bad) > 3 else ""
+        fail("swift-parse",
+             f"{len(bad)} of {len(swift)} tracked Swift file(s) do not "
+             f"parse: {shown}{more}",
+             "open the named file at the reported location -- a file that "
+             "does not parse cannot compile, so every other clean line in "
+             "this report was measured on a tree that is not valid Swift")
 
 
 def check_manifest_drift():
@@ -1495,6 +1597,7 @@ def main():
     check_cited_doc_copy()
     check_doc_drift()
     check_conflict_markers()
+    check_swift_parses()
     check_manifest_line_counts()
 
     # Commit-shaped checks: only meaningful against a staged diff. In --all
