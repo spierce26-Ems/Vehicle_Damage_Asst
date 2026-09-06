@@ -241,13 +241,31 @@ balance on changed Swift files.
 
 Two design rules govern it, and they are the reason to trust its output:
 
-- **Blocking is reserved for a silent reversion that breaks a build or a
-  signature.** Everything else is advisory. A check that blocks work it should
-  not have blocked gets bypassed with `--no-verify`, and the bypass takes every
-  other check with it — so the cost of one over-eager check is all of them.
-  Signing is advisory for exactly this reason: a Simulator build needs no
-  development team, and blocking on it would re-import the wrong
-  P0-1-gates-P0-2 ordering into the tooling.
+- **Blocking is reserved for a defect the next step cannot catch.** Everything
+  else is advisory. A check that blocks work it should not have blocked gets
+  bypassed with `--no-verify`, and the bypass takes every other check with it —
+  so the cost of one over-eager check is all of them. Signing is advisory for
+  exactly this reason: a Simulator build needs no development team, and
+  blocking on it would re-import the wrong P0-1-gates-P0-2 ordering into the
+  tooling.
+
+  Two kinds qualify, and the second is the more important:
+
+  1. **A silent reversion that breaks a build or a signature** — the pbxproj
+     and build-setting-drift checks. The compiler would catch these eventually,
+     but only after a wasted round-trip through the one machine that can
+     compile.
+  2. **A defect the compiler cannot catch at all, whose cost lands on the
+     user.** A new non-optional field on a persisted model is valid Swift; the
+     build goes green and then `keyNotFound` makes every existing case file
+     unopenable at load time, with no partial recovery. In a tool where the
+     case file *is* the evidence, that is data loss, not inconvenience — and
+     no later step in this process would find it. This is the strongest reason
+     to block that exists here, stronger than protecting a build.
+
+  The test is therefore not "how bad is it" but **"what else would catch it,
+  and at what cost?"** A defect the next step catches cheaply should warn. A
+  defect nothing downstream catches should block.
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
   history, tooling that could be mistaken for a build would be worse than no
