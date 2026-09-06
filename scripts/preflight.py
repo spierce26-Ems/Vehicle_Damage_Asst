@@ -555,6 +555,52 @@ def check_manifest_line_counts():
     with open(man, encoding="utf-8") as fh:
         text = fh.read()
     rows = re.findall(r"^\|\s*`([^`]+)`\s*\|\s*(\d+)\s*\|", text, re.M)
+
+    # The TOTALS SENTENCE, which three layers of validation never touched.
+    # Ledger found 309f25b's header asserting 19887 Swift lines against a tree
+    # of 19890, clear on every check, twice, from a fresh clone. The rows are
+    # checked below; check_manifest_drift checks the file and Swift COUNTS;
+    # the parenthetical "(N lines)" was compared to nothing. So the document
+    # could be internally perfect -- every row right, both counts right -- and
+    # still open with a wrong number.
+    #
+    # It is the WIDEST claim in the file and was the only one a reader could
+    # not test, which is exactly why it is the one people quote. The general
+    # form, which is worth more than this check: THE SUMMARY LINE IS THE
+    # LEAST-CHECKED ASSERTION IN A GENERATED FILE, because validation gets
+    # written against the rows. Fourth artefact today that was clean
+    # everywhere a check looked and wrong where nobody did.
+    #
+    # Advisory, matching the rest of this check: a wrong total misleads a
+    # reader but does not make the tree wrong, and the remedy is the same
+    # regeneration.
+    m = re.search(r"Totals:\s*(\d+) tracked files, of which (\d+) Swift "
+                  r"sources \((\d+) lines\)", text)
+    if not m:
+        warn("manifest-lines",
+             "no `Totals:` sentence parsed from COMPLETE_FILE_MANIFEST.md "
+             "-- the header's own line total was NOT checked",
+             "keep the sentence as 'Totals: N tracked files, of which N "
+             "Swift sources (N lines).', or re-point this check alongside "
+             "the wording. This says nothing about the tree.")
+    else:
+        swift = [f for f in tracked_swift()]
+        actual = 0
+        for f in swift:
+            try:
+                with open(os.path.join(REPO, f), encoding="utf-8",
+                          errors="replace") as fh:
+                    actual += sum(1 for _ in fh)
+            except OSError:
+                actual = None
+                break
+        if actual is not None and int(m.group(3)) != actual:
+            warn("manifest-lines",
+                 f"the Totals: header says {m.group(3)} Swift lines; the "
+                 f"tree has {actual}",
+                 "run `python3 scripts/regen_manifest.py` -- the header is "
+                 "the widest claim in that document and the one a reader "
+                 "quotes, so a wrong total travels further than a wrong row")
     if not rows:
         warn("manifest-lines",
              "no `path | lines` rows parsed from COMPLETE_FILE_MANIFEST.md "

@@ -61,7 +61,20 @@ Two things to know if you produce patches:
   both sides**, so no reading of the diff distinguishes a correct resolution
   from a reverting one. Only `check_manifest_line_counts` does, and only if you
   run it before the next patch buries the revert. Regenerating just the
-  conflicted row is not enough.
+  conflicted row is not enough — **and one pass over every row is not enough
+  either: rewriting the rows changes the manifest's own length, so its
+  self-referential row then describes the pre-write file.** Regeneration must
+  iterate to a fixed point; a hand-resolution has to be re-run until `--all`
+  is quiet twice in a row.
+- **The one manifest number nothing validates is the Swift line total in the
+  header sentence.** `check_manifest_line_counts` checks the per-file rows and
+  `check_manifest_drift` checks the file and Swift *counts*, but the
+  parenthetical `(N lines)` is asserted and never compared — which is why it
+  sat three lines short on `309f25b` while every check reported clear. It is
+  the widest claim in the document and the only one a reader can't test, so it
+  is exactly the one to recompute by hand after a resolution until a check
+  covers it. **A generated file is only as trustworthy as its least-validated
+  assertion, and the header is the part people quote.**
 - **Do not amend someone else's commit to carry your fix, even when the fix is
   right.** A rebased stack that needs a correction gets a new commit of your
   own; amending rewrites another author's commit to say something they did not
