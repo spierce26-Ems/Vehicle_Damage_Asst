@@ -1,268 +1,270 @@
-# Vehicle Damage Investigation Assistant — Project Handoff Summary
+# Vehicle Damage Investigation Assistant — Project State
 
-**Prepared for**: transfer to Genspark team
-**Prepared by**: AI Developer (Genspark session), for Sean Pierce
-**Date**: 2026-09-06 (session date; see git log for actual commit dates)
+**Maintained by**: Ledger (Product & Documentation Lead)
+**Last updated**: 2026-09-06 · `main` at `3656b64`
+**Audience**: the working team. For the reasoning behind any specific piece of
+code, read `ios/README.md` — this document is state, that one is history.
 
----
-
-## 1. What This Project Is
-
-An iOS app (SwiftUI + ARKit/LiDAR + Vision + StoreKit 2) that helps an
-investigator document and forensically correlate vehicle damage between a
-victim vehicle and a suspect vehicle in a hit-and-run case. It guides the
-user through a structured photo/scan capture flow, runs several independent
-computer-vision/statistical comparisons between the two vehicles, and
-generates a PDF report suitable for an investigation file.
-
-It is **fully on-device** — no backend server, no cloud storage, no
-networking except Apple's own StoreKit for in-app purchases. All case data
-is stored locally on the device as JSON via `FileManager`.
+> This replaces the original one-way handoff note. It is now a living
+> state-of-the-project doc: whoever changes the facts below updates this file,
+> per `docs/PROCESS.md` §3.
 
 ---
 
-## 2. Where Everything Lives
+## 1. What this project is
 
-### 2.1 Source of truth: GitHub repository
+An iOS app (SwiftUI + ARKit/LiDAR + Vision + StoreKit 2) that helps someone
+document vehicle damage and correlate a victim vehicle against a suspect
+vehicle in a hit-and-run. It guides a structured photo/scan capture flow, runs
+several independent computer-vision and statistical comparisons, and generates
+a PDF report for an insurance claim or investigation file.
 
-- **Repo**: `https://github.com/spierce26-Ems/Vehicle_Damage_Asst`
-- **Branch**: `main` (the only branch; always use `main` for all work
-  unless told otherwise)
-- **Owner/access**: owned by GitHub user `spierce26-Ems` (Sean's account).
-  **The new team will need Sean to add them as collaborators on this repo**
-  — this AI session does not control GitHub permissions.
-- **Latest commit at handoff**: `7391b73` — "Tool-mark score: null-model/
-  shuffle statistical significance (item 3/5)"
-- Working tree is clean; everything described in this document is
-  committed and pushed. There is no uncommitted work sitting anywhere.
+**Scope discipline**: v1 is explicitly an *investigative documentation and
+leads* tool, **not** a court-admissible forensic match. Every report carries
+that disclaimer (`MatchResult.disclaimerText`). Keep it. It is the reason the
+scoring work is allowed to be honest about uncertainty rather than pressured
+into producing confident-looking numbers.
 
-### 2.2 Secondary backup: Genspark SB-Git (auto-backup, not the main repo)
+Two audiences: consumers building a case for an insurer, and adjusters / body
+shops / investigators processing many cases.
 
-- A secondary git remote (`genspark`) also receives auto-pushed backups of
-  this session's commits as a safety net. **This is not where the team
-  should work from** — it's a Genspark-internal backup tied to this AI
-  session, not a normal collaborative repo. Treat GitHub (`2.1` above) as
-  the only real source of truth.
-
-### 2.3 Local project folder structure (inside the repo)
-
-```
-Vehicle_Damage_Asst/                      <- repo root
-├── HANDOFF_SUMMARY.md                    <- this file
-├── .gitignore
-└── ios/                                  <- the entire Xcode project lives here
-    ├── README.md                         <- primary project documentation (READ THIS FIRST)
-    ├── VehicleDamageForensics.xcodeproj/ <- Xcode project file
-    ├── VehicleDamageForensics/           <- all Swift source
-    │   ├── App/                          <- app entry point
-    │   ├── Models/                       <- Codable data models (persisted structs)
-    │   ├── ViewModels/                   <- @ObservableObject view models (MVVM)
-    │   ├── Views/                        <- SwiftUI views, grouped by feature
-    │   │   ├── Capture/                  <- camera/LiDAR/photo capture screens
-    │   │   ├── Dashboard/                <- case list, onboarding, case editing
-    │   │   ├── LiDAR/                    <- LiDAR scan UI
-    │   │   ├── Paywall/                  <- StoreKit purchase UI
-    │   │   ├── Reports/                  <- PDF report preview/share UI
-    │   │   └── Results/                  <- match-results / comparison screen
-    │   ├── Services/                     <- ARKit/camera/storage/PDF/StoreKit services
-    │   ├── Utilities/                    <- pure-function analysis algorithms
-    │   ├── ForensicEngine/               <- the scoring/matching orchestration layer
-    │   └── Info.plist
-    └── reference/                        <- original project brief + specs (see 2.4)
-```
-
-### 2.4 Reference material (original project brief — important context)
-
-`ios/reference/` contains the documents this whole project was originally
-built from:
-- `PROJECT_BRIEF.md` — the original product brief
-- `iOS_TECHNICAL_SPECS.md` — original technical spec
-- `ALGORITHM_EXPLAINER.md` — explains the matching/scoring algorithms
-- `HANDOFF_TO_AI_DEVELOPER.md` — an earlier handoff doc (predates this one)
-- `COMPLETE_FILE_MANIFEST.md` — an earlier file manifest (may be stale —
-  `ios/README.md`'s changelog and this document are more current)
-- `APP_STORE_CONNECT_SETUP.md` — App Store Connect / IAP product setup notes
-- `PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` — notes on a not-yet-built feature
-- `forensic_analyzer.py`, `enhanced_forensic_analyzer.py` — a **Python
-  reference implementation** the on-device Swift scoring engine was
-  originally validated against (useful if the team wants to sanity-check
-  the Swift math against an independent implementation)
-
-### 2.5 The authoritative changelog: `ios/README.md`
-
-**This is the single most important file for understanding what's been
-built and why.** Every feature and bug fix made during AI-developer
-sessions has been logged there in chronological order, each entry
-explaining: what was built, why (often quoting Sean's exact original
-request), which files were touched, and what to test on-device to confirm
-it works. If the new team wants to understand the reasoning behind any
-specific piece of code, start there before reading the code itself — most
-non-trivial functions also have inline `NOTE(AI Developer)` comments
-cross-referencing the same rationale.
+Fully on-device — no backend, no cloud storage, no networking except StoreKit.
+Case data is one JSON file per case via `FileManager` with
+`.completeFileProtection`. For a forensic tool this is a feature: no
+chain-of-custody question about data leaving the device, and it works with no
+connectivity at a scene.
 
 ---
 
-## 3. Technical Stack
+## 2. Where everything lives
+
+**Source of truth**: `https://github.com/spierce26-Ems/Vehicle_Damage_Asst`,
+branch `main` (the only branch). Owned by GitHub user `spierce26-Ems`.
+Team members need to be added as collaborators — see §5.1.
+
+A secondary `genspark` git remote received auto-pushed backups from the earlier
+AI session. It is a safety net, not a place to work. GitHub is the only source
+of truth.
+
+**Repository layout** — see `ios/reference/COMPLETE_FILE_MANIFEST.md`, which is
+generated from `git ls-files` and lists every tracked file with its size. In
+short: `ios/` holds the entire Xcode project (`App/`, `Models/`, `ViewModels/`,
+`Views/`, `Services/`, `Utilities/`, `ForensicEngine/`), `ios/reference/` holds
+the original brief and specs plus the Python reference implementation, `docs/`
+holds the privacy policy and terms pages, and `scripts/` holds the pbxproj
+generator.
+
+**`ios/README.md` is the authoritative changelog.** Every feature and fix is
+logged there in order with what was built, why (often quoting the original
+request), which files were touched, and what to test on-device. Non-trivial
+functions carry inline `NOTE(...)` comments pointing back at it. Read it before
+reading code.
+
+**Reference material** in `ios/reference/`: `PROJECT_BRIEF.md`,
+`iOS_TECHNICAL_SPECS.md`, `ALGORITHM_EXPLAINER.md`,
+`APP_STORE_CONNECT_SETUP.md`, `PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md`,
+`HANDOFF_TO_AI_DEVELOPER.md` (superseded by this file),
+`COMPLETE_FILE_MANIFEST.md`, and `forensic_analyzer.py` /
+`enhanced_forensic_analyzer.py` — the Python implementation the Swift scoring
+engine was validated against, and the right tool for sanity-checking a
+suspicious Swift score.
+
+---
+
+## 3. Technical stack
 
 | Layer | Technology |
 |---|---|
 | UI | SwiftUI (native, no third-party UI libraries) |
-| Depth/3D scanning | ARKit + RealityKit (LiDAR scene reconstruction) |
-| Computer vision | Apple Vision framework (`VNDetectContoursRequest`) |
-| Pixel-level image analysis | Hand-rolled algorithms on raw `CGContext` pixel buffers (no CV/ML library) |
-| Data persistence | `FileManager` + `Codable` JSON — **no database** |
+| Depth / 3D scanning | ARKit + RealityKit (LiDAR scene reconstruction, `sceneReconstruction = .mesh`) |
+| Computer vision | Apple Vision (`VNDetectContoursRequest`) |
+| Pixel-level analysis | Hand-rolled algorithms over raw `CGContext` pixel buffers (no CV/ML library) |
+| Persistence | `FileManager` + `Codable` JSON — no database |
 | In-app purchases | StoreKit 2 |
-| Backend/cloud | **None** — fully on-device by design |
-| Min iOS version | 17.0 |
-| Swift version | 5.0 |
+| Backend / cloud | None, by design |
+| Min iOS | 17.0 |
+| Swift | 5.0 language mode (not Swift 6 strict concurrency) |
 | Bundle ID | `com.spearitnow.vehicledamageforensics` |
-| Signing | "Automatically manage signing" — **no development team currently selected** (see Known Issues, 5.1) |
+| Signing | Automatic; development team **not yet selected** — see §5.1 |
 
-This stack was deliberately reviewed mid-session (see `ios/README.md` and
-git history around the "are we using the best available tech stack"
-question) — the on-device, no-backend architecture is considered a
-*feature* for a forensic tool (no chain-of-custody question about data
-leaving the device, works without connectivity at a scene), not a
-limitation. The one acknowledged technical-debt area is the hand-rolled
-(vs. library-based) pixel/statistics math in the tool-mark matching engine
-— being incrementally hardened with proper statistical rigor (see item #3
-below).
+The one acknowledged technical-debt area is the hand-rolled pixel and
+statistics math in the matching engine. It is being hardened incrementally with
+real statistical rigour rather than replaced — see plan item 3.
 
----
-
-## 4. Feature Status
-
-### 4.1 Fully implemented and working (pushed to `main`)
-- Case creation/dashboard, victim + suspect vehicle capture flow
-- LiDAR depth scanning + 3D scene reconstruction (impact geometry)
-- Paint-transfer color analysis
-- Scar-direction consistency check
-- Scar Line Comparison (geometric)
-- Scar Fingerprint Matching (minutiae-based, along scar length)
-- Tool-Mark / Striation Matching (across scar width) — **plus a
-  statistical significance layer added this session** (see 4.2, item #3)
-- PDF report generation covering all of the above
-- StoreKit 2 in-app purchase / paywall
-
-### 4.2 A specific 5-item improvement plan is in progress
-
-Sean asked for 5 specific improvements in one request; the plan was to do
-each as small, isolated commits. Status at handoff:
-
-1. **ROI/Focus-Region crop** (fixes a bug where a tape measure/ruler in
-   frame was being mistaken for part of the vehicle damage) —
-   **3 of 4 planned sub-commits done and pushed** (data model field,
-   extractor hard-boundary logic, view-model threading). **The 4th
-   sub-commit — the actual `ScarCaptureView` UI for the user to draw the
-   focus-region box — was reverted and has NOT been reapplied yet.** See
-   Known Issues 5.2 for why, and exactly what remains.
-2. **No-ruler guidance + close-focus quality gate** — not started.
-3. **Null-model/statistical-significance scoring** for the tool-mark match
-   percentage — **done and pushed** (commit `7391b73`). This directly
-   answers Sean's "how can two different suspects both score 60-80%?"
-   question by telling the investigator whether a given score is actually
-   distinguishable from random chance.
-4. **Per-cross-section exclude** affordance in the results UI — not
-   started.
-5. **"Duplicate Case for Another Suspect"** — lets an investigator clone
-   an existing case's victim-vehicle data to quickly set up a comparison
-   against a different suspect vehicle, without re-entering everything.
-   **Not started — and an open design question is still unanswered by
-   Sean**: whether to (A) refactor `ForensicCase.suspectVehicle` from a
-   single optional `Vehicle?` into an array (larger, riskier rewrite
-   touching ~88 references across 15 files), or (B) add a simpler
-   "duplicate case" clone action that just creates a new case pre-filled
-   with the same victim data (small, additive, recommended). **The new
-   team should get Sean's decision on A vs. B before starting this item.**
+The repo root also carries a Vite/Cloudflare web scaffold (`src/`,
+`package.json`, `vite.config.ts`, `wrangler.jsonc`) left over from an earlier
+prototype. It is not built, shipped, or referenced by the iOS target. Deleting
+it is an open decision (§6).
 
 ---
 
-## 5. Known Issues / Important Context for the New Team
+## 4. Feature status
 
-### 5.1 No Apple Developer Team configured for code signing
-Xcode currently shows "Signing for 'VehicleDamageForensics' requires a
-development team" (Team: None). The new team will need to set their own
-Apple Developer account/team in Xcode's Signing & Capabilities tab before
-they can build to a physical device or submit to TestFlight/App Store.
-This has not blocked development so far because building/testing has been
-happening via screen-sharing with Sean's own Xcode instance running
-locally on his Mac (see 5.3).
+### 4.1 Implemented and on `main`
 
-### 5.2 An Xcode crash occurred and was root-caused — context for caution
-Mid-session, a batch of file changes (adding a new "Scar Focus Region"
-UI stage to `ScarCaptureView.swift`, among other files) caused Xcode
-itself to crash immediately whenever Sean clicked on any of the 6 changed
-files. Full investigation (see git history and the crash log's actual
-backtrace) determined:
-- **Root cause**: Xcode's own internal editor-tab "reentrancy guard"
-  (`IDEEditorCoordinator`) assertion-failed — an Xcode-side bug/race, NOT
-  a bug in the Swift/SwiftUI code itself. It was most likely triggered by
-  *stale locally-cached Xcode editor state* (`.xcuserstate`/
-  `.xcuserdatad`, which are gitignored and device-local, not part of the
-  repo) colliding with one file's large size jump in a single commit.
-- **Resolution taken**: the offending commits were reverted immediately
-  (to unblock Sean), then reapplied as 4 much smaller, incremental commits
-  instead of one large one, specifically so any future recurrence is easy
-  to isolate to a single small commit rather than a large diff.
-- **Practical guidance for the new team**: if Xcode ever crashes
-  immediately upon opening a recently-changed file, first try clearing
-  `~/Library/Developer/Xcode/DerivedData/*` and any `*.xcuserstate` /
-  `*.xcuserdatad` in the local checkout before assuming the Swift code
-  itself is at fault — that combination resolved it here.
-- **Where this left off**: of the 4 planned incremental sub-commits for
-  item #1 (see 4.2), only 3 are done/pushed. The 4th (the actual UI file,
-  `ScarCaptureView.swift`, which was the file that grew the most and is
-  the most likely to be implicated if the crash recurs) has **not yet
-  been reapplied**. The content for it exists in this session's git
-  history at commit `3f6d7f4` (before it was reverted at `9b6a67e`) if the
-  new team wants to reference or cherry-pick it, but it should be
-  re-verified carefully (small follow-up commit, test in Xcode
-  immediately) rather than reapplied wholesale.
+Case creation and dashboard; victim + suspect guided capture (fixed 10-shot
+protocol, `PhotoType.requiredCaptureProtocol` as single source of truth, with
+skip-a-shot logged to the audit trail); camera-roll import; LiDAR depth
+scanning plus tap-to-measure height feeding Height Alignment; paint-transfer
+colour analysis (CIEDE2000); scar-direction consistency; scar line comparison;
+scar fingerprint matching (minutiae along the scar); tool-mark / striation
+matching (across the scar width) with a null-model significance layer; PDF
+report covering all of it; StoreKit 2 paywall and case credits.
 
-### 5.3 No Mac/Xcode toolchain in the AI sandbox — verification is limited
-All AI-developer work in this session was done in a Linux sandbox with
-**no Swift compiler or Xcode available**. Every code change was verified
-only via brace/paren/bracket balance checks and manual code review — never
-actually compiled by the AI. Sean has been doing the real
-build/run/test/crash-reporting on his own Mac throughout. **The new team
-should do a full clean build and run through the app's main flows before
-assuming any given commit "works"** — balance-checking catches syntax
-mismatches, not logic errors or compiler-level type errors.
+**Caveat that applies to all of the above**: it is committed, reviewed, and
+brace-balanced — it has **never been compiled**. See §5.3. Treat "implemented"
+as "written and plausible", not "verified".
 
-### 5.4 Local Xcode project location on Sean's Mac (for reference)
-Sean's local clone was found at
-`/Users/seanpierce/Documents/Vehicle_Damage_Asst` (a second, stale,
-never-updated clone also exists at `/Users/seanpierce/Vehicle_Damage_Asst`
-— **not the one to use**, it was abandoned after initial setup on Jul 6
-and never pulled again).
+### 4.2 Plan and priorities
+
+The live status table for the 5-item improvement plan and the P0 foundation
+work is maintained in `ios/README.md` under "Improvement Plan & Work Status".
+Headlines:
+
+- **Item 5 is still open** — Sean has not answered Option A vs B. Two agents
+  have recommended B (the duplicate-case clone); that is a recommendation, not
+  a decision, and it is recorded as an open box in the status block. Work is
+  scoped and queued as B because B is the low-risk default if he never weighs
+  in. Option A — refactoring `suspectVehicle` into an array, ~88 references
+  across 15 files, on code that has never compiled — stays not-recommended for
+  the reasons in the status block.
+- **Item 1 is 3-of-4 landed**; the reverted `ScarCaptureView` focus-region UI
+  is the remaining piece, gated on a green build.
+- **Item 2 was promoted ahead of item 1's UI** — per-shot capture guidance plus
+  a close-focus quality gate is the cheaper root fix for the same tape-measure
+  contamination bug. Its spec is accepted; the code is not written.
+  **One thing on the record so it is not re-derived**: item 2 is *not* a blanket
+  "no rulers" rule. The protocol's height-reference shot is deliberately a
+  ruler/tape-measure shot — wanted evidence. The bug is confined to the shots
+  whose pixels feed the engine, where printed ticks read as striations. Guidance
+  is per-shot, keyed on `PhotoType.isAnalysisShot`. Implemented as a blanket ban
+  it would cost the height reference and with it all scale.
+- **Sequencing on `ScarCaptureView.swift` is fixed**: item 1's reapply lands
+  first, alone, verified in Xcode, before item 2's UI commit touches that file.
+  It is the file blamed for the Xcode crash; two large diffs racing on it is how
+  the crash repeats.
+- **Item 3 is code-complete but unverified**; its on-device checklist has not
+  been walked.
+- **Item 4 carries a requirement worth restating**: excluding a cross-section
+  must be audited, and exports must show both the full and the filtered score.
+  A tool that lets a user silently delete the evidence that disagrees with them
+  is worse than no tool.
+
+The foundation work (repo access and signing, first green build, first
+end-to-end device run, documentation process, and the "trust the number"
+version stamp / p-value display) blocks everything else and is tracked in the
+same table.
 
 ---
 
-## 6. Recommended Next Steps for the New Team
+## 5. Known issues and standing context
 
-1. Get added as collaborators on the GitHub repo (Sean needs to do this).
-2. Clone `https://github.com/spierce26-Ems/Vehicle_Damage_Asst.git`,
-   checkout `main`, open `ios/VehicleDamageForensics.xcodeproj` in Xcode.
-3. Read `ios/README.md` top to bottom — it's the authoritative changelog
-   and explains the reasoning behind nearly every non-trivial piece of
-   code.
-4. Set up code signing with the team's own Apple Developer account.
-5. Do a full clean build (`Cmd+Shift+K` then `Cmd+B`) and run through the
-   app's main capture → analysis → PDF report flow on a real LiDAR-capable
-   device (LiDAR requires a real device; it won't work in Simulator).
-6. Get Sean's decision on the Option A vs. B question for item #5 (5.2 in
-   this document, item 4.2.5 above) before starting that work.
-7. Continue the remaining items from the 5-item plan (4.2 above) at their
-   own discretion, following the existing pattern in `ios/README.md` of
-   small commits + changelog entries + on-device test checklists.
+### 5.1 No Apple Developer team configured for signing
+Xcode reports "Signing for 'VehicleDamageForensics' requires a development
+team" (Team: None). A team must be selected in Signing & Capabilities before
+anyone can build to a device or ship to TestFlight. Sean holds an active Apple
+Developer Program account. This blocks the device run in §4.2.
+
+### 5.2 A large multi-file commit previously crashed Xcode
+Adding the "Scar Focus Region" UI stage across six files caused Xcode itself to
+crash whenever any changed file was opened. Root cause was Xcode's own
+`IDEEditorCoordinator` reentrancy-guard assertion — an Xcode-side race, not a
+bug in the Swift code — most likely triggered by stale local editor state
+(`.xcuserstate` / `.xcuserdatad`, gitignored and device-local) colliding with
+one file's large size jump in a single commit.
+
+The commits were reverted (`9b6a67e`) and reapplied as four small incremental
+ones so any recurrence isolates to a small diff. Three landed; the UI file is
+outstanding, with content preserved at `3f6d7f4` — cherry-pick as a reference,
+re-verify, commit small, open in Xcode immediately.
+
+**If Xcode crashes on opening a recently changed file**: clear
+`~/Library/Developer/Xcode/DerivedData/*` and any `*.xcuserstate` /
+`*.xcuserdatad` in the checkout before suspecting the Swift code. That resolved
+it here. This incident is why `docs/PROCESS.md` forbids large single-file jumps.
+
+### 5.3 There is no Mac and no LiDAR device on this team — a standing constraint
+
+Not a blocker to be cleared: a permanent shape of how this project verifies
+anything. Sean's Mac is the only build machine and the only LiDAR-capable
+device in the picture. Concretely:
+
+- **The first green build is Sean's session.** He adds the collaborators,
+  selects the development team, and runs the clean build. The engineer's job on
+  that task is turning around the error list he reports back, not producing it.
+- **Task-level device runs have exactly one possible operator.** Any protocol
+  written for a device run should be written to be executed by Sean, with
+  enough detail that he is not guessing at intent.
+- **Nothing gets called working on anyone else's word.** See §5.4.
+
+One correction to an earlier assumption, since it was costing time: **signing
+does not gate compiling.** `Cmd+B` against a Simulator destination builds
+without a development team selected. The Apple Developer team is needed to
+*run on a device*, not to find compiler errors. So the first build check can
+start as soon as someone has the repo, independent of signing setup.
+
+### 5.4 Nothing in this repository has ever been compiled
+All prior AI-developer work happened in a Linux sandbox with no Swift compiler
+and no Xcode. Every change was verified only by brace/paren/bracket balance
+checks and code review. Balance-checking catches syntax mismatches — it catches
+nothing about types, logic, or the compiler's opinion. The first clean build
+should be expected to produce a real error list, and that list is information,
+not failure. Do a full clean build and walk the main flows before treating any
+commit as working.
+
+### 5.5 New Swift files must be registered in `project.pbxproj`
+An unregistered file silently does not compile into the target. This has
+already caused two confusing build failures (`bf3bc5a`, `3f56117`).
+`scripts/build_pbxproj.py` generates the pbxproj from
+`scripts/pbxproj_skeleton.txt`.
+
+### 5.6 LiDAR requires a real device
+Nothing in the LiDAR or depth path can be tested in Simulator. Same for camera
+capture and StoreKit purchase flows.
+
+### 5.7 Sean's local checkout
+`/Users/seanpierce/Documents/Vehicle_Damage_Asst` is the live clone. A second,
+stale clone at `/Users/seanpierce/Vehicle_Damage_Asst` was abandoned after
+initial setup and never pulled again — not the one to use.
 
 ---
 
-## 7. Contact / Continuity
+## 6. Open decisions
 
-Sean (nickname used throughout `ios/README.md`'s changelog: "Sean") is the
-project owner and the person who should be consulted on product decisions
-(the Option A/B question in 4.2 item 5, prioritization of remaining items,
-etc.). All prior design rationale is preserved in git commit messages and
-`ios/README.md` — there should be no need to guess at "why was it built
-this way," as nearly every decision was documented at the time it was made.
+These need a product answer, not an engineering one. All four are Sean's, all
+four are open, and each carries a recommendation so work can proceed on a
+default. The full list with rationale lives in `ios/README.md`'s status block.
+
+1. **Item 5: Option A or Option B.** Recommended: B (duplicate-case clone).
+2. **Capture quality gate: hard-block or warn only?** Recommended: hard-block,
+   with the manual shutter as the documented override.
+3. **The leftover web scaffold** — delete it, or keep it with a stated reason?
+   Recommended: delete. It is dead weight in a repo where a new reader needs to
+   find the iOS app immediately.
+4. **Distribution target** — TestFlight, or continue direct-to-device installs?
+   Recommended: direct installs for now. This decides how urgent App Store
+   Connect and IAP setup becomes
+   (`ios/reference/APP_STORE_CONNECT_SETUP.md`).
+
+**A recommendation is not a decision.** No box here gets ticked by agreement
+among the people doing the work, however unanimous — only by Sean answering.
+That distinction is the only reason this list is worth keeping.
+
+---
+
+## 7. Working agreements
+
+Changelog prose is written by Ledger — hand over what changed, why, and which
+files, and the entry plus the on-device checklist come back written. Report and
+capture-screen copy is locked against drift into probabilistic or verdict
+language; see `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §4.
+
+`docs/PROCESS.md` is the short version: one logical change per commit,
+`[item-N]` message prefix with a `Compiled: yes|no` line, a changelog entry with
+a walkable on-device test checklist for every functional commit, and a
+definition of done that requires a real build and a real device run. Nothing is
+reported as working until those are true.
+
+Product decisions go to Sean with a recommendation and the cost of each option
+attached. Status claims must be traceable to a commit; if the changelog and the
+git log disagree, the git log wins and the changelog gets corrected.
