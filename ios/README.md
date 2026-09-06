@@ -1446,6 +1446,92 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] Determinism: exclude the same probe on the same case twice and get identical filtered
     figures.
 
+- **Case-readiness bar and LiDAR set-point reticle (task #13).** `51c2611`. Two capture-screen
+  changes and a data-loss fix that matters more than either.
+
+  **Why**: the capture flow gave no answer to "what is still missing on this case?" — the examiner
+  found out by hitting a disabled button. And LiDAR height measurement required tapping a precise
+  point on reconstructed mesh with a fingertip, which fails often on unscanned geometry.
+
+  **What changed**:
+
+  - `CaptureViewModel.readinessSegments` — a **purely derived** list, computed from case state on
+    every read rather than cached, so a segment can never claim readiness the underlying case does
+    not have. `readinessNextStep` names the one thing to do next.
+  - **A readiness bar changes what the user SEES, never what the app ALLOWS.** The
+    Continue-to-Suspect and Run-Analysis gates are byte-identical after this change — two
+    occurrences of `disabled(!(viewModel.isComplete && viewModel.hasImpactProfile))`, unchanged and
+    verified on the merged tree. This is the property a UI patch can most easily break by accident,
+    which is why it was checked rather than assumed.
+  - **The set-point reticle** (`setPointAtReticle`) raycasts through a fixed centre crosshair, so
+    aiming is done by moving the device rather than by finger precision. It appears only while a
+    point is actually being aimed, so it never clutters plain mesh scanning.
+  - **The miss-recovery fix, and this is the best commit in the set.** `tapMissedSurface` was
+    payload-free, so retrying after a missed *second* point discarded an already-recorded ground
+    point and made the user redo both — with nothing on screen saying so. **Data loss presenting as
+    the user's own mis-tap.** Now `missedSurface(pendingGroundY:)`: the ground point survives the
+    miss. Missing a surface is the *normal* outcome of aiming at unscanned mesh, so it must not be
+    destructive.
+
+  **Two disclosure decisions, both refusals to show more than the data supports.**
+
+  - The coverage indicator is a **single proportional arc that claims no side**, with the caption
+    *"Proportion only — not which part of the vehicle."* `LiDARService.coveragePercent` is
+    `min(100, meshAnchors.count * 10)` — an anchor **count** with no bearing, no area, and no
+    notion of which side of the vehicle anything is on; it is not even monotonic in real coverage.
+    A directional compass drawn off that number would put a claim on screen the data cannot
+    support, and the user would then trust it to decide where *not* to walk. If per-anchor bearings
+    ever land, this becomes a real compass by filling buckets instead of one sweep, and the layout
+    does not change.
+  - **The confirmation screen does not tell the examiner this measurement can rule a vehicle out.**
+    That was true of the engine when the spec was written and stopped being true under #14 part 1,
+    where a LiDAR-derived height reports *inconclusive* rather than excluding. Overstating the
+    consequence at the moment someone is deciding whether a number is good enough is how a
+    measurement gets **defended rather than re-taken**. The line states what is true either way:
+    the value is compared against the other vehicle, and a scene measurement cannot be re-taken
+    from the report.
+
+  **Files touched**: `ios/VehicleDamageForensics/ViewModels/CaptureViewModel.swift`,
+  `ios/VehicleDamageForensics/Views/Capture/CaptureFlowView.swift`,
+  `ios/VehicleDamageForensics/Views/LiDAR/LiDARScanView.swift`
+
+  **Commit(s)**: `51c2611` (merge); the restored `Group`-idiom rationale is `a1239d2`
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. `preflight --all`
+  clear at zero advisories, `swift-parse` clean; that is syntax under one frontend version and
+  says nothing about the build (`docs/PROCESS.md` §5b). This branch is also where §4d was widened:
+  a clean single-parent rebase moved a `Group { if/else }` wrapper into
+  `measurementConfirmation` and left its rationale behind, so the idiom survived and the reason for
+  it did not — the next person to "simplify" it into a bare if/else would get a ViewBuilder
+  modifier-chaining error reading as their own mistake. Restored and attributed.
+
+  **On-device test checklist**:
+  - [ ] The readiness bar lists every required item with its state, and names one next step.
+    Complete that step and confirm the bar updates without leaving the screen.
+  - [ ] **The gate check, and it is the one that matters**: with the bar showing items still
+    missing, confirm Continue-to-Suspect and Run-Analysis are still disabled *exactly* as before
+    this build — and that completing the items enables them. The bar must not have become a second
+    gate, and must not have loosened the existing one.
+  - [ ] Aim the reticle at good mesh and set the ground point, then the damage point. A height is
+    produced without tapping a precise pixel.
+  - [ ] **The miss-recovery case, which needs the two-step sequence**: set the ground point
+    successfully, then deliberately aim the second point at unscanned space so it misses. Confirm
+    the ground point is **still held** — re-aim and press again completes the measurement without
+    redoing the first point.
+  - [ ] The reticle is still on screen after a miss. Recovery is "re-aim and press again", which
+    requires it to be visible.
+  - [ ] The reticle does **not** appear during plain mesh scanning, only while a point is being
+    aimed.
+  - [ ] The coverage caption reads *"Proportion only — not which part of the vehicle"*, and the arc
+    shows no side or direction. Walk around the vehicle and confirm the arc grows without ever
+    implying *where*.
+  - [ ] **Negative case**: the confirmation screen does **not** say the measurement can rule a
+    vehicle out. Cross-check against the results screen for a >6" LiDAR pair, which must read
+    *inconclusive* (#14 part 1). The two screens must agree.
+  - [ ] **Negative case**: a case with nothing captured shows the bar with everything missing and
+    no crash, and the analysis gate stays closed.
+  - [ ] VoiceOver reads the coverage arc's proportion-only qualification, not just a percentage.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
