@@ -852,6 +852,97 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 
   **Not yet compiled** — brace/paren balance checked; the divergence table above is from a Python
   port of both forms.
+- **Trust the number — algorithm version stamp + no bare match percentages (P1b).** Two related
+  problems, both about a score being shown without the context that makes it mean anything.
+
+  *Problem 1: no provenance.* Every score this app ever produced was stamped with nothing but a
+  date. Two results a month apart can both read 78% and mean completely different things, because
+  the thresholds behind them changed with no record of it. "Which version of the algorithm produced
+  this?" was only answerable by git archaeology on whichever app build happened to be installed
+  that week — not acceptable for a document that may be re-read or challenged later. Fix: new
+  `AlgorithmVersion` (`ForensicEngine/AlgorithmVersion.swift`) carrying a hand-maintained semantic
+  `identifier` for the scoring MATH plus the actual `constants` in force at analysis time, read
+  from the matchers' own static properties rather than re-typed. Stamped into
+  `MatchResult.algorithmVersion` by `MatchScoreCalculator.evaluate()` (the single place a
+  `MatchResult` is produced, so no analysis path can emit an unstamped result), persisted with the
+  case, shown on the Results screen as a collapsed provenance card, on the PDF cover page under the
+  composite score, and in full on a new "Analysis Provenance" PDF page. Deliberately NOT a build
+  number or git SHA — those change on pure-UI commits and would claim the math changed when it
+  didn't. Legacy results decode to `nil` and render as "version not recorded"; they are never
+  backfilled with `.current`, which would falsely claim an old score came from today's math.
+
+  *Problem 2: bare percentages.* The Results screen and PDF both rendered "83% Marking Match" /
+  "78% Striation Rhythm Match" as a bold traffic-light-coloured headline, with the colour driven
+  purely by how big the number was. For the scar-fingerprint matcher there was no null model at all
+  behind it; for the tool-mark matcher the null model existed (commit `7391b73`) but when it could
+  not be built the UI still printed the bold coloured percentage with nothing qualifying it — a
+  uniform striation pattern matches almost anything at near 100%, so that was the most
+  confidently-wrong number the app could display. Fix: both comparisons gained a `headlineDisplay`
+  which is now the ONLY string any surface may use as the headline; it always carries the
+  percentage, the p-value, and an explicit "above chance" / "NOT distinguishable from chance"
+  verdict, and says "significance not testable" when no baseline could be built. Headline colour
+  now reflects significance, not score size (green significant, orange tested-and-not-significant,
+  gray untestable) — "not significant" is orange rather than red on purpose, since it means "this
+  tells you nothing", not "this excludes the suspect". Both `summary` strings now state the
+  no-baseline case out loud instead of falling through to an unqualified sentence.
+
+  *Scar fingerprint matcher got a null model (it had none).* Measured against this matcher's own
+  greedy algorithm, two UNRELATED scars average ~42% when each side has 2 markings and ~71% at 8,
+  with better-than-even odds of clearing 50% — and the score INCREASES with marking count, so a
+  richly-detailed unrelated pair outscores a sparse genuinely-matching one. Causes are structural:
+  the position tolerance is 15% of scar length (about ±3.6 samples on a 25-sample profile), the
+  denominator is `min(victimCount, suspectCount)`, and only two feature types exist so type
+  agreement eliminates almost nothing. So a high raw percentage is the EXPECTED outcome for
+  unrelated scars. `ScarFingerprintMatcher.nullModelBaseline` now runs the identical greedy pass
+  (factored out as `greedyPairs` so the trials use the real algorithm, not an approximation)
+  against 120 random-marking sets that keep the suspect's marking count and type mix but redraw
+  positions uniformly — isolating positional agreement, the one thing a genuine match should
+  explain. Simulation of the new test: false-significant rate 0.7–1.3% on unrelated pairs across
+  2–8 markings (raw scores 25–54%), detection rate 86% at 4 markings and 99% at 6–8 on true
+  matches with 3% positional jitter.
+
+  *Significance test changed from z-score to permutation p-value.* Both matchers now use
+  `ForensicNullModel.permutationPValue` (rank-based, `(1+count)/(1+trials)` so it never reports a
+  false `p = 0`) against `ForensicNullModel.significanceLevel` of 0.05. Being precise about why,
+  because the obvious argument overstates it: I measured the old z ≥ 2.0 threshold's ACTUAL false-
+  positive rate on simulated unrelated striation pairs (200 pairs per regime, 400 null trials each)
+  and it produced 2.0–5.5% against the ~2.3% a normal distribution implies, with null distributions
+  only mildly right-skewed (+0.1 to +0.5) — so the old test was NOT broken. The real objection is
+  that its error rate drifts with input shape, worst on long rhythm sequences (5.5% at 16 elements
+  vs 2.0% at 6). A threshold whose true false-positive rate depends on how long the scar happened
+  to be is not defensible in a report; a rank p-value is correctly calibrated by construction for
+  every input shape. `zScore` is retained on `ToolMarkComparison` as descriptive context and so
+  already-persisted values stay interpretable; `significanceZScoreThreshold` is marked deprecated.
+  The tool-mark matcher's private `SeededGenerator`/`nullModelSeed` were hoisted verbatim into
+  `ForensicNullModel` so both null models draw from the identical deterministic source rather than
+  two independently-written ones — same SplitMix64, same FNV-1a seeding, same reproducibility
+  guarantee, only the location changed.
+
+  Files: new `ForensicEngine/AlgorithmVersion.swift`; `Models/MatchResult.swift` (new optional
+  field + Codable, no backfill); `ForensicEngine/MatchScoreCalculator.swift` (stamp at both return
+  sites); `Utilities/ToolMarkAnalysis.swift`; `Utilities/ScarFingerprintAnalysis.swift`;
+  `Views/Results/MatchResultsView.swift`; `Services/PDFReportGenerator.swift`;
+  `VehicleDamageForensics.xcodeproj/project.pbxproj` (the project is NOT
+  `fileSystemSynchronized`, so the new file had to be registered as a `PBXFileReference` +
+  `PBXBuildFile` + group child + Sources build-phase entry — without that it would not compile).
+  All persisted-model changes are additive optionals, so existing case JSON still loads.
+
+  **Not yet compiled/run** — same no-Xcode-toolchain caveat as every other change in this file.
+  Verified by brace/paren/bracket balance on all seven Swift files and the pbxproj (all balanced),
+  and by porting both null models to Python and Monte-Carlo testing their calibration (numbers
+  quoted above). Balance-checking does not catch type errors. Please rebuild and re-test
+  on-device: (1) the Results screen shows no bare match percentage anywhere — both the Scar
+  Fingerprint and Tool-Mark headlines read "N% … p = …, above chance / NOT distinguishable from
+  chance"; (2) headline colour tracks significance, not score size (a high-but-insignificant score
+  is orange, not green); (3) the collapsed "Analysis algorithm v1.1.0" card appears at the bottom
+  of the Results screen and expands to list the constants; (4) the PDF cover shows the version line
+  under the composite score and a new final "Analysis Provenance" page lists every constant; (5)
+  re-running analysis on the same case twice, and again after a force-quit and relaunch, reports
+  identical percentages AND identical p-values (determinism — this is the check that catches a
+  seeding regression); (6) an existing case saved before this change still opens, and its results
+  screen says the algorithm version was not recorded rather than showing a version or crashing;
+  (7) the "not enough distinct detail to compare" cases still show their original wording with no
+  headline and no significance text.
 
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and

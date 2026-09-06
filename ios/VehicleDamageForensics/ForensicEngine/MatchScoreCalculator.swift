@@ -41,7 +41,8 @@ struct MatchScoreCalculator {
                 compositeScore: 0,
                 scoreRangeLabel: "n/a",
                 confidence: .insufficient,
-                recommendations: ["No suspect vehicle data captured."]
+                recommendations: ["No suspect vehicle data captured."],
+                algorithmVersion: .current
             )
         }
         let victim = forensicCase.victimVehicle
@@ -262,7 +263,11 @@ struct MatchScoreCalculator {
             victimContourOverlay: victimOverlay,
             suspectContourOverlay: suspectOverlay,
             scarFingerprintMatch: scarFingerprintMatch,
-            toolMarkComparison: toolMarkComparison
+            toolMarkComparison: toolMarkComparison,
+            // NOTE(AI Developer), added 2026-09: stamped here, at the
+            // one place a MatchResult is actually produced, so no
+            // analysis path can emit an unstamped result.
+            algorithmVersion: .current
         )
     }
 

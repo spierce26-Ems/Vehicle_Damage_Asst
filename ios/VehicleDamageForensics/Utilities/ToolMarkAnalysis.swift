@@ -595,21 +595,69 @@ struct ToolMarkComparison: Codable, Equatable {
     /// distribution. `nil` alongside `matchScorePercent`.
     var nullModelStdDevPercent: Double?
     /// How many standard deviations `matchScorePercent` sits above
-    /// `nullModelMeanPercent` -- the actual statistical test. `nil`
-    /// alongside `matchScorePercent`.
+    /// `nullModelMeanPercent`.
+    ///
+    /// NOTE(AI Developer), 2026-09: retained for continuity of already-
+    /// persisted results and as descriptive context, but NO LONGER the
+    /// significance test -- see `permutationPValue` below and
+    /// `ForensicNullModel.permutationPValue`'s doc comment for why a
+    /// z-score was the wrong instrument for a bounded, strongly
+    /// left-skewed null distribution. `nil` alongside
+    /// `matchScorePercent`.
     var zScore: Double?
+
+    /// NOTE(AI Developer), added 2026-09. Rank-based permutation
+    /// p-value: the fraction of shuffled-baseline trials that scored at
+    /// least as high as `matchScorePercent`. This is now THE
+    /// significance test for this comparison -- it makes no assumption
+    /// about the shape of the null distribution, which the previous
+    /// z-score did and should not have. `nil` alongside
+    /// `matchScorePercent`, or when too few trials produced a scoreable
+    /// alignment to trust the baseline.
+    var permutationPValue: Double?
+
+    /// How many null-model trials actually produced a scoreable
+    /// alignment and therefore back `permutationPValue`. Reported
+    /// because it bounds the p-value's resolution: 120 trials cannot
+    /// demonstrate anything smaller than p < 1/121.
+    var nullTrialCount: Int?
 
     var isDeterminable: Bool { matchScorePercent != nil }
 
-    /// `nil` alongside `matchScorePercent` (nothing to test yet). `true`
-    /// only when `zScore` clears `ToolMarkMatcher
-    /// .significanceZScoreThreshold` -- i.e. this specific score is
-    /// meaningfully higher than what an unrelated scrape would be
-    /// expected to score from this same search, not just a bigger raw
-    /// number than some other comparison.
+    /// `nil` alongside `matchScorePercent` (nothing to test yet).
+    /// `true` only when the permutation p-value clears
+    /// `ForensicNullModel.significanceLevel` -- i.e. this specific
+    /// score is higher than what an unrelated scrape would be expected
+    /// to score from this same search, not just a bigger raw number
+    /// than some other comparison.
+    /// NOTE(AI Developer), 2026-09: now driven by the permutation
+    /// p-value rather than the z-score threshold. `nil` means "no
+    /// significance test was possible" and must be rendered as such --
+    /// never silently treated as either significant or insignificant.
     var isStatisticallySignificant: Bool? {
-        guard let zScore else { return nil }
-        return zScore >= ToolMarkMatcher.significanceZScoreThreshold
+        guard let permutationPValue else { return nil }
+        return permutationPValue < ForensicNullModel.significanceLevel
+    }
+
+    /// NOTE(AI Developer), added 2026-09 for the "no bare match %" rule.
+    /// The ONLY string any UI or report surface may use as this
+    /// comparison's headline number. A raw `matchScorePercent` must
+    /// never be rendered on its own: the whole point of the null model
+    /// is that 78% means nothing until you know what chance scores, and
+    /// a percentage shown by itself invites exactly the misreading Sean
+    /// ran into with two unrelated suspects scoring 69% and 78%.
+    /// Returns `nil` when there is no score at all, in which case
+    /// callers show `summary` and no headline.
+    var headlineDisplay: String? {
+        guard let score = matchScorePercent else { return nil }
+        guard let p = permutationPValue, let trials = nullTrialCount else {
+            return String(format: "%.0f%% similarity — significance not testable", score)
+        }
+        let pText = ForensicNullModel.pValueDisplay(p, trials: trials)
+        let verdict = (isStatisticallySignificant == true)
+            ? "above chance"
+            : "NOT distinguishable from chance"
+        return String(format: "%.0f%% similarity — %@, %@", score, pText, verdict)
     }
 
     /// Human-readable summary, deliberately in the same plain-language,
@@ -638,13 +686,27 @@ struct ToolMarkComparison: Codable, Equatable {
         // Sean's "how is that possible" question, surfaced directly in
         // the sentence an investigator reads, not buried in a separate
         // number they'd have to interpret themselves.
-        guard let baselineMean = nullModelMeanPercent, let significant = isStatisticallySignificant else {
-            return baseSummary
+        // NOTE(AI Developer), reworded 2026-09: the significance
+        // sentence now quotes the permutation p-value, and the
+        // no-baseline case is stated EXPLICITLY rather than falling
+        // through to a bare similarity sentence. Previously, when the
+        // null model could not be built, this returned `baseSummary`
+        // alone -- an unqualified "correlates at 87%" with nothing
+        // telling the reader that no significance test backed it. That
+        // is the single most misleading thing this app could print, and
+        // it is exactly what a uniform striation pattern (which matches
+        // almost anything) would produce.
+        guard let baselineMean = nullModelMeanPercent,
+              let p = permutationPValue,
+              let trials = nullTrialCount,
+              let significant = isStatisticallySignificant else {
+            return baseSummary + " No chance-level baseline could be computed for this pair, so this similarity has NOT been tested against coincidence and must not be read as evidence of a match on its own."
         }
+        let pText = ForensicNullModel.pValueDisplay(p, trials: trials)
         if significant {
-            return baseSummary + String(format: " This is meaningfully higher than the ~%.0f%% an unrelated scrape would be expected to score from this same search by chance alone, so this correlation is unlikely to be a coincidence.", baselineMean)
+            return baseSummary + String(format: " Unrelated scrapes scored this well or better in only %@ of %d chance trials (typical chance score ~%.0f%%), so this correlation is unlikely to be coincidence.", pText, trials, baselineMean)
         } else {
-            return baseSummary + String(format: " However, unrelated/random spacing patterns of this same length typically score around %.0f%% with this same search purely by chance -- this result is NOT statistically distinguishable from random and should not be treated as meaningful evidence on its own.", baselineMean)
+            return baseSummary + String(format: " However, unrelated/random spacing patterns scored this well or better by chance alone at %@ across %d trials (typical chance score ~%.0f%%) -- this result is NOT statistically distinguishable from random and must not be treated as meaningful evidence on its own.", pText, trials, baselineMean)
         }
     }
 
@@ -652,7 +714,8 @@ struct ToolMarkComparison: Codable, Equatable {
         ToolMarkComparison(
             victimProfile: victim, suspectProfile: suspect,
             matchScorePercent: nil, orientationUsed: nil, overlapLength: nil,
-            nullModelMeanPercent: nil, nullModelStdDevPercent: nil, zScore: nil
+            nullModelMeanPercent: nil, nullModelStdDevPercent: nil, zScore: nil,
+            permutationPValue: nil, nullTrialCount: nil
         )
     }
 }
@@ -696,13 +759,20 @@ enum ToolMarkMatcher {
     // destroyed). That produces a distribution of scores an UNRELATED
     // scrape with similar overall texture statistics would be expected
     // to produce from this same "keep the best" search, purely by
-    // chance. The real score is then expressed as a z-score against that
-    // distribution (`ToolMarkComparison.zScore`) -- only a real score
-    // that clears `significanceZScoreThreshold` standard deviations
-    // above the shuffled baseline is called "statistically significant"
+    // chance. The real score is then ranked against that distribution
+    // as a permutation p-value (`ToolMarkComparison
+    // .permutationPValue`) -- only a real score that chance beat less
+    // often than `ForensicNullModel.significanceLevel` is called
+    // "statistically significant"
     // (`ToolMarkComparison.isStatisticallySignificant`); otherwise the
     // app now says so explicitly instead of presenting a raw percentage
-    // as if it were automatically meaningful. This is exactly the
+    // as if it were automatically meaningful.
+    //
+    // NOTE(AI Developer), 2026-09: this originally used a z-score
+    // against the baseline's mean/stdDev; see
+    // `significanceZScoreThreshold` below for why that was replaced by
+    // the rank-based p-value (short version: its true error rate drifts
+    // with rhythm-sequence length). This is exactly the
     // "compare against chance" step a real tool-mark examiner's
     // statistical validation study would also require before calling a
     // correlation meaningful.
@@ -721,14 +791,16 @@ enum ToolMarkMatcher {
     /// under a second on-device.
     static let nullModelTrialCount = 120
 
-    /// How many standard deviations above the shuffled-baseline mean a
-    /// real score must reach to be called "statistically significant."
-    /// 2.0 corresponds to roughly the 97.7th percentile of a one-tailed
-    /// normal distribution (~2.3% false-positive rate if the null
-    /// model's approximately-normal assumption holds) -- a standard,
-    /// defensible threshold for this kind of screening comparison,
-    /// deliberately not pushed higher/stricter given this is a
-    /// screening/investigative aid, not a courtroom statistical claim.
+    /// NOTE(AI Developer), 2026-09: DEPRECATED as the significance
+    /// test. Kept only so already-persisted `zScore` values remain
+    /// interpretable; the live verdict now comes from
+    /// `ForensicNullModel.significanceLevel` applied to a permutation
+    /// p-value. The reason is in
+    /// `ForensicNullModel.permutationPValue`'s doc comment: this null
+    /// distribution is bounded and strongly left-skewed, so z = 2.0
+    /// never delivered the ~2.3% tail a normal distribution would give
+    /// it.
+    @available(*, deprecated, message: "Significance now uses ForensicNullModel.permutationPValue; this constant is retained only to interpret previously-persisted zScore values.")
     static let significanceZScoreThreshold = 2.0
 
     /// Compares two vehicles' extracted striation rhythms.
@@ -745,11 +817,21 @@ enum ToolMarkMatcher {
         }
         let realPercent = real.score * 100
 
+        // NOTE(AI Developer), 2026-09: the baseline now hands back the
+        // full trial score distribution, not just its mean/stdDev, so a
+        // rank-based p-value can be computed from it. The summary
+        // statistics are still reported (they are useful context -- "an
+        // unrelated scrape typically scores ~62%" is a sentence an
+        // investigator can act on) but they no longer decide the
+        // verdict.
         let baseline = nullModelBaseline(victimSeq: victimSeq, suspectSeq: suspectSeq)
         let zScore: Double? = {
             guard let baseline, baseline.stdDev > 0.0001 else { return nil }
             return (realPercent - baseline.mean) / baseline.stdDev
         }()
+        let pValue = baseline.flatMap {
+            ForensicNullModel.permutationPValue(realScore: realPercent, nullScores: $0.scores)
+        }
 
         return ToolMarkComparison(
             victimProfile: victim,
@@ -759,7 +841,9 @@ enum ToolMarkMatcher {
             overlapLength: real.overlap,
             nullModelMeanPercent: baseline?.mean,
             nullModelStdDevPercent: baseline?.stdDev,
-            zScore: zScore
+            zScore: zScore,
+            permutationPValue: pValue,
+            nullTrialCount: baseline?.scores.count
         )
     }
 
@@ -798,9 +882,17 @@ enum ToolMarkMatcher {
     private static func nullModelBaseline(
         victimSeq: [Double],
         suspectSeq: [Double]
-    ) -> (mean: Double, stdDev: Double)? {
+    ) -> (mean: Double, stdDev: Double, scores: [Double])? {
         guard suspectSeq.count >= 2 else { return nil }
-        var rng = SeededGenerator(seed: nullModelSeed(victimSeq, suspectSeq))
+        // NOTE(AI Developer), 2026-09: generator and seed now come from
+        // `ForensicNullModel` so this matcher and the scar-fingerprint
+        // matcher draw their shuffles from the identical deterministic
+        // source. Behaviour is unchanged for this matcher -- same
+        // SplitMix64, same FNV-1a seeding over the same two sequences in
+        // the same order.
+        var rng = ForensicNullModel.SeededGenerator(
+            seed: ForensicNullModel.seed(from: [victimSeq, suspectSeq])
+        )
         var scores: [Double] = []
         scores.reserveCapacity(nullModelTrialCount)
         for _ in 0..<nullModelTrialCount {
@@ -815,49 +907,17 @@ enum ToolMarkMatcher {
         guard scores.count >= nullModelTrialCount / 2 else { return nil }
         let mean = scores.reduce(0, +) / Double(scores.count)
         let variance = scores.reduce(0.0) { $0 + pow($1 - mean, 2) } / Double(scores.count)
-        return (mean: mean, stdDev: variance.squareRoot())
+        return (mean: mean, stdDev: variance.squareRoot(), scores: scores)
     }
 
-    /// A small deterministic PRNG (SplitMix64) used ONLY for the
-    /// null-model shuffles above. NOTE(AI Developer): deliberately NOT
-    /// Swift's `SystemRandomNumberGenerator` -- this needs to produce the
-    /// SAME shuffles (and therefore the same baseline/z-score) every time
-    /// `compare` is called again on the exact same two profiles, which a
-    /// forensic tool must guarantee; a truly random generator would make
-    /// re-running analysis on unchanged data silently report a different
-    /// significance verdict each time.
-    private struct SeededGenerator: RandomNumberGenerator {
-        private var state: UInt64
-        init(seed: UInt64) { state = seed == 0 ? 0x9E3779B97F4A7C15 : seed }
-        mutating func next() -> UInt64 {
-            state = state &+ 0x9E3779B97F4A7C15
-            var z = state
-            z = (z ^ (z >> 30)) &* 0xBF58476D1CE4E5B9
-            z = (z ^ (z >> 27)) &* 0x94D049BB133111EB
-            return z ^ (z >> 31)
-        }
-    }
-
-    /// Deterministic hash of both rhythm sequences into a seed for
-    /// `SeededGenerator`. NOTE(AI Developer): deliberately NOT Swift's
-    /// `Hasher`/`hashValue` -- those incorporate a random per-process
-    /// seed (hash-flooding protection) by design, so the same two
-    /// profiles would hash differently across app launches and silently
-    /// break the reproducibility this whole seeded-RNG approach exists
-    /// for. This is a plain FNV-1a style mix over each `Double`'s raw bit
-    /// pattern instead, which is stable across runs/launches/devices for
-    /// the same input values.
-    private static func nullModelSeed(_ a: [Double], _ b: [Double]) -> UInt64 {
-        var h: UInt64 = 1469598103934665603 // FNV-1a 64-bit offset basis
-        func mix(_ value: UInt64) {
-            h ^= value
-            h = h &* 1099511628211 // FNV-1a 64-bit prime
-        }
-        for v in a { mix(v.bitPattern) }
-        mix(0x9E3779B97F4A7C15) // separator between the two sequences
-        for v in b { mix(v.bitPattern) }
-        return h
-    }
+    // NOTE(AI Developer), 2026-09: the deterministic PRNG
+    // (`SeededGenerator`) and the FNV-1a seed helper (`nullModelSeed`)
+    // that used to live here privately were hoisted verbatim into
+    // `ForensicNullModel` (see AlgorithmVersion.swift) so the
+    // scar-fingerprint null model added in the same change uses the
+    // identical generator instead of a second independently-written
+    // one. Same algorithm, same seeding, same reproducibility
+    // guarantee -- only the location changed.
 
     /// Slides `b` against `a` at every possible offset (in both
     /// directions, since neither sequence has a shared absolute

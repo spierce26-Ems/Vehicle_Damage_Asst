@@ -51,6 +51,12 @@ struct MatchResultsView: View {
                     }
                     recommendations
                     reportSection
+                    // NOTE(AI Developer), added 2026-09: the algorithm
+                    // version + the constants that produced these
+                    // numbers, placed last so it reads as provenance
+                    // rather than competing with the results, but
+                    // always present. See `AlgorithmVersion`.
+                    algorithmVersionCard
                 } else {
                     lockedSection
                 }
@@ -201,6 +207,52 @@ struct MatchResultsView: View {
         } icon: {
             Image(systemName: "info.circle.fill")
                 .foregroundStyle(.secondary)
+        }
+        .padding()
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    // MARK: Algorithm version / provenance
+
+    /// NOTE(AI Developer), added 2026-09 for the "trust the number"
+    /// work item. Answers "which version of the math produced this, and
+    /// with what settings?" from the screen itself. Collapsed by
+    /// default -- an investigator does not need the constants every
+    /// time, but must be able to get at them without reading source
+    /// code. Shown for legacy unstamped results too, where
+    /// `algorithmVersionDisplay` says the version was not recorded.
+    private var algorithmVersionCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let version = viewModel.matchResult?.algorithmVersion {
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(version.constants) { constant in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("\(constant.name): \(constant.value)")
+                                    .font(.caption.bold())
+                                Text(constant.explanation)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.top, 6)
+                } label: {
+                    Label(version.displayLine, systemImage: "number.square")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Label(
+                    viewModel.matchResult?.algorithmVersionDisplay
+                        ?? "Analysis algorithm version not recorded",
+                    systemImage: "questionmark.square"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding()
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -443,10 +495,23 @@ struct MatchResultsView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
 
-            if let score = match.matchScorePercent {
-                Label(String(format: "%.0f%% Marking Match", score), systemImage: "point.3.connected.trianglepath.dotted")
-                    .font(.title3.bold())
-                    .foregroundStyle(scarFingerprintScoreColor(score))
+            // NOTE(AI Developer), rewritten 2026-09 for the "no bare
+            // match %" rule. This used to render "83% Marking Match" in
+            // title3-bold with a traffic-light colour driven purely by
+            // the percentage -- a green 83% on a comparison that had
+            // never been tested against chance. Unrelated scars produce
+            // percentages in that range routinely (see
+            // `ScarFingerprintMatch`'s null-model note), so the raw
+            // number alone was actively misleading and the colour made
+            // it worse by conferring approval. The headline now comes
+            // from `headlineDisplay`, which always carries the p-value
+            // and the chance verdict alongside the percentage, and the
+            // colour is driven by SIGNIFICANCE, not by score size.
+            if let headline = match.headlineDisplay {
+                Label(headline, systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.headline)
+                    .foregroundStyle(significanceColor(match.isStatisticallySignificant))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Text(match.summary)
                 .font(.subheadline)
@@ -489,11 +554,24 @@ struct MatchResultsView: View {
         }
     }
 
-    private func scarFingerprintScoreColor(_ score: Double) -> Color {
-        switch score {
-        case 70...: return .green
-        case 40..<70: return .orange
-        default: return .red
+    /// NOTE(AI Developer), added 2026-09, REPLACING the previous
+    /// `scarFingerprintScoreColor(_:)` which coloured a comparison
+    /// green/orange/red purely by how big its percentage was. That is
+    /// the visual form of the same error the "no bare match %" rule
+    /// exists to stop: a high score that is indistinguishable from
+    /// chance was being painted green. Colour now reflects only whether
+    /// the score survived its null model.
+    ///   - green:  significant (unlikely to be coincidence)
+    ///   - orange: tested and NOT distinguishable from chance
+    ///   - gray:   no significance test was possible
+    /// Note that "not significant" is orange rather than red on
+    /// purpose: it means "this tells you nothing", not "this excludes
+    /// the suspect", and red would read as an exclusion.
+    private func significanceColor(_ significant: Bool?) -> Color {
+        switch significant {
+        case .some(true): return .green
+        case .some(false): return .orange
+        case .none: return .gray
         }
     }
 
@@ -518,10 +596,22 @@ struct MatchResultsView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
 
-            if let score = comparison.matchScorePercent, let orientation = comparison.orientationUsed {
-                Label(String(format: "%.0f%% Striation Rhythm Match", score), systemImage: "waveform.path")
-                    .font(.title3.bold())
-                    .foregroundStyle(scarFingerprintScoreColor(score))
+            // NOTE(AI Developer), rewritten 2026-09 for the "no bare
+            // match %" rule -- same change and same reasoning as
+            // `scarFingerprintSection` above. Note this section had the
+            // sharper version of the bug: the null model from commit
+            // 7391b73 already existed here, but when it could not be
+            // built the view still printed a bold coloured percentage
+            // with no qualifier at all. A uniform striation pattern
+            // matches almost anything at near 100%, so that was the
+            // most confidently-wrong number the app could display.
+            if let headline = comparison.headlineDisplay {
+                Label(headline, systemImage: "waveform.path")
+                    .font(.headline)
+                    .foregroundStyle(significanceColor(comparison.isStatisticallySignificant))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let orientation = comparison.orientationUsed {
                 Label(
                     orientation == .reversed ? "Best alignment found in reverse order (stamp/impression pair)" : "Best alignment found in the same order on both vehicles",
                     systemImage: orientation == .reversed ? "arrow.left.arrow.right" : "arrow.right"

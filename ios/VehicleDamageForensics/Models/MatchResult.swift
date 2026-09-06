@@ -114,6 +114,21 @@ struct MatchResult: Codable, Equatable {
     /// `ToolMarkComparison.notDeterminable()`, not `nil`.
     var toolMarkComparison: ToolMarkComparison?
 
+    /// NOTE(AI Developer), added 2026-09 for the "trust the number"
+    /// work item. Which version of the scoring math produced this
+    /// result, plus the actual constants in force at the time -- see
+    /// `AlgorithmVersion`'s header for why a score with only a date on
+    /// it is not interpretable later. Stamped by
+    /// `MatchScoreCalculator.evaluate()`, persisted with the case, and
+    /// rendered on both the results screen and the PDF.
+    ///
+    /// `nil` only for a `MatchResult` persisted before stamping
+    /// existed. That case must be rendered honestly as "algorithm
+    /// version not recorded" -- never backfilled with
+    /// `AlgorithmVersion.current`, which would falsely claim an old
+    /// score was produced by today's math.
+    var algorithmVersion: AlgorithmVersion?
+
     // MARK: Init
 
     init(
@@ -130,7 +145,8 @@ struct MatchResult: Codable, Equatable {
         victimContourOverlay: ContourOverlay? = nil,
         suspectContourOverlay: ContourOverlay? = nil,
         scarFingerprintMatch: ScarFingerprintMatch? = nil,
-        toolMarkComparison: ToolMarkComparison? = nil
+        toolMarkComparison: ToolMarkComparison? = nil,
+        algorithmVersion: AlgorithmVersion? = nil
     ) {
         self.analysisID = analysisID
         self.compositeScore = compositeScore
@@ -146,6 +162,7 @@ struct MatchResult: Codable, Equatable {
         self.suspectContourOverlay = suspectContourOverlay
         self.scarFingerprintMatch = scarFingerprintMatch
         self.toolMarkComparison = toolMarkComparison
+        self.algorithmVersion = algorithmVersion
     }
 
     // MARK: Codable (backward-compatible with the old `probabilityRange` key)
@@ -193,6 +210,13 @@ struct MatchResult: Codable, Equatable {
         // non-punitive backward-compat treatment as
         // `scarFingerprintMatch` above).
         toolMarkComparison = try c.decodeIfPresent(ToolMarkComparison.self, forKey: .toolMarkComparison)
+        // NOTE(AI Developer): decodeIfPresent, and deliberately NOT
+        // defaulted to `AlgorithmVersion.current` -- a result persisted
+        // before stamping existed genuinely has no recorded version,
+        // and claiming it was produced by today's math would be a
+        // fabrication in an investigative document. `nil` is rendered
+        // as "version not recorded" instead.
+        algorithmVersion = try c.decodeIfPresent(AlgorithmVersion.self, forKey: .algorithmVersion)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -200,7 +224,7 @@ struct MatchResult: Codable, Equatable {
              recommendations, analysisDate, processingTimeSeconds,
              scarDirectionCheck, suspectExclusionReason,
              victimContourOverlay, suspectContourOverlay, scarFingerprintMatch,
-             toolMarkComparison
+             toolMarkComparison, algorithmVersion
         case legacyProbabilityRange = "probabilityRange"
     }
 
@@ -230,6 +254,7 @@ struct MatchResult: Codable, Equatable {
         try c.encodeIfPresent(suspectContourOverlay, forKey: .suspectContourOverlay)
         try c.encodeIfPresent(scarFingerprintMatch, forKey: .scarFingerprintMatch)
         try c.encodeIfPresent(toolMarkComparison, forKey: .toolMarkComparison)
+        try c.encodeIfPresent(algorithmVersion, forKey: .algorithmVersion)
     }
 
     // MARK: Computed
@@ -258,6 +283,15 @@ struct MatchResult: Codable, Equatable {
     /// Factor score by type for quick lookup
     func score(for factor: ForensicFactor) -> FactorScore? {
         factors.first { $0.factor == factor }
+    }
+
+    /// NOTE(AI Developer), added 2026-09. Version line for display on
+    /// any surface that renders this result. Never returns an empty
+    /// string: an unstamped legacy result says so explicitly rather
+    /// than rendering blank, so a reader can tell "old result" apart
+    /// from "the app forgot to show it".
+    var algorithmVersionDisplay: String {
+        algorithmVersion?.displayLine ?? "Analysis algorithm version not recorded (result predates version stamping)"
     }
 
     var paintScore: Double? { score(for: .paintTransfer)?.rawScore }
