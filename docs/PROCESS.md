@@ -297,11 +297,22 @@ rationale without leaving the file.
 | Any functional commit | `ios/README.md` changelog entry | the committer |
 | A task closes | plan-status table in `ios/README.md` | Ledger |
 | A file is added, removed, or moved | `ios/reference/COMPLETE_FILE_MANIFEST.md` (regenerate, don't hand-edit) | the committer |
+| A file is added or deleted | the manifest's `Totals:` sentence — **by hand, it is prose** | the committer, in the same commit |
 | A product decision is made **by Sean** | tick the box in the open-decisions list, record it in `HANDOFF_SUMMARY.md` | Ledger |
 | Signing / repo access / build config changes | `HANDOFF_SUMMARY.md` §3 and §5 | whoever changed it, or Ledger on report |
 | A known issue is resolved | delete it from `HANDOFF_SUMMARY.md` §5 — do not leave stale warnings | Ledger |
 | Scoring behaviour or thresholds change | `ios/reference/ALGORITHM_EXPLAINER.md` | the committer |
 | Any user-visible or report string changes | changelog entry must quote before/after, commit body must carry `Copy: changed` + the affected keys | the committer; Ledger reviews |
+
+**A generator must not rewrite prose, and the seam that leaves is a row in the
+table above rather than a rule nobody reads.** The manifest's `Totals:`
+sentence is a sentence — Compass's regenerator deliberately will not touch it,
+because a script with an opinion about the document's wording is how a document
+loses its author. So the seam is real and permanent: **the rows are mechanical,
+the header is editorial, and a patch that adds or deletes a file has to do the
+header by hand in the same commit.** State the seam and let `--all` catch the
+miss; do not close it by giving the tool the pen. The header's unchecked line
+total (§0) is the cost of that seam, not an argument against it.
 
 **When a sequencing or ownership decision changes, the record keeper is told
 first, not last.** A record that accurately reflects a superseded decision is
