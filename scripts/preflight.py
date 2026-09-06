@@ -1208,14 +1208,18 @@ def check_script_currency():
     Blocking, and it runs BEFORE any check, because a stale script is not a
     degraded run -- it is a clean line printed by the wrong tool.
 
-    The hook `--install-hook` writes is path-relative, not version-pinned:
+    The hook `--install-hook` USED to write a path-relative line:
 
         #!/bin/sh
         exec python3 scripts/preflight.py
 
-    So it executes whatever `scripts/preflight.py` happens to be in the
+    which executed whatever `scripts/preflight.py` happened to be in the
     working tree. Install it once on main, check out a feature branch to
-    build, and every commit from then on runs that BRANCH's copy. Found by
+    build, and every commit from then on ran that BRANCH's copy. That hook
+    was replaced at e60604c and now resolves the script from origin/main,
+    refusing rather than falling back -- so this guard is the second of two
+    mechanisms, not the only one. Both are needed: the hook covers the
+    commit path, this covers every direct invocation. Found by
     Compass on cross-section-exclude @ c6e749a, whose script is 228 lines
     shorter than main's and predates decoder-completeness, cited-doc and the
     argv guard -- so the branch that FIXES a decoder hazard shipped beside a
@@ -1253,6 +1257,46 @@ def check_script_currency():
     # by grafting the guard onto the stale branch copy and watching it
     # clear itself.
     here = os.path.abspath(__file__)
+
+    # The refspec is a PRECONDITION of this guard, so it is checked here
+    # rather than left to a setup note. Everything below compares against the
+    # LOCAL origin/main ref, and a main-only refspec --
+    #
+    #     remote.origin.fetch = +refs/heads/main:refs/remotes/origin/main
+    #
+    # -- was the default in four of five clones on this project. It updates
+    # origin/main and nothing else, so force-pushes to feature branches are
+    # invisible and `git show origin/<branch>:<path>` silently reads a
+    # commit that no longer exists. That is a documented sec.5b failure; what
+    # makes it worth a check is the COMPOSITION: the hook resolves its script
+    # from local origin/main too, so a clone whose refs go stale runs an old
+    # main script -- old enough, in the demonstrated case, to lack this very
+    # guard. A guard that reads a stale ref can approve itself.
+    #
+    # Advisory, not blocking. A wrong refspec makes results untrustworthy but
+    # does not make the tree wrong, and blocking here would stop work on a
+    # correct commit. Names the two commands, per sec.5b: a next action, not
+    # an estimate of its own significance.
+    # Empty means no `origin` remote is configured at all (a local-only
+    # repo), which is not a misconfiguration -- warning there would fire on
+    # every fresh `git init`. Filter before testing, because "".split("\n")
+    # is [""], a TRUTHY list: the first cut of this check warned on a repo
+    # with no remote for exactly that reason.
+    fetch_specs = [spec.strip() for spec
+                   in sh("git", "config", "--get-all",
+                         "remote.origin.fetch").split("\n") if spec.strip()]
+    if fetch_specs and not any(
+            re.match(r"\+?refs/heads/\*:", spec) for spec in fetch_specs):
+        warn("script-currency",
+             "remote.origin.fetch does not fetch all branches -- "
+             "remote-tracking refs for feature branches will go stale "
+             "silently, including the origin/main this guard and the "
+             "pre-commit hook both read",
+             "git config --unset-all remote.origin.fetch && "
+             "git config --add remote.origin.fetch "
+             "'+refs/heads/*:refs/remotes/origin/*' && "
+             "git config fetch.prune true && git fetch --prune --force origin")
+
     ref = sh("git", "rev-parse", "--verify", "--quiet",
              "origin/main:scripts/preflight.py").strip()
     if not ref:
