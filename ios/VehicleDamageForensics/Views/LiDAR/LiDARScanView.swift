@@ -43,6 +43,17 @@ private enum MeasurementStep: Equatable {
     /// a dead end reached by aiming a fingertip precisely, and recovery
     /// is now "re-aim and press again", which requires the reticle to
     /// still be on screen.
+    /// The dark instructional banner is for the aiming steps only. Once
+    /// a value exists, `LiDARScanView.measurementConfirmation` takes the
+    /// screen instead -- see its NOTE for why this number does not share
+    /// space with instructions.
+    var showsBanner: Bool {
+        switch self {
+        case .notStarted, .measured: return false
+        case .awaitingGroundTap, .awaitingDamageTap, .missedSurface: return true
+        }
+    }
+
     var showsReticle: Bool {
         switch self {
         case .awaitingGroundTap, .awaitingDamageTap, .missedSurface: return true
@@ -132,13 +143,29 @@ struct LiDARScanView: View {
 
             VStack {
                 topStatus
-                if measurementStep != .notStarted {
+                if measurementStep.showsBanner {
                     measurementBanner
                 }
                 Spacer()
-                bottomControls
+                // While a measurement is awaiting confirmation, the
+                // scan controls are replaced rather than stacked
+                // underneath it: Save Scan and Cancel next to "Use this
+                // measurement" is three plausible-looking commitments
+                // for one decision, and only one of them is the
+                // decision being asked for.
+                if case .measured = measurementStep {
+                    EmptyView()
+                } else {
+                    bottomControls
+                }
             }
             .padding()
+
+            // Last in the ZStack so it sits above the AR passthrough and
+            // the status/controls layer.
+            if case .measured(let inches) = measurementStep {
+                measurementConfirmation(inches: inches)
+            }
         }
         .navigationTitle("LiDAR Scan")
         .navigationBarTitleDisplayMode(.inline)
@@ -246,7 +273,7 @@ struct LiDARScanView: View {
             case .notStarted:
                 EmptyView()
             case .awaitingGroundTap:
-                Label("Tap the ground beside the vehicle", systemImage: "hand.tap.fill")
+                Label("Aim the circle at the ground beside the vehicle, then press Set ground point", systemImage: "scope")
                 // NOTE(AI Developer), added 2026-07 per Sean's request
                 // for in-flow "why this matters" guidance on steps that
                 // aren't obviously self-explanatory -- measuring a
@@ -254,7 +281,7 @@ struct LiDARScanView: View {
                 // photo, it's not obvious *why* you'd do this at all).
                 whyThisMattersNote("This measures how high off the ground the damage is — useful for confirming both vehicles' damage lines up at the same height.")
             case .awaitingDamageTap:
-                Label("Now tap the damage point on the vehicle", systemImage: "hand.tap.fill")
+                Label("Now aim the circle at the damage point on the vehicle, then press Set damage point", systemImage: "scope")
             case .missedSurface(let pendingGroundY):
                 // NOTE(AI Developer), 2026-09: says which point still
                 // needs setting, because the ground point now survives a
@@ -266,31 +293,11 @@ struct LiDARScanView: View {
                       : "Couldn't find a surface there — the ground point is still recorded. Keep scanning, then aim at the damage and press Set damage point",
                       systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.yellow)
-            case .measured(let inches):
-                HStack {
-                    Text("Measured height: \(MeasurementHelpers.formatInchesWithMetric(inches))")
-                        .font(.headline)
-                    Spacer()
-                    Button("Retry") { measurementStep = .awaitingGroundTap }
-                        .buttonStyle(.bordered)
-                    Button {
-                        confirmMeasurement()
-                    } label: {
-                        // NOTE(AI Developer): see the analogous NOTE in
-                        // ImpactMarkerView.swift -- wrapping the if/else
-                        // in `Group` is required here too, for the same
-                        // ViewBuilder-modifier-chaining reason.
-                        Group {
-                            if isSavingMeasurement {
-                                ProgressView().tint(.white)
-                            } else {
-                                Text("Save")
-                            }
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isSavingMeasurement)
-                }
+            case .measured:
+                // Handled by `measurementConfirmation`, which gets the
+                // whole screen -- see its own NOTE. Nothing renders here,
+                // and `showsBanner` keeps this branch unreachable.
+                EmptyView()
             }
         }
         .font(.subheadline)
@@ -299,10 +306,148 @@ struct LiDARScanView: View {
         .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
     }
 
+    /// The measured value gets the screen: large numeral, both units
+    /// beneath it, one line on why it matters, then the two decisions.
+    ///
+    /// NOTE(AI Developer), added 2026-09 (spec B.3). This is the
+    /// highest-consequence measurement in the app -- a height mismatch
+    /// is one of the two conditions that can rule a vehicle out -- and
+    /// it was previously confirmed in a one-line banner sharing a row
+    /// with Retry and Save, where a digit misread on scene becomes a
+    /// number in a report nobody re-derives. A wrong measurement has to
+    /// be catchable at arm's length, in sun.
+    ///
+    /// The numeral uses a Dynamic Type text style, NOT a fixed point
+    /// size: this is exactly the place a hard-coded 48pt would have to
+    /// be undone for the deferred field theme, and it is also where a
+    /// user with large accessibility text most needs the value to scale.
+    private func measurementConfirmation(inches: Double) -> some View {
+        VStack(spacing: 16) {
+            Text("Measured height above ground")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.8))
+
+            // Both units in one string, always: the report is dual-unit,
+            // and a value confirmed in one unit and printed in another
+            // is a transcription error waiting to happen. Reuses
+            // `formatInchesWithMetric` rather than formatting here, so
+            // the number the examiner confirms is character-for-
+            // character the number the report prints.
+            Text(MeasurementHelpers.formatInchesWithMetric(inches))
+                .font(.system(.largeTitle, design: .rounded).weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .minimumScaleFactor(0.5)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+
+            // NOTE(AI Developer): the spec asked for a "± 0.4 in"
+            // tolerance beside the number, and said to omit it entirely
+            // rather than invent one if a real tolerance is not
+            // available. It is not available -- `worldY` returns a
+            // raycast hit's Y with no accuracy estimate and
+            // `heightFromWorldPositions` is a plain subtraction, so any
+            // ± here would be a literal chosen to look authoritative.
+            // Omitted, and raised with the engine owner: a fabricated
+            // tolerance on the one measurement that can exclude a
+            // vehicle is the worst possible place for an invented
+            // number.
+
+            Label {
+                Text("This is compared against the other vehicle's damage height. A mismatch here is one of the two conditions that can rule a vehicle out.")
+            } icon: {
+                Image(systemName: "info.circle.fill")
+            }
+            .font(.caption)
+            .foregroundStyle(.white.opacity(0.85))
+            .multilineTextAlignment(.leading)
+
+            VStack(spacing: 10) {
+                Button {
+                    confirmMeasurement()
+                } label: {
+                    Group {
+                        if isSavingMeasurement {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text("Use this measurement")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isSavingMeasurement)
+
+                // Re-measuring restarts from the ground point on
+                // purpose: a user rejecting the value has no way to know
+                // which of the two points was wrong.
+                Button {
+                    measurementStep = .awaitingGroundTap
+                } label: {
+                    Text("Measure again")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(isSavingMeasurement)
+            }
+
+            Text("Recorded to the case audit log with a timestamp.")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.6))
+        }
+        .padding(20)
+        .frame(maxWidth: 360)
+        .background(.black.opacity(0.85), in: RoundedRectangle(cornerRadius: 20))
+        .padding()
+    }
+
+    /// Coverage as a filled arc over a top-down vehicle silhouette, with
+    /// the percentage demoted to a caption underneath.
+    ///
+    /// NOTE(AI Developer), added 2026-09 (spec B.2). The spec offered two
+    /// implementations and said to take the cheaper one, on the grounds
+    /// that a confidently wrong compass is worse than a bare percentage.
+    /// I took the honest single arc, and the reason is stronger than
+    /// cost: `LiDARService.coveragePercent` is
+    /// `min(100, meshAnchors.count * 10)` -- an anchor COUNT heuristic
+    /// with no bearing, no area, and no notion of which side of the
+    /// vehicle anything is on. A directional compass drawn off that
+    /// number would put a claim on screen ("the left side is scanned")
+    /// the data cannot support, and the user would then trust it to
+    /// decide where NOT to walk.
+    ///
+    /// So the arc claims no side: it grows from the nose clockwise as a
+    /// proportion only, and the caption says so in words rather than
+    /// leaving the user to infer it. If per-anchor bearings ever land in
+    /// `LiDARService`, this becomes a real compass by filling buckets
+    /// instead of one sweep -- the silhouette and layout do not change.
+    private var coverageIndicator: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            CoverageArcView(fraction: coverageFraction)
+                .frame(width: 118, height: 52)
+                .accessibilityLabel("Scan coverage \(Int(lidarService.coveragePercent)) percent. Proportion only — this does not indicate which part of the vehicle has been scanned.")
+
+            // The percentage stays, demoted to a caption.
+            Text("\(Int(lidarService.coveragePercent))% scanned • Points \(lidarService.pointCloudCount)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.white)
+            Text("Proportion only — not which part of the vehicle.")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.7))
+        }
+    }
+
+    /// `coveragePercent` clamped into 0...1. Clamped rather than
+    /// trusted: a fraction above 1 would draw an arc wrapping past the
+    /// nose and read as a fresh scan starting over.
+    private var coverageFraction: Double {
+        min(max(lidarService.coveragePercent / 100.0, 0), 1)
+    }
+
     /// A 44pt crosshair locked to the centre of the AR view, so the user
     /// aims the phone rather than a fingertip. Purely an aim indicator:
-    /// it is not interactive and never consumes touches, so
-    /// tap-to-raycast keeps working underneath it.
+    /// not interactive and never consumes touches, so tap-to-raycast
+    /// keeps working underneath it.
     private var setPointReticle: some View {
         ZStack {
             Circle()
@@ -311,9 +456,9 @@ struct LiDARScanView: View {
             Circle()
                 .fill(.white)
                 .frame(width: 4, height: 4)
-            // Short ticks rather than full crosshairs through the middle:
-            // the centre must stay clear so the surface being aimed at
-            // is visible, which is the whole point of aiming.
+            // Short ticks rather than crosshairs through the middle: the
+            // centre must stay clear so the surface being aimed at is
+            // visible, which is the whole point of aiming.
             ForEach([0.0, 90.0, 180.0, 270.0], id: \.self) { angle in
                 Capsule()
                     .fill(.white.opacity(0.9))
@@ -367,12 +512,7 @@ struct LiDARScanView: View {
                     .foregroundStyle(.yellow)
             }
 
-            ProgressView(value: lidarService.coveragePercent / 100.0) {
-                Text("Coverage \(Int(lidarService.coveragePercent))% • Points \(lidarService.pointCloudCount)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.white)
-            }
-            .tint(.green)
+            coverageIndicator
         }
         .padding(12)
         .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
@@ -534,5 +674,99 @@ struct ARViewContainer: UIViewRepresentable {
             guard let arView else { return }
             onTap(recognizer.location(in: arView), arView)
         }
+    }
+}
+
+// MARK: - Coverage arc
+
+/// A top-down vehicle silhouette with a proportional coverage arc.
+///
+/// NOTE(AI Developer), added 2026-09 (spec B.2). Deliberately claims no
+/// direction -- see the NOTE on `LiDARScanView.coverageIndicator` for
+/// why a real compass cannot be built off today's `coveragePercent`.
+/// The arc starts at the nose and sweeps clockwise as a pure proportion;
+/// nothing here should be read as "this side is done", and the caption
+/// says so in words rather than relying on the user to infer it.
+///
+/// The silhouette reuses the shape language of `ImpactMarkerView`'s car
+/// outline (tapered nose, flared fenders, narrow cabin waist) at a much
+/// coarser resolution, since at 118x52pt a detailed path is wasted --
+/// this only has to read as "a vehicle from above" so the arc has
+/// something to orbit.
+struct CoverageArcView: View {
+    /// 0...1. Callers clamp; this view does not silently rescale a bad
+    /// value into something plausible-looking.
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let center = CGPoint(x: w / 2, y: h / 2)
+            let radius = min(w, h) / 2 - 3
+
+            ZStack {
+                // Unscanned remainder, so the arc is read against a
+                // whole rather than floating in space.
+                Circle()
+                    .stroke(.white.opacity(0.25), lineWidth: 5)
+                    .frame(width: radius * 2, height: radius * 2)
+                    .position(center)
+
+                Circle()
+                    .trim(from: 0, to: fraction)
+                    .stroke(.green, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                    .frame(width: radius * 2, height: radius * 2)
+                    // `trim` starts at 3 o'clock; rotate so the sweep
+                    // begins at the nose, which is the end of the
+                    // silhouette the user can actually identify.
+                    .rotationEffect(.degrees(-90))
+                    .position(center)
+
+                vehicleSilhouette(w: w, h: h)
+            }
+        }
+    }
+
+    /// A coarse top-down body outline: rounded nose, flared fenders,
+    /// narrow waist, tapered tail. One mirrored path, same profile idea
+    /// as `ImpactMarkerView.carOutline` but with a fraction of the
+    /// points -- at this size more detail is invisible.
+    private func vehicleSilhouette(w: CGFloat, h: CGFloat) -> some View {
+        // Fractions of the silhouette's own box, which is inset well
+        // inside the arc so the two never overlap.
+        let boxW = w * 0.34
+        let boxH = h * 0.66
+        let profile: [(y: CGFloat, halfWidth: CGFloat)] = [
+            (0.04, 0.30),   // nose tip
+            (0.20, 0.46),   // front fender
+            (0.50, 0.34),   // cabin waist
+            (0.80, 0.46),   // rear fender
+            (0.96, 0.30)    // tail
+        ]
+
+        return Path { path in
+            func point(_ p: (y: CGFloat, halfWidth: CGFloat), side: CGFloat) -> CGPoint {
+                CGPoint(x: boxW / 2 + side * p.halfWidth * boxW, y: p.y * boxH)
+            }
+            // Down the right side, then back up the left, closed --
+            // a single continuous shape so one fill/stroke covers it.
+            path.move(to: point(profile[0], side: 0))
+            for p in profile.dropFirst() { path.addLine(to: point(p, side: 1)) }
+            for p in profile.reversed() { path.addLine(to: point(p, side: -1)) }
+            path.closeSubpath()
+        }
+        .fill(.white.opacity(0.35))
+        .frame(width: boxW, height: boxH)
+        .overlay(alignment: .top) {
+            // The nose marker exists so the arc's start point is
+            // identifiable on the vehicle. It marks the FRONT, not a
+            // scanned region.
+            Text("front")
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.8))
+                .offset(y: -10)
+        }
+        .position(x: w / 2, y: h / 2)
     }
 }
