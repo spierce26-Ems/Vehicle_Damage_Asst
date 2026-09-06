@@ -220,6 +220,18 @@ When a surface cannot express the difference, it says nothing at all — silence
 is the honest output. Applies to decoding, to UI, to report text, and to
 tooling output alike.
 
+**And it runs in the other direction too: a present artefact must not assert a
+property nothing established.** That is the same defect wearing the opposite
+sign, and the custody-page hash is the worked example — a digest computed by
+the app that can rewrite the data implies tamper-evidence while establishing
+only that the file matched itself. Attributing an automated event to whoever
+was logged in is the same error: the trail would assert a person did something
+the app did.
+
+Both directions reduce to one test: **does the surface state exactly what is
+known, and nothing more?** An absence dressed as a finding fails it. So does a
+finding dressed as a proof.
+
 ## 5b. Checks, and why most of them are advisory
 
 `scripts/preflight.py` is the mechanical half of this document: run
