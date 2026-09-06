@@ -122,6 +122,23 @@ struct StriationCrossSection: Codable, Equatable, Identifiable {
     /// used in matching (that would reintroduce the exact scale
     /// dependency `normalizedGapRatios` exists to remove).
     var rawMeanGapPixels: Double
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 (duplicate case for
+    /// another suspect). A fresh id matters especially here: the
+    /// per-cross-section exclude feature (item #4) records exclusions
+    /// BY `crossSectionID`, so two cases sharing cross-section ids would
+    /// let an exclusion recorded in one case address the other's data.
+    /// See `Vehicle.duplicatedWithFreshIDs()`.
+    func duplicatedWithFreshID() -> StriationCrossSection {
+        StriationCrossSection(
+            id: UUID(),
+            positionAlongLine: positionAlongLine,
+            probeAngleOffsetDegrees: probeAngleOffsetDegrees,
+            peakCount: peakCount,
+            normalizedGapRatios: normalizedGapRatios,
+            rawMeanGapPixels: rawMeanGapPixels
+        )
+    }
 }
 
 // MARK: - Striation Profile (persisted per photo)
@@ -156,6 +173,12 @@ struct StriationProfile: Codable, Equatable {
     var isDeterminable: Bool { rhythmSequence.count >= Self.minimumRhythmLength }
 
     static func empty() -> StriationProfile { StriationProfile(crossSections: []) }
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 (duplicate case).
+    /// See `StriationCrossSection.duplicatedWithFreshID()`.
+    func duplicatedWithFreshIDs() -> StriationProfile {
+        StriationProfile(crossSections: crossSections.map { $0.duplicatedWithFreshID() })
+    }
 }
 
 // MARK: - Striation Extractor

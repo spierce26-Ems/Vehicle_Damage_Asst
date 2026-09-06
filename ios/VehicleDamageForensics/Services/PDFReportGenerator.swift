@@ -86,6 +86,21 @@ struct PDFReportGenerator {
         // decision — placed on the cover page, boxed, so it cannot be missed
         // or separated from the report if pages are later split apart.
         drawDisclaimerBox(rect: rect, y: 430)
+
+        // NOTE(AI Developer), added 2026-09 for item #5 (duplicate case
+        // for another suspect). Disclosed on the COVER, by the same
+        // reasoning that puts the disclaimer here: the PDF is the
+        // artifact that leaves the device and gets handed to an insurer,
+        // an officer, or a court, and a reader comparing two reports for
+        // two suspects must be able to see that they rest on one shared
+        // set of victim-vehicle photographs. If this fact only lived in
+        // the audit-log page it could be separated from the score it
+        // qualifies.
+        if c.sourceCaseID != nil {
+            "Note: the victim-vehicle photographs in this case were duplicated from another case documenting the same incident against a different suspect vehicle. Results across those cases are not independent — see the Chain of Custody page."
+                .draw(at: CGPoint(x: 50, y: 574), font: .italicSystemFont(ofSize: 10),
+                      maxWidth: rect.width - 100, color: .darkGray)
+        }
     }
 
     /// Draws `MatchResult.disclaimerText` inside a bordered box.

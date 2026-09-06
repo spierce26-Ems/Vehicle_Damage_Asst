@@ -238,6 +238,55 @@ struct Vehicle: Identifiable, Codable, Equatable {
         scarPhoto = try c.decodeIfPresent(CapturedPhoto.self, forKey: .scarPhoto)
     }
 
+    // MARK: Duplication (item #5)
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan ("Duplicate Case for Another Suspect"). Returns a copy of
+    /// this vehicle with a FRESH `id`, and with fresh ids on every
+    /// nested `Identifiable` (photos, the scar photo, damage zones).
+    ///
+    /// Regenerating the nested ids is not cosmetic. `CapturedPhoto`,
+    /// `DamageZone` and the nested minutiae/cross-section records are
+    /// all `Identifiable`, and SwiftUI `ForEach`/`List` treat a
+    /// duplicated id as the SAME row -- two cases open in the same
+    /// navigation stack with photos sharing ids produce genuinely
+    /// corrupt UI (rows that update each other, animations targeting
+    /// the wrong item). More importantly, `StriationExclusion` and
+    /// friends refer to cross-sections BY id, so shared ids would let an
+    /// exclusion recorded against one case silently address another
+    /// case's data. Fresh ids per case keep the two records completely
+    /// independent even though their pixel content is identical.
+    ///
+    /// Photo *content* (`imageData`) is intentionally shared by value --
+    /// these are the same physical photographs of the same victim
+    /// vehicle, and re-photographing them is exactly what this feature
+    /// exists to avoid. See `ForensicCase.duplicatedForNewSuspect` for
+    /// how that reuse is disclosed in the audit log.
+    func duplicatedWithFreshIDs() -> Vehicle {
+        Vehicle(
+            id: UUID(),
+            role: role,
+            make: make,
+            model: model,
+            year: year,
+            color: color,
+            colorRGB: colorRGB,
+            licensePlate: licensePlate,
+            vin: vin,
+            photos: photos.map { $0.duplicatedWithFreshIDs() },
+            damageZones: damageZones.map { $0.duplicatedWithFreshID() },
+            bumperHeightInches: bumperHeightInches,
+            lidarScanData: lidarScanData,
+            bodyType: bodyType,
+            lidarMeasuredHeightInches: lidarMeasuredHeightInches,
+            impactTapPoint: impactTapPoint,
+            directionOfTravelDegrees: directionOfTravelDegrees,
+            skippedShotIndices: skippedShotIndices,
+            scarSlideDirection: scarSlideDirection,
+            scarPhoto: scarPhoto?.duplicatedWithFreshIDs()
+        )
+    }
+
     // MARK: Computed
 
     var displayName: String {
@@ -499,6 +548,26 @@ struct DamageZone: Identifiable, Codable, Equatable {
         self.impactAngleDegrees = impactAngleDegrees
         self.transferDirection = transferDirection
         self.paintSampleKit = paintSampleKit
+    }
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 (duplicate case).
+    /// See `Vehicle.duplicatedWithFreshIDs()` for why nested ids are
+    /// regenerated rather than copied.
+    func duplicatedWithFreshID() -> DamageZone {
+        DamageZone(
+            id: UUID(),
+            zoneID: zoneID,
+            centerHeightInches: centerHeightInches,
+            topEdgeHeightInches: topEdgeHeightInches,
+            bottomEdgeHeightInches: bottomEdgeHeightInches,
+            widthMM: widthMM,
+            heightMM: heightMM,
+            maxDepthMM: maxDepthMM,
+            paintAnalysis: paintAnalysis,
+            impactAngleDegrees: impactAngleDegrees,
+            transferDirection: transferDirection,
+            paintSampleKit: paintSampleKit
+        )
     }
 
     var areaMM2: Double { widthMM * heightMM }

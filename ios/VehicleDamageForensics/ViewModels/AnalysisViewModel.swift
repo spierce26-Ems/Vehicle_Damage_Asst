@@ -276,6 +276,14 @@ final class AnalysisViewModel: ObservableObject {
     /// `MatchResult.disclaimerText` for the full rationale.
     var disclaimerText: String { MatchResult.disclaimerText }
 
+    /// NOTE(AI Developer), added 2026-09 for item #5 (duplicate case for
+    /// another suspect). True when this case was created by duplicating
+    /// another, i.e. its victim-vehicle photos were captured for a
+    /// different case. Drives `MatchResultsView.sharedEvidenceCard` --
+    /// see that view for why this must be disclosed on the results
+    /// screen rather than only in the audit log.
+    var isDuplicatedCase: Bool { forensicCase.sourceCaseID != nil }
+
     /// Human-readable list of every shot slot that was explicitly skipped
     /// during capture, across both vehicles.
     ///

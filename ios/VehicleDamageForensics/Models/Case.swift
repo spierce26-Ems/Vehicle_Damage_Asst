@@ -64,6 +64,29 @@ struct ForensicCase: Identifiable, Codable, Equatable {
     /// free access -- see custom `init(from:)` below.
     var isUnlocked: Bool
 
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan ("Duplicate Case for Another Suspect"), implemented as
+    /// Option B per the Tech Lead's decision -- a clone action rather
+    /// than refactoring `suspectVehicle` into an array (~88 references
+    /// across 15 files).
+    ///
+    /// The `id` of the case this one was duplicated from, or `nil` for a
+    /// case created from scratch. Set once at clone time and never
+    /// changed afterwards.
+    ///
+    /// This exists for evidential rather than functional reasons. Two
+    /// cases that share the same victim-vehicle photographs are not
+    /// independent observations, and anyone reviewing a
+    /// "suspect A scored 74%, suspect B scored 71%" comparison needs to
+    /// know that. Without this link the duplication is invisible in the
+    /// data, and the same victim evidence could be presented twice as if
+    /// it had been gathered twice. It is deliberately a plain `UUID?`
+    /// and NOT a resolved reference: the source case may later be
+    /// deleted, and a dangling id that still records "this came from
+    /// somewhere" is more honest than a reference that must be kept
+    /// valid or silently dropped.
+    var sourceCaseID: UUID?
+
     // MARK: Init
 
     init(
@@ -82,7 +105,8 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         reportURL: URL? = nil,
         metadata: CaseMetadata = CaseMetadata(),
         auditLog: [AuditEntry] = [],
-        isUnlocked: Bool = false
+        isUnlocked: Bool = false,
+        sourceCaseID: UUID? = nil
     ) {
         self.id = id
         self.caseNumber = caseNumber
@@ -102,6 +126,7 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         // audit trail's first line is never missing.
         self.auditLog = auditLog.isEmpty ? [AuditEntry(action: .created)] : auditLog
         self.isUnlocked = isUnlocked
+        self.sourceCaseID = sourceCaseID
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -138,6 +163,11 @@ struct ForensicCase: Identifiable, Codable, Equatable {
         // Falls back to `false` (locked) for any case file persisted
         // before monetization existed -- see the field's doc comment.
         isUnlocked = try c.decodeIfPresent(Bool.self, forKey: .isUnlocked) ?? false
+        // Optional, so `decodeIfPresent` is what the synthesized code
+        // would do anyway -- `nil` for every case saved before
+        // duplication existed, which is exactly right: those cases were
+        // created from scratch.
+        sourceCaseID = try c.decodeIfPresent(UUID.self, forKey: .sourceCaseID)
     }
 
     // MARK: Computed Properties
@@ -476,6 +506,15 @@ enum AuditAction: String, Codable {
     // evidence having been superseded after the fact, not just filled
     // once.
     case photoReplaced = "photo_replaced"
+    // NOTE(AI Developer), added 2026-09 for item #5 (duplicate case for
+    // another suspect). Recorded on the NEW case, naming the case its
+    // victim evidence was copied from -- so the clone's chain of custody
+    // states on its very first line that its victim photographs were not
+    // captured for this case. Also recorded on the SOURCE case, so
+    // someone reading the original can tell its evidence was reused
+    // elsewhere. Both directions matter: the link is only useful for
+    // assessing independence if it is discoverable from either end.
+    case caseDuplicated = "case_duplicated"
 
     var displayName: String {
         switch self {
@@ -495,6 +534,7 @@ enum AuditAction: String, Codable {
         case .scarDirectionRecorded: return "Scar Direction Recorded"
         case .scarPhotoCaptured: return "Scar Photo Captured"
         case .photoReplaced: return "Photo Replaced"
+        case .caseDuplicated: return "Case Duplicated for Another Suspect"
         }
     }
 }
@@ -505,6 +545,91 @@ extension ForensicCase {
     /// rather than mutating `auditLog` directly, so entries stay consistent.
     mutating func recordAudit(_ action: AuditAction, detail: String? = nil) {
         auditLog.append(AuditEntry(action: action, detail: detail))
+    }
+
+    // MARK: Duplication for another suspect (item #5)
+
+    /// NOTE(AI Developer), added 2026-09 for item #5 of Sean's 5-item
+    /// plan, built as Option B per the Tech Lead's decision: a clone
+    /// action rather than refactoring `suspectVehicle` from `Vehicle?`
+    /// into an array (~88 references across 15 files -- a far riskier
+    /// rewrite for the same investigator-visible outcome).
+    ///
+    /// Produces a NEW case that reuses this case's victim-vehicle
+    /// evidence and incident details, ready to be compared against a
+    /// different suspect vehicle. What is deliberately carried over vs.
+    /// cleared:
+    ///
+    /// CARRIED OVER -- facts about the incident and the victim vehicle,
+    /// which are identical no matter who is suspected: the victim
+    /// vehicle and all its photos/scans/markings, case type, incident
+    /// date, location, and notes.
+    ///
+    /// CLEARED -- everything that is a statement about a SUSPECT or a
+    /// conclusion drawn about one:
+    /// - `suspectVehicle` (nil): the whole point is a different suspect.
+    /// - `matchResult` (nil): a score computed against suspect A is
+    ///   meaningless in a case about suspect B. Carrying it over would
+    ///   be the single most dangerous possible bug in this feature --
+    ///   a case showing a 78% correlation against a vehicle it was never
+    ///   compared to.
+    /// - `reportURL` (nil): that PDF documents the other comparison.
+    /// - `status` (.inProgress): the new case genuinely is incomplete.
+    /// - `isUnlocked` (false): an unlock is a purchase against one
+    ///   case's report. Inheriting it would let one payment unlock
+    ///   unlimited cases -- see `PurchaseManager`. Deliberately NOT
+    ///   inherited even though it makes the feature slightly less
+    ///   convenient.
+    /// - `id`, `caseNumber`, `dateCreated`, `metadata`: this is a new
+    ///   case record, created now, on this device.
+    /// - `auditLog`: starts fresh, because a chain of custody belongs to
+    ///   one case. It is NOT empty though -- see below.
+    ///
+    /// The new case's audit log opens with the standard `.created` entry
+    /// plus a `.caseDuplicated` entry naming the source case, so the
+    /// clone's chain of custody discloses on its first two lines that
+    /// its victim photographs were captured for a different case. That
+    /// disclosure, together with `sourceCaseID`, is what keeps
+    /// "suspect A: 74%, suspect B: 71%" from being read as two
+    /// independent investigations when they share one set of victim
+    /// evidence.
+    ///
+    /// - Parameters:
+    ///   - caseNumber: the newly assigned serial. Callers must pass a
+    ///     freshly generated one (see `CaseListViewModel.nextCaseNumber`)
+    ///     -- this type has no access to the set of existing cases and
+    ///     so cannot generate a unique number itself.
+    ///   - caseName: name for the new case. Callers should offer the
+    ///     user a sensible prefilled default rather than reusing the
+    ///     source's name verbatim, or the case list ends up with several
+    ///     identically-named rows.
+    func duplicatedForNewSuspect(caseNumber: String, caseName: String) -> ForensicCase {
+        var clone = ForensicCase(
+            caseNumber: caseNumber,
+            caseName: caseName,
+            caseType: caseType,
+            status: .inProgress,
+            dateCreated: Date(),
+            incidentDate: incidentDate,
+            location: location,
+            notes: notes,
+            victimVehicle: victimVehicle.duplicatedWithFreshIDs(),
+            suspectVehicle: nil,
+            matchResult: nil,
+            reportURL: nil,
+            metadata: CaseMetadata(createdBy: metadata.createdBy),
+            auditLog: [],
+            isUnlocked: false,
+            sourceCaseID: id
+        )
+        clone.recordAudit(
+            .caseDuplicated,
+            // `self.` is explicit throughout: the source case's own
+            // identifiers, NOT the new case's `caseNumber`/`caseName`
+            // parameters shadowing them.
+            detail: "Victim vehicle evidence duplicated from case \(self.displayTitle) (\(self.caseNumber), id \(self.id.uuidString)). The victim photos in this case were captured for that case, not this one; no suspect data, match result, or report was carried over."
+        )
+        return clone
     }
 }
 
