@@ -290,55 +290,100 @@ def check_docs_owed(files):
 
 
 # ---------------------------------------------------------------- check 7
-def check_persisted_model_optionality(files):
-    """New fields on a persisted Codable model must be optional.
+def _underlying(type_str):
+    """Type with optionality removed -- `Data?` and `Data` both give `Data`.
 
-    PROCESS.md sec.1: Swift's synthesized init(from:) throws keyNotFound for a
-    missing non-optional key. A default value in the declaration does NOT make
-    decoding tolerant -- the synthesized decoder never consults it. Every case
-    file already on a device predates the new field, so a non-optional addition
-    breaks all of them at load time with no partial recovery.
+    Optionality is compared separately from the underlying type because the
+    two directions are not symmetric. Widening T to T? is the migration FIX:
+    existing files carry the key with the same underlying type, so it still
+    decodes. Only a change of underlying type throws typeMismatch.
+    """
+    return type_str.rstrip("?").strip()
 
-    This is the only check here whose failure is silent, permanent, and lands
-    on the user rather than the developer: it destroys real case data on
-    upgrade, and it cannot be caught by compiling -- the code is valid Swift
-    and the build is green. Blocking.
 
-    Scoped to added lines in Models/, since Models are the persistence format;
-    a non-optional stored property elsewhere is not a decoding hazard.
+def _parse_field(decl):
+    """(name, type) for a stored, decodable property -- else None.
+
+    Skips everything Codable does not put in the payload: computed properties
+    and inline getters (a brace anywhere in the declaration -- testing only
+    the end of the line misreads `var x: String { "y" }` as a hazard),
+    property wrappers, and statics. A false alarm on a blocking check is
+    expensive beyond itself: the --no-verify that silences it silences every
+    other check too.
+    """
+    if "{" in decl or decl.startswith("@"):
+        return None
+    if re.match(r"(static|class)\s", decl):
+        return None
+    # Strip a trailing line comment before parsing the type: the type in
+    # `var x: String  // note` is String, and capturing the comment as part
+    # of it would turn any comment edit into a phantom type change.
+    decl = re.sub(r"\s*//.*$", "", decl)
+    m = re.match(r"(?:var|let)\s+(\w+)\s*:\s*([^=]+?)\s*(?:=|$)", decl)
+    if not m:
+        return None
+    return m.group(1), m.group(2).strip()
+
+
+def check_persisted_model(files):
+    """Persisted-model changes that survive a green build and lose case data.
+
+    Blocking under PROCESS.md sec.5b kind 2: the compiler cannot catch either
+    of these, and the cost lands on the user rather than the developer.
+
+    - A new NON-OPTIONAL field -> keyNotFound on every existing case file.
+      Swift's synthesized init(from:) never consults the property's default
+      value, so `= false` in the declaration does not make decoding tolerant.
+    - A CHANGED underlying type on an existing field -> typeMismatch on every
+      existing case file. Optionality does not help: decodeIfPresent throws
+      typeMismatch when the key is present with the wrong type, so `Double?`
+      becoming `String?` is as destructive as the keyNotFound case and looks
+      far more innocent in review.
+
+    Scoped to Models/, which is the persistence format; a non-optional stored
+    property elsewhere is not a decoding hazard. Existing fields are exempt
+    from the optionality rule -- they are already in the format.
     """
     model_files = [f for f in files
                    if f.startswith(MODELS_DIR) and f.endswith(".swift")]
-    if not model_files:
-        return
-
     for f in model_files:
-        # Only ADDED lines matter. An existing non-optional field is already
-        # in the persisted format and is not a new hazard.
         diff = sh("git", "diff", "--cached", "-U0", "--", f)
         if not diff:
             continue
+
+        # A type change appears as a -/+ pair on the same field name, so the
+        # removed side has to be collected before the added side can be
+        # judged. Nothing about such a line looks dangerous in review.
+        removed = {}
+        for line in diff.splitlines():
+            if line.startswith("-") and not line.startswith("---"):
+                parsed = _parse_field(line[1:].strip())
+                if parsed:
+                    removed[parsed[0]] = parsed[1]
+
         for line in diff.splitlines():
             if not line.startswith("+") or line.startswith("+++"):
                 continue
-            decl = line[1:].strip()
-            # A computed property is not persisted -- Codable ignores it --
-            # and neither is a getter written inline on one line. Checking for
-            # a brace anywhere after the colon catches both shapes; testing
-            # only the end of the line misses `var x: String { "y" }` and
-            # reports it as a decoding hazard, which is the kind of false
-            # alarm that gets the whole tool bypassed.
-            if "{" in decl:
+            parsed = _parse_field(line[1:].strip())
+            if not parsed:
                 continue
-            # Property wrappers and statics are not part of the decoded
-            # payload either.
-            if decl.startswith("@") or re.match(r"(static|class)\s", decl):
+            name, type_str = parsed
+            was = removed.get(name)
+
+            if was is not None:
+                if _underlying(was) != _underlying(type_str):
+                    fail("persisted-model",
+                         f"{f}: field `{name}` changes type "
+                         f"{was} -> {type_str} on a persisted model",
+                         "every existing case file stores the old type and "
+                         "will throw typeMismatch on decode -- optionality "
+                         "does not help. Add a new optional field and "
+                         "migrate, or write an explicit init(from:) that "
+                         "reads both shapes.")
+                # An existing field, so the optionality rule does not apply:
+                # it is already in the persisted format either way.
                 continue
-            m = re.match(
-                r"(?:var|let)\s+(\w+)\s*:\s*([^=]+?)\s*(?:=|$)", decl)
-            if not m:
-                continue
-            name, type_str = m.group(1), m.group(2).strip()
+
             if type_str.endswith("?") or type_str.startswith("Optional"):
                 continue
             fail("persisted-model",
@@ -379,7 +424,7 @@ def main():
     if not whole_tree:
         check_commit_size(files)
         check_docs_owed(files)
-        check_persisted_model_optionality(files)
+        check_persisted_model(files)
 
     for check, msg, remedy in warnings:
         print(f"warn  [{check}] {msg}\n      -> {remedy}")
