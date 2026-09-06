@@ -486,6 +486,34 @@ And when a guard is a list, ask whether it can be a rule instead: a list covers
 the ways something has already gone wrong, a rule covers the ways it has not
 gone wrong yet.
 
+**Four people swept the same defect and each sweep was correct about what it
+enumerated.** The scopes were: the symptom that had fired, the function it
+fired in, the document it named, and the string it was written with. Every one
+of them was defensible, every one of them was complete on its own terms, and
+each missed instances the next found — the string sweep missed the site
+phrased *"regenerate it from `git ls-files`"* because that wording matched
+neither search term. **A sweep clears the unit it enumerated, not the defect it
+was aimed at**, and four independent sweeps do not compose into coverage: they
+compose into four partial clears, each reading as complete.
+
+So the only honest scope for a sweep is the **cause**, and where the cause has
+no textual signature, the enumeration must be mechanical — which for a remedy
+means executing it rather than reading it. Until such a harness exists, say
+which unit a sweep enumerated when reporting it; **"I swept X" is a claim about
+X, and reporting it as "closed" is the wrong-all-clear again, in the report
+rather than in the artefact.**
+
+**And such a harness cannot infer which remedies are reminders — it has to be
+told.** *"The condition persists after the remedy"* is the signature of a
+**correct reminder** and of a **broken drift-check remedy** at once: one
+observation, two opposite verdicts, which is this document's own
+predicate-one-short shape aimed at the fix for it. The class is not marginal —
+`preflight.py` carries around forty `warn()`/`fail()` sites against seven uses
+of `diff_args()`, so roughly a fifth of the surface is diff-keyed and every one
+of those correctly refuses to clear. A harness that guessed would flag them as
+broken and train the bypass habit the grading rules exist to prevent.
+**Declare the kind at the call site; do not derive it from behaviour.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
