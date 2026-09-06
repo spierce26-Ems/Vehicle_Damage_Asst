@@ -346,6 +346,50 @@ Until a fitted lookup table is in the tree and referenced by the code, the
 verdict stays suppressed — an uncalibrated threshold is not an improvement on
 saying nothing.
 
+#### 6.1.1 What "fitted" has to mean before suppression lifts
+
+Landing this table is the act that re-enables significance verdicts on filtered
+subsets, so the conditions on it are release conditions, not review notes. All
+of the following, or suppression stays:
+
+1. **Each cell carries its confidence interval, and the code carries the
+   interval too — not only the point estimate.** A critical value whose CI spans
+   a full grid step is the same category of object as a percentage with no null
+   model behind it: a number whose precision is typographic. This document
+   already refuses the second one; refusing the first is the same rule applied
+   one level up.
+2. **A cell whose CI spans more than one p-grid step does not lift suppression
+   for that cell.** Suppression is per-cell, so a table may be partially
+   admissible — a well-resolved cell can enable verdicts at its own probe and
+   exclusion count while an under-resolved neighbour stays suppressed. Nothing
+   is gained by making the whole table wait for its worst cell, and nothing is
+   risked by letting the worst cell keep saying nothing.
+3. **Monotonicity across exclusion count within each probe count is a
+   correctness check, not a smoothing step.** More shopping freedom cannot make
+   a test stricter, so a rise in the critical value as exclusions increase is
+   proof the cells are under-resolved. Raw estimates that violate it beyond
+   noise reject the fit; they are not fitted around.
+4. **The table lands as committed data with its generating script alongside
+   it**, and the script's parameters — trial count, pairs per cell, seed — are
+   recorded with the numbers. A constant nobody can regenerate cannot be
+   re-verified when the algorithm changes underneath it, and the version stamp
+   would then attest to a match computed against a threshold of unknown
+   provenance.
+5. **The null trial count under exclusion is a precondition, not a tuning
+   parameter.** A permutation p-value from *t* trials is a discrete multiple of
+   1/(1+t); at 400 trials the grid step is 0.0025 and a 0.0075 critical value is
+   grid point 3. The table cannot be fitted at that resolution *at any sample
+   size*, because the limit is the statistic's expressible precision, not the
+   noise. Raising trials is therefore part of building the table rather than an
+   optimisation to schedule afterwards.
+
+The underlying test is the one this document applies everywhere: a figure never
+travels without what makes it readable. A critical value's CI is what makes the
+critical value readable, and a threshold quoted to four decimal places with a
+one-grid-step interval behind it fails that test in the direction the report can
+least afford — anti-conservative, in the number that decides whether a verdict
+prints at all.
+
 ### 6.2 The exclusion record has to know what came first
 
 A legitimate exclusion (a probe that wandered onto a ruler) and an exclusion
@@ -415,3 +459,5 @@ without any selection and is never demoted.
 - [ ] The unfiltered similarity figure appears in both the report and the results screen whenever a filtered figure does.
 - [ ] Search the rendered PDF text for: cherry, shopping, manipulated, suspicious, justified, valid exclusion — zero hits.
 - [ ] After the #6 rebase onto the version-stamp branch, the filtered outcome renders through `headlineDisplay` and emits no percentage string of its own.
+- [ ] With a critical-value table present, a cell whose CI spans more than one p-grid step still suppresses the verdict at that probe/exclusion count — partial admissibility works per cell, and an under-resolved cell does not inherit a neighbour's verdict.
+- [ ] The critical value in force is rendered with its confidence interval wherever it is shown, and the provenance page names the table's generating script and parameters.
