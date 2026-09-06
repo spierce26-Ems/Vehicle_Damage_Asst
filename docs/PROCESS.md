@@ -669,7 +669,13 @@ Two design rules govern it, and they are the reason to trust its output:
 
   - **Install where the discovery table looks, not in a version-suffixed
     directory.** `~/toolchains/swift-6.0.3` is invisible to it; symlink
-    `~/toolchains/swift` at it. And not in `/tmp` — it parses from there and
+    `~/toolchains/swift` at it. Two people hit this independently, because a
+    version-suffixed directory is how the tarball extracts and the only way to
+    keep more than one — an honest advisory, but a false negative on
+    capability. **The symlink is load-bearing, not the `~/.profile` export**:
+    the export is what makes an interactive run clean, the symlink is what
+    makes the hook work, so a sandbox rebuild needs both the tarball and the
+    symlink restored or the hook quietly drops to advisory. And not in `/tmp` — it parses from there and
     says it will stop, because `/tmp` does not survive a rebuild, and a reader
     who saw the check working yesterday will not reread the advisory.
   - **Verify in the environment the hook runs in, not the one you type in.**
@@ -679,6 +685,13 @@ Two design rules govern it, and they are the reason to trust its output:
     `env -i PATH=/usr/bin:/bin HOME=$HOME`. The check was working exactly where
     it was being looked at and not where it actually fires, which is the
     assert-on-behaviour rule aimed at *which* behaviour.
+- **"Parses" is now several different claims, so name the parser.** Four
+  environments here run at least two frontend versions (5.10.1 and 6.0.3), and
+  a tree that parses under one can fail under the other on syntax that is
+  genuinely valid in the newer language. Sean's Xcode toolchain is a further
+  version and the only one that decides whether the app builds. So a parse
+  result carries its frontend version — which is why the check prints it — and
+  no local parse is evidence about Sean's build beyond "worth compiling".
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
   history, tooling that could be mistaken for a build would be worse than no

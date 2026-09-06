@@ -140,6 +140,25 @@ whole report already operates under (`MatchResult.disclaimerText`):
   reinforce a distinction the text already makes; it may never be the thing
   that makes it.
 
+  **This currently holds, and is written here as a property to preserve rather
+  than work to do.** Verified in `PDFReportGenerator`: significance reaches the
+  PDF through `headlineDisplay` with no colour argument, so it draws black, and
+  the string itself carries the verdict — *"above chance"*, *"NOT
+  distinguishable from chance"*, *"significance not testable"*. Colour does
+  appear on the page — the exclusion box and the filtered section — and every
+  instance has redundant literal text beside it (`EXCLUSION WARNING`,
+  `[EXCLUDED] `, `Filtered Result — Investigator Exclusions Applied`), so
+  colour is decorative there. The only colour-driven significance encoding is
+  `significanceColor()` in `MatchResultsView`, which is on-screen, and even
+  that labels a `headlineDisplay` string.
+
+  So the failure mode is a refactor, not a gap: someone tidies
+  `headlineDisplay` down to a bare percentage and moves the verdict into the
+  colour, and **nothing fails** — the screen still reads correctly to the
+  person making the change. Recorded as a regression guard because a spec item
+  that reads as new work invites a second implementation of something already
+  done.
+
 ---
 
 ## 4. Copy lock
