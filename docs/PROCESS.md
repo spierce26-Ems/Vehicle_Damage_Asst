@@ -39,6 +39,23 @@ Two things to know if you produce patches:
   Both of the day's near misses were artefacts that were correct in the place
   they were made and wrong at the destination — a patch built off a local
   branch, and a remedy line naming a file that existed only as an attachment.
+- **After landing a multi-commit stack, confirm every patch subject is present
+  in `git log --oneline` before reporting it landed — and never
+  `git am --abort` after a partial apply without checking what it rolled
+  back.** An `--abort` on a two-patch stack that failed on patch 2 rolls back
+  the already-applied patch 1, and re-applying only patch 2 leaves a landing
+  that passes every check, because every check is true of the commit that did
+  land. **A partially-landed stack is indistinguishable from a fully-landed
+  one** — the same substitution as a probe reporting `exists` where it means
+  `runs`, aimed at a patch. This is how a Bonferroni rewrite vanished while the
+  changelog entry citing it recorded it as done. Resolve a conflict in place;
+  if you must abort, re-apply the whole stack.
+- **A changelog entry that cites a code change is not evidence the change
+  landed, and it is the artefact most likely to be mistaken for one** —
+  recording completion is its whole job, so a reader sees the entry, sees a
+  named owner, and closes the item without looking. Before writing an entry
+  that asserts a code fix, grep the tree for the change itself; before trusting
+  one, do the same. Prose is a record of intent until the tree agrees with it.
 - Once a patch is out, corrections go as a **new** patch on top, never an
   amended one under the same filename. An amended re-send is indistinguishable
   from a duplicate on the receiving end, and which version landed can then only
