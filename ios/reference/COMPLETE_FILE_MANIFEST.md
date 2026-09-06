@@ -118,7 +118,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 
 | File | Lines |
 |---|---:|
-| `ios/reference/ALGORITHM_EXPLAINER.md` | 279 |
+| `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
 | `ios/reference/COMPLETE_FILE_MANIFEST.md` | 295 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |

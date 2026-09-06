@@ -136,16 +136,47 @@ Example (your current case):
 
 ---
 
-## 📊 MATCH PROBABILITY RANGES
+## 📊 COMPOSITE SCORE BANDS
 
-| Composite Score | Probability Range | Confidence | Action |
-|-----------------|-------------------|------------|---------|
-| 80-100 | 80-95% | HIGH | Strong match - pursue legal action |
-| 60-79 | 60-85% | MEDIUM | Probable match - gather more evidence |
-| 40-59 | 50-65% | LOW | Possible match - consider alternatives |
-| 0-39 | 0-50% | VERY LOW | Unlikely match - investigate other suspects |
+> **Corrected 2026-09-06.** This section previously mapped each score band to a
+> "Probability Range" (80-100 → "80-95%") and to an action ("pursue legal
+> action"), and labelled a 60/100 case a "PROBABLE MATCH". **Every one of those
+> is a claim this app deliberately does not make**, and the correction is
+> recorded rather than quietly applied because the old framing is quoted in
+> external material and someone will arrive expecting it.
+>
+> A composite score is a **weighted sum of factor scores, not a probability.**
+> Nothing in the pipeline estimates the likelihood that two vehicles collided;
+> 78/100 does not mean 78% likely, and there is no calibration anywhere in this
+> codebase that would justify converting one into the other. `MatchResult`
+> carries the same statement at the field itself: `scoreRangeLabel` is
+> documented as "a score band, NOT a statistical probability", and a
+> `legacyProbabilityRange` decode path exists solely to read cases written
+> before that migration. This document was the last place still teaching the
+> abandoned framing.
+>
+> Why it mattered more than an ordinary stale doc: the scoring code cites
+> `ALGORITHM_EXPLAINER §2` in a string that reaches the **report an
+> investigator reads**. So a reader following that citation landed two sections
+> later on a table telling them 60-79 means a probable match at 60-85%
+> probability — language the report itself refuses to print. The report did not
+> contain the banned framing; it *pointed at* it. A copy lock that governs
+> strings cannot see that route, which is why cited reference documents are now
+> inside the lock (`docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §4).
 
-**Your current case: 60/100 = MEDIUM confidence, PROBABLE MATCH**
+| Composite Score | Band | What it means |
+|-----------------|------|---------------|
+| 80-100 | HIGH | Every factor that could be measured agrees, and the strongest ones agree closely. Not a probability, and not a conclusion — the strength of agreement between measurements. |
+| 60-79 | MEDIUM | Substantial agreement, usually with at least one factor unmeasured or weak. |
+| 40-59 | LOW | Mixed evidence. Agreement on some factors, disagreement or absence on others. |
+| 0-39 | VERY LOW | Little agreement. Note that a rule-out (see §2) is a separate and stronger finding than a low score. |
+
+**No band recommends or discourages a course of action.** Whether evidence
+supports any step is a judgement for a person with training and context the app
+does not have; the earlier "pursue legal action" cell asserted otherwise and is
+removed rather than reworded. A high score also never stands alone — it travels
+with its per-factor breakdown and, where a null model could be built, its
+p-value and significance verdict.
 
 ---
 
@@ -185,15 +216,32 @@ Example (your current case):
    - Weights are documented and justified
    - No "black box" AI decisions
 
-3. **Conservative confidence levels**
-   - 80%+ required for "strong match" recommendation
-   - Clear disclosure of data limitations
-   - Recommends professional review for legal action
+3. **Conservative thresholds**
+   - A high band requires agreement across the strongest measured factors
+   - Clear disclosure of data limitations, including which factors could not be
+     measured at all
+   - No band recommends a course of action; interpretation is left to a person
+   - *Corrected 2026-09-06: previously read "80%+ required for strong match
+     recommendation" and "recommends professional review for legal action". The
+     first restated the probability framing removed above; the second made the
+     app the author of a recommendation it is not competent to give. This was
+     offered as a court-friendliness argument, which made it load-bearing rather
+     than decorative — a defensibility claim resting on a framing the app had
+     abandoned.*
 
 4. **Reproducible**
    - Same inputs = same outputs
-   - Algorithm is deterministic (no randomness)
+   - Deterministic **because randomness is seeded from the input data**, not
+     because the algorithm contains none: both matchers run permutation
+     shuffles for their null models, seeded from the data being analysed, so
+     re-running an analysis reproduces every p-value exactly
    - Can be independently verified
+   - *Corrected 2026-09-06: previously read "algorithm is deterministic (no
+     randomness)". The conclusion held but the stated reason became false when
+     seeded permutation null models were introduced (`7391b73`, then P1b) —
+     and "no randomness" is precisely the kind of absolute that gets quoted
+     back at you under challenge. Determinism is a property that was
+     deliberately preserved, not one that comes free from an absence.*
 
 ---
 
@@ -238,8 +286,12 @@ Your case demonstrates this perfectly:
 - Paint color: ✅ Matches
 - Height: ✅ Aligns perfectly
 - Freshness: ✅ Consistent
-- **Together:** 60% confidence (probable match)
-- **With suspect photos:** 80%+ confidence (strong match)
+- **Together:** composite 60/100 — MEDIUM band
+- **With suspect photos:** composite 80+/100 — HIGH band
+
+*(Corrected 2026-09-06 from "60% confidence (probable match)" / "80%+
+confidence (strong match)" — see the note on score bands above. The composite
+figures are unchanged; only the probability-and-verdict phrasing is.)*
 
 ---
 

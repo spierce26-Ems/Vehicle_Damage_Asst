@@ -151,6 +151,29 @@ Under `docs/PROCESS.md`:
 - The full string inventory lives with the changelog, not only in a spec
   attachment, so it survives the spec being superseded.
 
+### 4.0 A cited document is inside the lock
+
+**Any document the app cites by name in a string a user reads is locked copy,
+for the whole document.** Added 2026-09-06 after `ALGORITHM_EXPLAINER.md` was
+found teaching the abandoned probability-and-verdict framing while being cited
+into the report: `MatchScoreCalculator`'s height rule-out recommendation says
+"see ALGORITHM_EXPLAINER §2", so a reader who followed the citation landed two
+sections later on a table stating that 60-79 means a probable match at 60-85%
+probability — a claim the report itself refuses to print.
+
+The route matters more than the instance. The report contained no banned
+language; it **pointed at** it, and a lock that inspects strings cannot see
+one hop away. A citation is a promise that what it points to is as defensible
+as what surrounds it, so the destination inherits the constraint — and the
+whole document, not the cited section, because a reader who arrives at §2 does
+not stop reading at §2.
+
+Two obligations follow. Before adding a citation to a user-visible string,
+read the cited document against §3's language constraints. And when this
+document's framing changes, grep for cited reference documents rather than
+assuming the lock's inventory covers them — the inventory lists strings, and a
+citation's payload is not a string.
+
 ### 4.1 Copy change ledger
 
 **The rule: any surface that reproduces a locked string is bound by this lock.**
