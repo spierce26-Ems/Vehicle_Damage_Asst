@@ -321,12 +321,15 @@ def check_docs_owed(files):
         # already says this; the reminder that PRECEDES it did not.
         warn("docs",
              "a Swift file was added or removed",
-             "add or delete its row in "
-             "ios/reference/COMPLETE_FILE_MANIFEST.md by hand, hand-edit the "
-             "Totals: sentence, then run scripts/regen_manifest.py for the "
-             "counts -- the regenerator maintains rows and never adds or "
-             "removes one, so running it alone will NOT clear the manifest "
-             "findings this change is about to produce")
+             "update ios/reference/COMPLETE_FILE_MANIFEST.md in this commit, "
+             "in three steps: add or delete the file's row, hand-edit the "
+             "Totals: sentence (all THREE numbers -- files, Swift sources, "
+             "lines), then run python3 scripts/regen_manifest.py for the "
+             "counts -- the regenerator covers only the third. This warning "
+             "is a REMINDER keyed to the diff, not a drift check: it stands "
+             "until the file stops being added or removed, so it does NOT "
+             "clear when the work is done. The manifest and manifest-lines "
+             "checks are what verify the result")
 
     scoring_dirs = ("/Utilities/", "/ForensicEngine/")
     if any(d in f for f in swift for d in scoring_dirs):
@@ -595,8 +598,11 @@ def check_manifest_line_counts():
         warn("manifest-lines",
              f"{len(wrong)} manifest line count(s) disagree with the tree: "
              f"{shown}{more}",
-             "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md from "
-             "git ls-files (regenerate, never hand-edit)")
+             "run python3 scripts/regen_manifest.py -- this is the one "
+             "manifest warning it clears completely. Never hand-edit a row, "
+             "and never resolve a manifest conflict by picking a side: each "
+             "side is right about its own patch's file and stale about the "
+             "other's, and both are plausible integers")
 
 
 def check_conflict_markers():
