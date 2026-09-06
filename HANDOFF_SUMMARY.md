@@ -269,6 +269,20 @@ Still open:
    Recommended: direct installs for now. This decides how urgent App Store
    Connect and IAP setup becomes
    (`ios/reference/APP_STORE_CONNECT_SETUP.md`).
+2. **Paywall / monetization configuration** — whether an "excluded" result sits
+   above or below the paywall. Design is proceeding on the assumption that it
+   sits above; exposure is confined to one screen and marked on the design
+   artefact.
+3. **Whether the report prints when an exclusion was recorded** — before or
+   after a similarity figure had been displayed
+   (`docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §6). The *capture* of that
+   ordering is not open and is not waiting on an answer: it can only be
+   recorded as it happens, so it is specified as a requirement of the
+   per-cross-section exclusion work. Only the printing is a product question.
+   Recommended: print it, in the neutral three-state wording.
+
+The **Apple Developer Team ID** is on that list too, but it is not a decision —
+it is a ten-character identifier that blocks every device run. See §4.
 
 **A recommendation is not a decision.** No box here gets ticked by agreement
 among the people doing the work, however unanimous — only by Sean answering.
