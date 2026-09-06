@@ -344,6 +344,26 @@ the exact number to write, and says outright that running the regenerator will
 not clear it.** The general rule this earned: *a check that fires on prose must
 name the edit, because the tool that fixes its neighbours cannot fix this one.*
 
+**Correction to that test, and it is mine: *"does following it remove the
+condition?"* is right for a drift check and wrong for a reminder.** Compass
+wrote a correct three-step remedy for the Swift-file-added warning, performed
+all three steps, and the warning still fired — it is keyed to the diff, not to
+manifest state, so **no amount of correct work clears it.** A remedy that
+implies it will is the routing failure one turn deeper: the reader has now
+*done the work* and been told it did not take, which is worse than being sent
+somewhere useless. **A reminder's remedy says so, and names the checks that do
+verify the result.** Nothing in reading the diff distinguishes the two kinds;
+only performing the steps does.
+
+**The count is the artefact worth keeping, not the fault.** One string —
+*"regenerate, never hand-edit"* — appeared at six remedy sites aimed at one
+document, and exactly one was fixable by the step all six recommended. It was
+written when nothing in the repo could regenerate anything and was never
+revisited when something could: **text that was true about a world with no
+regenerator.** Neither carelessness nor a landing defect, and the reason it
+survived six sites is that a remedy is read as instruction and never as a
+claim.
+
 **And then that fix reproduced the defect it fixed, one clause away.** The
 `Totals:` sentence carries three numbers under two different checks; the
 remedy was corrected on the line total, which was the number that had fired,
