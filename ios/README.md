@@ -185,9 +185,14 @@ decision list stop being read.
   milestone rather than a go/no-go gate — the well-resolved cells lift
   suppression at their own probe and exclusion counts while under-resolved
   corners stay suppressed, so a partial result is a usable result.
-- **Changelog entries and on-device checklists** for each Swift branch as it
+- ~~**Changelog entries and on-device checklists** for each Swift branch as it
   lands, in the recorded order, each with `COMPLETE_FILE_MANIFEST.md`
-  regenerated in the same patch.
+  regenerated in the same patch.~~ **Done.** All eight are written — item 1
+  (#5), #10a, #10b, P1b, the v1.2.0 audit, #6, #13, and #7/#11 — each with a
+  walkable checklist and the manifest regenerated against the tree its own
+  patch produced. What remains on these is not writing but *walking*: every
+  checklist needs a device, so each of the eight entries stays **NOT COMPILED**
+  until Sean runs them.
 
 Sean's list is now **two** items: the first-build error list, and the
 distribution target. The Team ID closed at `802e739`. It shrinks when something
