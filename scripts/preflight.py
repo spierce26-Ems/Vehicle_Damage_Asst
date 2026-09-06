@@ -1196,10 +1196,19 @@ def check_manifest_drift():
     if missing:
         shown = ", ".join(missing[:4])
         more = f" (+{len(missing) - 4} more)" if len(missing) > 4 else ""
+        # Fourth instance of the routing failure, found by sweeping every
+        # remedy on this file rather than waiting for someone to hit it.
+        # regen_manifest.py MAINTAINS existing rows and deliberately does not
+        # ADD one -- a new path is check_manifest_drift's subject, and a
+        # regenerator that invented rows would decide where in the table a
+        # file belongs, which is editorial. So the named remedy could not
+        # clear this either. Name the edit.
         warn("manifest",
              f"{len(missing)} tracked file(s) absent from {rel}: {shown}{more}",
-             "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md from "
-             "git ls-files (regenerate, never hand-edit)")
+             "add a `| `path` | N |` row for each, in the section it belongs "
+             "to, then run scripts/regen_manifest.py to fill the counts -- "
+             "the regenerator maintains rows and never ADDS one, so running "
+             "it alone will NOT clear this")
 
 
 # ---------------------------------------------------------------- check 7
