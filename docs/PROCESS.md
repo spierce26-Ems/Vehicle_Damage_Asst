@@ -222,6 +222,18 @@ The conclusion there is unchanged for other reasons, which is exactly what
 makes it dangerous: a true conclusion resting on arithmetic a reader can
 recompute and find false. When you change a constant, grep for the number.
 
+**Cite symbols, never line numbers, and never let an audit's all-clear stand in
+for the audit.** The entry recording that grep listed the remaining sites by
+line number and pronounced them historical — one of them was
+`nullTrialCount`'s doc comment, a live claim about the old constant, cleared
+because it sat between two deprecation notes. A line number is a phantom hash
+in a different notation: it reads as a precise citation and resolves to
+whatever is at that offset when read, with no way to fail loudly. And the
+clearing is the worse half — **a wrong all-clear is more durable than no audit
+at all**, because a site an audit has passed is a site nobody re-checks. Name
+the symbol, and say what was checked so a later reader can redo it rather than
+trust it.
+
 **A requirement is not a checklist item.** If a property must hold for the
 change to be worth anything, it belongs in the spec the implementation is
 written against, not only in the walk-through — a checklist is walked once, and

@@ -1191,8 +1191,22 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   The general form, and the reason it belongs in this entry rather than only in a code comment:
   **a change that removes an obstacle owes an edit everywhere the obstacle is cited as current.**
   Raising a constant is a one-line diff whose blast radius is every argument that rested on the old
-  value. Lines 836-837 and 1195 also name 120 and are correct — they are historical and deprecation
-  context, explicitly framed as what v1.1.0 did. Only the live claim needed changing.
+  value. Two other sites name 120 and are correct — the `nullModelTrialCount` NOTE and the
+  Bonferroni paragraph in `compare`, both explicitly framed as what v1.1.0 did.
+
+  **Correction, 2026-09-06: this paragraph originally cited those sites by line number, and it
+  cleared one that was not historical at all.** `nullTrialCount`'s doc comment — then at line 836,
+  which is why it was swept up with the deprecation notes — illustrated the resolution bound with
+  *"120 trials cannot demonstrate anything smaller than p < 1/121"*, a live claim about a constant
+  that had just stopped being 1000's predecessor. Prism found and fixed it as the formula
+  `p = 1/(1+t)` rather than a fresh example, which is the right shape: `nullTrialCount` exists
+  *because* the trial count is not always the constant, so any pinned example is the part that
+  goes stale. **Two failures, and the second is the one that let the first survive a day.** A line
+  number is a phantom hash with a different notation — it reads as a precise citation and resolves
+  to whatever is at that offset when read. And an audit that clears a site turns it into a site
+  nobody re-checks, so **a wrong all-clear is more durable than no audit at all**. Cite symbols,
+  never line numbers, and state what was checked so a later reader can redo it rather than trust
+  it.
 
   Measured: on 10-element rhythms, **3.0% of unrelated pairs and 4.0% of true matches flip
   significance verdict purely on trial count** between 120 and 2000 trials. A modest but real
