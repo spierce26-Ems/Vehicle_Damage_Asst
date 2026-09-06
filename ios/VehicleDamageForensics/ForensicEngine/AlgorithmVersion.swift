@@ -75,13 +75,16 @@ struct AlgorithmVersion: Codable, Equatable {
     ///            verdicts); p-value resolution added to the recorded
     ///            constants.
     ///
-    ///            The 120 and 1/121 above are DELIBERATELY STALE: this
-    ///            list records what each version changed, so rewriting
-    ///            them to the current constant would destroy the very
-    ///            history it exists to carry. PROCESS.md sec.2 says to
-    ///            grep for the number when a constant moves; version
-    ///            history is the one place the old number is the
-    ///            correct content. Do not "fix" this. Scores from 1.1.0 and 1.2.0 are directly
+    /// The constants in the entries above are DELIBERATELY not updated
+    /// when the live ones change, and a sweep for stale numbers must
+    /// leave them alone. `120` and `1/121` here are the record of what
+    /// 1.2.0 changed; rewriting them to the current 1000 / 1/1001 would
+    /// destroy the only account of why the change happened, and would
+    /// make two versions of the engine indistinguishable in the file
+    /// whose job is to distinguish them. PROCESS.md sec.2 requires a
+    /// changed constant to be re-grepped everywhere it is cited as
+    /// CURRENT -- version history is the one place a stale constant is
+    /// the correct content, because its subject is the past. Scores from 1.1.0 and 1.2.0 are directly
     ///            comparable -- the estimator is unchanged, only its
     ///            precision -- but a 1.1.0 p-value is quantised roughly
     ///            8x more coarsely than its printed decimals suggest.
