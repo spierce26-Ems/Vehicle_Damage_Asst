@@ -482,6 +482,11 @@ Two design rules govern it, and they are the reason to trust its output:
   parser or restore the documented format" passes; it is an action. "Probably
   nothing" is a claim about a thing you did not see. You can apply this test
   without knowing anything about the check.
+- **Read *which* check failed, not merely that something did.** A guard under
+  test appeared to block; the blocking line was a missing `project.pbxproj` in
+  the synthetic repo built for the test, and the guard under test had correctly
+  warned. An exit code is a verdict on the run, not on the thing you are
+  probing — one more way a correct probe gets read off the wrong surface.
 - **Assert on behaviour, not on a representation of it.** Both halves of this
   cost real time today at different scales, and they are one mistake:
   - *Source text is a representation of emitted copy.* Verifying a locked
@@ -493,11 +498,32 @@ Two design rules govern it, and they are the reason to trust its output:
     that line exists to prevent.
   - *A remote-tracking ref is a representation of a branch.* `git show
     origin/<branch>:<path>` is only as current as your last successful fetch,
-    and it reads a force-pushed-away commit without complaint. Two branch-state
-    claims in this document's history were wrong that way, one of them used to
-    contradict a teammate who had fresher data. Before asserting a fact about a
-    remote branch, `git ls-remote` — which queries the server — or force-fetch
-    with `--prune --force`. A ref-scoped command is not self-updating.
+    and it reads a force-pushed-away commit at full speed with no signal —
+    which is why everyone reached for it: it *looks* like the ref-scoped,
+    therefore-careful option. Three of us hit this in one hour on the same
+    command, which makes it a property of the tool rather than three mistakes.
+    Two clones were configured
+    `remote.origin.fetch = +refs/heads/main:refs/remotes/origin/main` with
+    `fetch.prune` unset, so `git fetch origin` had only ever updated
+    `origin/main` and force-pushes to every other branch were structurally
+    invisible. **Configure the wildcard refspec and `fetch.prune = true`, and
+    before asserting a fact about a remote branch run `git ls-remote`, which
+    queries the server.** A ref-scoped command is not self-updating.
+
+    One of the three wrong claims was wrong in an instructive way, and the
+    distinction matters in a document about reasons: a `decoder-completeness`
+    count of 2 on `cross-section-exclude` was **accurate about
+    `1a4ae2a`**, the real branch head when it was measured. The measurement was
+    correct; the staleness was the defect. And **an unvalidated instrument that
+    gives right answers is the one that never gets fixed** — the clone that
+    produced a wrong number was diagnosed in twenty minutes, while the clone
+    that produced correct numbers by habit rather than by configuration would
+    have kept doing so until the day a force-push mattered.
+
+    Report the ruler with the number. Seven and eleven for the same file were
+    occurrences of the literal `--since` versus lines matching bare `since` —
+    two people measuring correctly with different rulers and reporting the
+    counts as if the ruler were implied. That cost a round of messages.
 - **An unrecognised flag must exit non-zero, exactly like an unrecognised ref.**
   `preflight.py --sinse origin/main` fell through to staged mode and printed
   `nothing staged` at exit 0 — a clean run over nothing wearing the face of a
@@ -505,6 +531,62 @@ Two design rules govern it, and they are the reason to trust its output:
   The unknown-*ref* guard was written deliberately for this hazard, so the
   protection had stopped one argument short of itself. Scope validation belongs
   on every input that selects scope, argv included. Landed in `97ddc3c`.
+- **The installed hook is not version-pinned, and this is an open hazard, not
+  a solved one.** `--install-hook` writes `exec python3
+  scripts/preflight.py` — path-relative. Install it once on `main`, check out a
+  feature branch to build, and every commit from then on runs *that branch's*
+  script. Proven end to end on `cross-section-exclude` @ `c6e749a`, whose
+  script predates `decoder-completeness`: an undecoded `primerDepthMicrons`
+  staged on `PaintAnalysis` gets `clear (3 advisory)` and **the commit is
+  allowed**, while `main`'s script refuses the identical staged tree with one
+  blocking failure naming the field. This is the day's shape in its most
+  convincing costume — not a tool that ran and found nothing, but *the wrong
+  tool* running and finding nothing, behind a correct-looking clean line. It
+  cannot reach `main`: a trial merge of both branches onto `97ddc3c` merges
+  `scripts/preflight.py` cleanly with `main`'s version winning, so the landing
+  order is unaffected.
+
+  **Decided and implemented: the script refuses to run when it is older than
+  `origin/main`'s copy** (`check_script_currency`). Pinning the hook to
+  `main`'s copy was the rejected option, and the reason is worth keeping — it
+  silently executes a script that is not in the tree being committed, trading
+  one "which tree is in force" trap for another, and it protects only people
+  who reinstall the hook. The guard travels *in* the script instead, so any
+  copy old enough to lack a check is also old enough to be refused by the copy
+  that has it. Refusal is loud, which is the property this whole family of
+  defects lacks.
+
+  Three design details, each of which would have made it useless:
+
+  - **Staleness is "check functions `origin/main` has that this copy does
+    not", never "differs from `origin/main`."** This file is edited on
+    branches that *add* checks; refusing those would block the work that fixes
+    the hazard.
+  - **It compares `__file__`, not a fixed repo path.** The first cut read
+    `REPO/scripts/preflight.py` — the file at the path rather than the script
+    actually executing — so a stale copy run from elsewhere compared `main`
+    against `main` and cleared itself. That is this section's own
+    assert-on-behaviour rule violated by the guard written to enforce it: a
+    fixed path is a representation of "the script running", and for a hook
+    that execs by path the two coincide only by luck.
+  - **It fails open for a missing remote only**, with an advisory naming the
+    fetch — a fresh clone or an offline machine has nothing to compare
+    against, and blocking work it cannot judge is the over-eager-blocker
+    failure above. It has no "probably fine" path, per the no-subject clause.
+
+  One residual, stated rather than hidden: the comparison is against the local
+  `origin/main` ref, so the guard inherits the staleness failure above — a
+  clone with a main-only refspec and no recent fetch measures against whatever
+  it last saw. The advisory covers the absent case, not the stale one. §1's
+  "run `main`'s script against a feature branch" is enforced by the tool only
+  for a tree that already carries the guard. Every branch in flight when it
+  lands predates it and cannot refuse itself — verified zero occurrences in
+  `c6e749a` and `6230c4f` — so for those §1 stays a disposition until each is
+  rebased onto a `main` carrying the guard. This bootstrap gap is a property of
+  any guard that travels inside the thing it guards, not a defect in this one,
+  and it is the argument for landing it ahead of the remaining branch merges
+  rather than after them. A rule that claims mechanical enforcement it does not
+  yet have is the true-instruction-false-reason failure above.
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
   history, tooling that could be mistaken for a build would be worse than no
@@ -547,6 +629,22 @@ file both the document and the code reference, which is more work and changes
 how the document is authored; that is worth doing only if this fires often
 enough to be annoying. Recorded so the choice is visible rather than defaulted
 into.
+
+- **A check's stated limits are part of its output, and a true claim resting on
+  a mechanism that cannot support it is the same defect as a wrong reason.**
+  `check_doc_drift.py`'s docstring says the height bands are "compared"; what
+  is compared is a *static reading* of `heightAlignmentScore`, modelled as an
+  ordered list of guards. Exercised rather than read, the parser is unmoved by
+  reordering `if diff <= toleranceInches` above the rule-out guard — identical
+  `100/75/50` output, no complaint — while in the real function that
+  reordering hands a caller passing a tolerance above 6″ a `100` for a height
+  difference that should exclude, which is the pre-#10a defect restored. The
+  honest fix is to execute instead of parse, and that needs the Swift test
+  target still at Stage 0; a cleverer parser would be the same mistake one
+  level deeper, because it would still be a representation. Until then the
+  docstring must say what it actually establishes. **A check that overstates
+  its mechanism is trusted for coverage it does not have, and nobody looks
+  again.**
 
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
