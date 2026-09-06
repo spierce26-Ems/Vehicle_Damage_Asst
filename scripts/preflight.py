@@ -311,6 +311,57 @@ def check_docs_owed(files):
              "determinism check belongs in the on-device checklist")
 
 
+def check_manifest_drift():
+    """Does COMPLETE_FILE_MANIFEST.md still describe the tracked tree?
+
+    The docs_owed reminder above fires only when a Swift file is ADDED or
+    REMOVED in the staged diff, so it cannot see drift that already landed --
+    and drift that already landed is the only kind that reaches a reader. On
+    d8187ba the manifest asserted 68 tracked files against a tree of 70, and
+    omitted eight paths including scripts/preflight.py, this file. A generated
+    document that lags its tree is a document asserting something false, and
+    the manifest asserts its own totals in prose, which makes the falsehood
+    checkable rather than a matter of opinion.
+
+    Tree-wide and advisory. It reports the drift and never writes the file:
+    the manifest is regenerated, never hand-edited, and the prose in it is
+    Ledger's.
+    """
+    rel = "ios/reference/COMPLETE_FILE_MANIFEST.md"
+    try:
+        with open(os.path.join(REPO, rel), encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return
+
+    tracked = [f for f in sh("git", "ls-files").splitlines() if f]
+    if not tracked:
+        return
+    swift = [f for f in tracked if f.endswith(".swift")]
+
+    m = re.search(r"Totals:\s*(\d+)\s*tracked files.*?(\d+)\s*Swift sources",
+                  text, re.S)
+    if m:
+        claimed_total, claimed_swift = int(m.group(1)), int(m.group(2))
+        if claimed_total != len(tracked) or claimed_swift != len(swift):
+            warn("manifest",
+                 f"{rel} asserts {claimed_total} tracked files "
+                 f"({claimed_swift} Swift); the tree has {len(tracked)} "
+                 f"({len(swift)})",
+                 "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md from "
+                 "git ls-files (regenerate, never hand-edit)")
+
+    listed = set(re.findall(r"`([^`]+)`", text))
+    missing = [f for f in tracked if f not in listed]
+    if missing:
+        shown = ", ".join(missing[:4])
+        more = f" (+{len(missing) - 4} more)" if len(missing) > 4 else ""
+        warn("manifest",
+             f"{len(missing)} tracked file(s) absent from {rel}: {shown}{more}",
+             "regenerate ios/reference/COMPLETE_FILE_MANIFEST.md from "
+             "git ls-files (regenerate, never hand-edit)")
+
+
 # ---------------------------------------------------------------- check 7
 def _underlying(type_str):
     """Type with optionality removed -- `Data?` and `Data` both give `Data`.
@@ -700,6 +751,7 @@ def main():
     check_skeleton_drift()
     check_signing_configured()
     check_delimiter_balance(files)
+    check_manifest_drift()
 
     # Commit-shaped checks: only meaningful against a staged diff. In --all
     # mode there is no commit to judge, and firing them anyway trains people
