@@ -421,24 +421,61 @@ struct MatchScoreCalculator {
         suspect: Vehicle,
         scarCheck: ScarDirectionCheck
     ) -> String? {
-        guard scarCheck.status == .inconsistent else { return nil }
-
-        let heightMismatch: (matched: Bool, note: String)?
+        // Resolve the best available height pair once, for both rules
+        // below. Preference order and the never-treat-missing-as-mismatch
+        // principle are unchanged from the original implementation.
+        let heights: (v: Double, s: Double, note: String)?
         if let vb = victim.effectiveBumperHeightInches, let sb = suspect.effectiveBumperHeightInches {
-            let aligned = MeasurementHelpers.heightsAlign(vb, sb)
-            heightMismatch = (aligned, String(format: "bumper heights %.1f\" vs %.1f\"", vb, sb))
+            heights = (vb, sb, String(format: "bumper heights %.1f\" vs %.1f\"", vb, sb))
         } else if let vz = victim.primaryDamageZone, let sz = suspect.primaryDamageZone,
                   vz.hasZoneHeightData, sz.hasZoneHeightData {
-            let aligned = MeasurementHelpers.heightsAlign(vz.centerHeightInches, sz.centerHeightInches)
-            heightMismatch = (aligned, String(format: "damage-zone heights %.1f\" vs %.1f\"", vz.centerHeightInches, sz.centerHeightInches))
+            heights = (vz.centerHeightInches, sz.centerHeightInches,
+                       String(format: "damage-zone heights %.1f\" vs %.1f\"", vz.centerHeightInches, sz.centerHeightInches))
         } else {
-            heightMismatch = nil
+            heights = nil
         }
 
-        guard let heightMismatch, heightMismatch.matched == false else { return nil }
+        // NOTE(AI Developer), added 2026-09 (task #10a). RULE 1 --
+        // standalone physical rule-out. A height difference above
+        // `MeasurementHelpers.heightRuleOutInches` (6", per
+        // ALGORITHM_EXPLAINER §2) means these two damage points cannot
+        // have contacted each other, whatever every other factor says.
+        //
+        // This does NOT require a scar conflict, and that is the point of
+        // the change. Previously the ONLY path to an exclusion was
+        // "height mismatch AND scar conflict", so a physically
+        // impossible height difference on a case with no usable scar
+        // evidence -- or with scars that happened to agree -- produced no
+        // exclusion at all, just a low subscore averaged into a
+        // composite that could still read "MODERATE CORRELATION". A
+        // geometric impossibility is not a weak signal to be outvoted by
+        // paint colour; it stands on its own.
+        //
+        // Note this fires on the 2-inch-tolerance `heightsAlign`
+        // mismatch's much stricter cousin: a 3-inch difference is a poor
+        // score but a plausible collision, while a 7-inch difference is
+        // not a collision at all.
+        if let heights, MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
+            let diff = abs(heights.v - heights.s)
+            return String(format:
+                "Height Alignment rule-out: %@ differ by %.1f\", more than the %.0f\" maximum at which "
+                + "two damage points can physically have contacted each other (see ALGORITHM_EXPLAINER §2). "
+                + "On height evidence alone this suspect vehicle should be ruled out, independently of every "
+                + "other factor below. The full factor breakdown is still shown for reference — this is a "
+                + "strong negative finding layered on top of it, not a reason to hide the evidence.",
+                heights.note, diff, MeasurementHelpers.heightRuleOutInches)
+        }
+
+        // RULE 2 -- Sean's original combined rule: a height mismatch that
+        // is NOT severe enough to rule out on its own, plus a
+        // scar-direction conflict. Unchanged in behaviour; it now runs
+        // only for the sub-rule-out band, since anything above the
+        // rule-out threshold already returned above.
+        guard scarCheck.status == .inconsistent else { return nil }
+        guard let heights, MeasurementHelpers.heightsAlign(heights.v, heights.s) == false else { return nil }
 
         let deltaText = scarCheck.reciprocityDeltaDegrees.map { String(format: "%.0f°", $0) } ?? "n/a"
-        return "Height Alignment mismatch (\(heightMismatch.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of Sean's hard exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
+        return "Height Alignment mismatch (\(heights.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of Sean's hard exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
     }
 
     /// Builds the `scenarioNarrative` sentence Sean explicitly requested:

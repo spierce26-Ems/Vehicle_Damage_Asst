@@ -785,6 +785,49 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   striation detail to compare" / "no consistent overlapping rhythm found" cases (no score at all)
   are unaffected and still show their original wording with no baseline/significance text appended.
 
+- **Height Alignment: implement the documented 6-inch hard rule-out (task #10a).**
+  `MeasurementHelpers.heightAlignmentScore` scored linearly to zero at 5x tolerance = 10 inches,
+  contradicting `ios/reference/ALGORITHM_EXPLAINER.md` §2, which specifies banded scoring with a
+  hard rule-out above 6 inches, and contradicting `_analyze_height_alignment` in the Python
+  reference, which implements the bands. The consequence was the most consequential scoring defect
+  found in this engine: a **6.1-inch height mismatch — a difference that should exclude a suspect
+  outright — scored 39/100** and contributed a third of a 20%-weighted factor's credit toward
+  implicating them. Wrong in the direction of implicating someone is the worst direction this app
+  can be wrong in.
+
+  | Δheight | was | now | Python reference |
+  |---|---|---|---|
+  | 1" | 90 | 100 | 100 |
+  | 2" | 80 | 100 | 100 |
+  | 4" | 60 | 75 | 75 |
+  | 6" | 40 | 50 | 50 |
+  | **6.1"** | **39** | **0** | **0** |
+  | 8" | 20 | 0 | 0 |
+
+  Now banded exactly as documented — verified to agree with the Python reference at every band
+  boundary including 2.001", 4.001" and 6.001". Bands are deliberately absolute inches, not
+  multiples of `toleranceInches`: the rule-out is a claim about vehicle geometry (strike heights on
+  real vehicles do not differ by more than half a foot and still touch), so it must not move when
+  someone tunes measurement precision — which is exactly how the old form drifted to 10 inches.
+  `toleranceInches` now only widens the top "perfect" band. New `heightRuleOutInches` constant and
+  `heightsRuleOut(_:_:)` predicate.
+
+  **Also, per the tech lead's requirement that a rule-out surface as an exclusion rather than a low
+  subscore:** `MatchScoreCalculator.evaluateExclusionRule` now fires on a height rule-out
+  **standalone**, without requiring a scar-direction conflict. Previously the only path to an
+  exclusion was "height mismatch AND scar conflict", so a physically impossible height difference
+  on a case with no usable scar evidence — or with scars that happened to agree — produced no
+  exclusion at all, just a 0 subscore multiplied by 0.20 and averaged into a composite that could
+  still read "MODERATE CORRELATION". A geometric impossibility is not a weak signal to be outvoted
+  by paint colour. Sean's original combined rule is unchanged and now runs only for the
+  sub-rule-out mismatch band. Missing measurements are still never treated as a mismatch.
+
+  **Not yet compiled** — no Xcode toolchain; brace/paren balance checked, and the new band curve
+  was verified against a Python port of both the old and reference implementations at every
+  boundary. On-device: confirm a deliberate >6" height-mismatch pair surfaces the exclusion banner
+  on the results screen and in the PDF, and that a 3" mismatch does NOT (poor score, plausible
+  collision).
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
