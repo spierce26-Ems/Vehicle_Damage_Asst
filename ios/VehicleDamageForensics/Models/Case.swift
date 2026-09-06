@@ -661,7 +661,6 @@ enum AuditAction: String, Codable {
     // evidence having been superseded after the fact, not just filled
     // once.
     case photoReplaced = "photo_replaced"
-<<<<<<< HEAD
     // NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item
     // plan (per-cross-section exclude). Excluding a striation probe
     // changes a reported forensic score, so it is exactly the kind of
@@ -677,7 +676,6 @@ enum AuditAction: String, Codable {
     // only their final state -- an exclusion that was made and then
     // quietly reversed is itself meaningful context.
     case striationProbeRestored = "striation_probe_restored"
-=======
     // NOTE(AI Developer), added 2026-09 for item #5 (duplicate case for
     // another suspect). Recorded on the NEW case, naming the case its
     // victim evidence was copied from -- so the clone's chain of custody
@@ -687,7 +685,6 @@ enum AuditAction: String, Codable {
     // elsewhere. Both directions matter: the link is only useful for
     // assessing independence if it is discoverable from either end.
     case caseDuplicated = "case_duplicated"
->>>>>>> origin/duplicate-case
 
     var displayName: String {
         switch self {
@@ -707,12 +704,9 @@ enum AuditAction: String, Codable {
         case .scarDirectionRecorded: return "Scar Direction Recorded"
         case .scarPhotoCaptured: return "Scar Photo Captured"
         case .photoReplaced: return "Photo Replaced"
-<<<<<<< HEAD
         case .striationProbeExcluded: return "Striation Probe Excluded"
         case .striationProbeRestored: return "Striation Probe Restored"
-=======
         case .caseDuplicated: return "Case Duplicated for Another Suspect"
->>>>>>> origin/duplicate-case
         }
     }
 }
