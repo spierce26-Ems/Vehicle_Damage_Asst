@@ -940,10 +940,12 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 
   **Commit(s)**: `448f854`, merged in `dc069a1`
 
-  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. Brace and paren balance
   checked; the new band curve was verified against a Python port of both the old and the reference
   implementations at every boundary, including 2.001", 4.001" and 6.001". `preflight --all` clear
-  at zero advisories. That means "worth compiling" and nothing more.
+  at zero advisories, and its `swift-parse` check parses all 42 tracked Swift files with zero
+  failures (`swift-frontend` 6.0.3). That means "worth compiling" and nothing more -- parsing is
+  syntax; type checking is still Xcode's job (`docs/PROCESS.md` §4 clauses 4-6).
 
   **Read this entry with the #14 part 1 entry at the top of this file.** The standalone rule-out
   described here was later gated on measurement provenance: a LiDAR-measured pair above 6" now
@@ -1001,7 +1003,7 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 
   **Commit(s)**: `64d3c95`, merged in `dc069a1`
 
-  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. Brace and paren balance
   checked; the divergence table above is from a Python port of both forms. `preflight --all` clear
   at zero advisories, and `preflight`'s `swift-parse` check parses all 42 tracked Swift files with
   zero failures on the tree this entry describes (`swift-frontend` 6.0.3). That still means "worth
@@ -1111,7 +1113,7 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 
   **Commit(s)**: `bb37dff`, merged in `dc069a1`
 
-  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Verified by
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. Verified by
   brace/paren/bracket balance on all seven Swift files and the pbxproj, and by porting both null
   models to Python and Monte-Carlo testing their calibration (numbers quoted above). Balance
   checking does not catch type errors. `preflight --all` clear at zero advisories, and
@@ -1300,9 +1302,11 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
 
   **Commit(s)**: `a0438c5` (merge), branch `reapply-focus-ui` head `0e47398`
 
-  **Compiled/run**: **NOT COMPILED** — no Xcode toolchain on this team. Brace and paren balance
-  checked; `preflight --all` clear at zero advisories on the merged tree. That means "worth
-  compiling" and nothing more.
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. Brace and paren balance
+  checked; `preflight --all` clear at zero advisories on the merged tree, and its `swift-parse`
+  check parses all 42 tracked Swift files with zero failures (`swift-frontend` 6.0.3). That means
+  "worth compiling" and nothing more -- parsing is syntax; type checking is still Xcode's job
+  (`docs/PROCESS.md` §4 clauses 4-6).
 
   **On-device test checklist**:
   - [ ] Capture a scar photo with a tape measure deliberately in frame. The new "Box in just the
