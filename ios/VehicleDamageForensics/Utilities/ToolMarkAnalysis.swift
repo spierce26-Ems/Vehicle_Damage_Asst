@@ -744,15 +744,36 @@ struct ToolMarkFilteredOutcome: Codable, Equatable {
     // score over every subset the examiner could reach significant," and
     // that search needs its own null.
     //
-    // The textbook correction is unshippable here. Bonferroni over the
-    // reachable views needs alpha=0.0017 at 7 probes / 2 exclusions, but
-    // a permutation p-value from `nullModelTrialCount` = 120 trials has a
-    // hard floor of 1/121 = 0.0083 -- ABOVE that threshold. So it would
-    // not make the test conservative, it would make it impossible to
-    // pass, rejecting every true match as well. A shopping-aware critical
-    // value (Prism measures the 5th percentile at p <= 0.016) plus an
-    // exclusion cap is the real fix, and it needs a calibration table
-    // that does not exist yet.
+    // The textbook correction is still unshippable here, but NOT for the
+    // reason this comment gave until 2026-09-06. It said a permutation
+    // p-value could not reach the corrected alpha at all: Bonferroni over
+    // the 29 reachable views (7 probes, up to 2 exclusions) needs
+    // alpha = 0.05/29 = 0.00172, and at the original 120 trials the
+    // p-value floor of 1/121 = 0.00826 sat ABOVE it, so no outcome
+    // whatsoever could pass. The v1.2.0 resolution audit raised
+    // `nullModelTrialCount` to 1000, which moved the floor to
+    // 1/1001 = 0.00100 -- BELOW alpha. The specific blocker named here was
+    // removed by our own change, and nobody updated the paragraph.
+    //
+    // What replaced it is narrower and still disqualifying. At 1000 trials
+    // the corrected alpha is 1.73 p-grid steps above the floor, so exactly
+    // ONE outcome passes: k = 0, meaning not a single one of the 1000
+    // shuffled baselines scored as high as the real comparison. p = 2/1001
+    // already fails. That is not a significance test, it is a binary "did
+    // any chance trial match", reported to three decimals as though it
+    // were a measurement -- the p-floor defect in the same engine that
+    // exists to prevent it. Ten grid steps needs ~5,800 trials; fifty
+    // needs ~29,000.
+    //
+    // So the arithmetic no longer says impossible, it says quantised, and
+    // the two OTHER reasons on this page are what carry the conclusion
+    // now: a shopping-aware critical value (the 5th percentile measured at
+    // p <= 0.016) needs a calibration table that does not exist, and
+    // emitting `significant` at the unadjusted threshold would state a
+    // conclusion measured wrong more than half the time. Anyone revisiting
+    // this should re-derive the arithmetic against the CURRENT
+    // `nullModelTrialCount` rather than trusting this paragraph -- that is
+    // how it went stale in the first place.
     //
     // Until it does, this type reports similarity and NOT a verdict.
     // Emitting `significant` at the unadjusted threshold would be stating

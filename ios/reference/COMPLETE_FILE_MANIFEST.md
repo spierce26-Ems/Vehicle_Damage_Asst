@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 72 tracked files, of which 42 Swift sources (19847 lines).
+Totals: 72 tracked files, of which 42 Swift sources (19868 lines).
 
 ## iOS app — Xcode project
 
@@ -87,7 +87,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | `ios/VehicleDamageForensics/Utilities/ModelExtensions.swift` | 53 |
 | `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 584 |
 | `ios/VehicleDamageForensics/Utilities/ScarLineSuggester.swift` | 153 |
-| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 1477 |
+| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 1498 |
 
 ## ForensicEngine — scoring/matching orchestration
 
