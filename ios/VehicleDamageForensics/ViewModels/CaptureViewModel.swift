@@ -44,6 +44,54 @@ struct ReviewSlot: Identifiable {
     var isPending: Bool { photo == nil && !wasSkipped }
 }
 
+// MARK: - Readiness Segment
+
+/// One segment of the Case Readiness bar in `CaptureFlowView`.
+///
+/// NOTE(AI Developer), added 2026-09 per the readiness-bar spec (Part
+/// A). Purely derived -- see `CaptureViewModel.readinessSegments`. There
+/// is deliberately NO persisted counterpart and no initializer that
+/// takes a state a caller invented: every instance is produced by the
+/// view model from case state, so a segment can never claim readiness
+/// the case does not have.
+///
+/// `Destination` is both the identity and the routing target, so a
+/// segment cannot be built that displays one step and navigates to
+/// another.
+struct ReadinessSegment: Identifiable, Equatable {
+    enum State: Equatable {
+        /// This step is satisfied for the active vehicle.
+        case done
+        /// Missing, and the app already treats it as required elsewhere
+        /// (Impact gates analysis; `.heightMeasurement` is
+        /// `PhotoType.isRequired`). Counted in the limitations warning.
+        case requiredMissing
+        /// Missing, and deliberately never blocking. NOT a lesser
+        /// failure -- for the scar it is frequently the correct final
+        /// state of a real inspection.
+        case optionalMissing
+    }
+
+    enum Destination: Equatable {
+        case photos, impact, scar, height, lidar
+    }
+
+    let id: Destination
+    /// Short segment label ("Photos", "Impact", ...).
+    let title: String
+    /// Second line: progress ("6/10"), state ("recorded", "retry"), or
+    /// severity ("required", "optional").
+    let detail: String
+    let state: State
+
+    var destination: Destination { id }
+
+    /// True when this segment is missing something -- either severity.
+    /// Used for the "Next step" pick, which is about what is left to do
+    /// and not about whether it blocks.
+    var isOutstanding: Bool { state != .done }
+}
+
 @MainActor
 final class CaptureViewModel: ObservableObject {
 
@@ -168,6 +216,146 @@ final class CaptureViewModel: ObservableObject {
         switch captureRole {
         case .victim: return forensicCase.victimVehicle.hasScarDirection
         case .suspect: return forensicCase.suspectVehicle?.hasScarDirection ?? false
+        }
+    }
+
+    // MARK: Case Readiness projection
+
+    /// The five Case Readiness segments for the ACTIVE `captureRole`, in
+    /// display order (Photos, Impact, Scar, Height, LiDAR).
+    ///
+    /// NOTE(AI Developer), added 2026-09 per the readiness-bar spec
+    /// (Part A). Every value here is derived from state this view model
+    /// already exposes -- `currentShotIndex`/`protocolShots`,
+    /// `hasImpactProfile`, `hasScarDirection`/`hasScarPhoto`, the
+    /// `.heightMeasurement` photo count, and `Vehicle.hasLiDARMeasurement`.
+    /// NOTHING here is persisted and nothing is stored: it is a
+    /// presentation-layer projection, so it cannot drift out of sync with
+    /// the underlying case the way a cached "readiness" field would. Do
+    /// not add a stored mirror of it.
+    ///
+    /// Severity is NOT a free choice per segment -- it mirrors what the
+    /// app already treats as required elsewhere. Impact is
+    /// `requiredMissing` because it hard-gates Continue/Run Analysis;
+    /// Height because `PhotoType.isRequired` is true for
+    /// `.heightMeasurement`; Scar and LiDAR are `optionalMissing`
+    /// because neither gates anything (Sean's standing answer on the
+    /// scar: a missing or inconclusive reading lets the other six
+    /// factors decide).
+    var readinessSegments: [ReadinessSegment] {
+        [
+            photosSegment,
+            impactSegment,
+            scarSegment,
+            heightSegment,
+            lidarSegment
+        ]
+    }
+
+    /// How many `requiredMissing` segments the active role currently
+    /// has. Drives whether `CaptureFlowView` renders the limitations
+    /// warning line at all -- see the spec's "generated, never
+    /// boilerplate" rule: at zero, no line is rendered rather than a
+    /// reassuring one.
+    var readinessRequiredMissingCount: Int {
+        readinessSegments.filter { $0.state == .requiredMissing }.count
+    }
+
+    /// The single highest-impact remaining item, or `nil` when nothing is
+    /// missing. Ordered Impact -> Photos -> Height -> Scar -> LiDAR:
+    /// impact first because it already hard-gates analysis, scar and
+    /// LiDAR last because they are optional. Deliberately returns ONE
+    /// segment, not a list -- the whole point of the "Next step" box is
+    /// to answer "what do I do now" with a single answer.
+    var readinessNextStep: ReadinessSegment? {
+        let priority: [ReadinessSegment.Destination] = [.impact, .photos, .height, .scar, .lidar]
+        let segments = readinessSegments
+        for destination in priority {
+            if let segment = segments.first(where: { $0.id == destination }), segment.state != .done {
+                return segment
+            }
+        }
+        return nil
+    }
+
+    private var photosSegment: ReadinessSegment {
+        ReadinessSegment(
+            id: .photos,
+            title: "Photos",
+            detail: "\(currentShotIndex)/\(protocolShots.count)",
+            state: isComplete ? .done : .requiredMissing
+        )
+    }
+
+    private var impactSegment: ReadinessSegment {
+        ReadinessSegment(
+            id: .impact,
+            title: "Impact",
+            detail: hasImpactProfile ? "recorded" : "required",
+            state: hasImpactProfile ? .done : .requiredMissing
+        )
+    }
+
+    /// The scar segment keeps the button's existing TRI-state. The middle
+    /// one is load-bearing: a photo taken whose direction came back
+    /// inconclusive is a real, expected outcome for a blunt dent with no
+    /// taper to read -- not a failure and not a missing photo. Collapsing
+    /// it into "missing" would send users to re-shoot a frame that was
+    /// fine, so it reads "retry" and stays `optionalMissing`.
+    private var scarSegment: ReadinessSegment {
+        if hasScarDirection {
+            return ReadinessSegment(id: .scar, title: "Scar", detail: "recorded", state: .done)
+        }
+        return ReadinessSegment(
+            id: .scar,
+            title: "Scar",
+            detail: hasScarPhoto ? "retry" : "optional",
+            state: .optionalMissing
+        )
+    }
+
+    /// Counts `.heightMeasurement` photos actually captured or imported
+    /// for the active role. Deliberately NOT read off
+    /// `skippedShotIndices` or slot position: the protocol has two
+    /// height slots and the spec's bar is "at least one real height
+    /// reference exists", which a skipped slot does not satisfy.
+    private var heightSegment: ReadinessSegment {
+        let count = heightMeasurementPhotoCount(for: captureRole)
+        return ReadinessSegment(
+            id: .height,
+            title: "Height",
+            detail: count > 0 ? "\(count) captured" : "required",
+            state: count > 0 ? .done : .requiredMissing
+        )
+    }
+
+    private var lidarSegment: ReadinessSegment {
+        let measured = hasLiDARMeasurementForActiveRole
+        return ReadinessSegment(
+            id: .lidar,
+            title: "LiDAR",
+            detail: measured ? "measured" : "optional",
+            state: measured ? .done : .optionalMissing
+        )
+    }
+
+    func heightMeasurementPhotoCount(for role: VehicleRole) -> Int {
+        let photos: [CapturedPhoto]
+        switch role {
+        case .victim: photos = forensicCase.victimVehicle.photos
+        case .suspect: photos = forensicCase.suspectVehicle?.photos ?? []
+        }
+        return photos.filter { $0.photoType == .heightMeasurement }.count
+    }
+
+    /// `Vehicle.hasLiDARMeasurement` for the active role. Named
+    /// distinctly from the model property so it can't be mistaken for a
+    /// role-agnostic case-level fact -- the readiness bar renders for one
+    /// vehicle at a time.
+    var hasLiDARMeasurementForActiveRole: Bool {
+        switch captureRole {
+        case .victim: return forensicCase.victimVehicle.hasLiDARMeasurement
+        case .suspect: return forensicCase.suspectVehicle?.hasLiDARMeasurement ?? false
         }
     }
 

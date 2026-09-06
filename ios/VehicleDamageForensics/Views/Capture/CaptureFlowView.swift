@@ -151,132 +151,242 @@ struct CaptureFlowView: View {
         .background(.thinMaterial)
     }
 
-    // MARK: Footer
+    // MARK: Footer — Case Readiness bar
 
+    /// NOTE(AI Developer), rebuilt 2026-09 per the readiness-bar spec
+    /// (Part A). This footer used to be five stacked bordered buttons
+    /// plus two permanently-rendered explanatory captions, each carrying
+    /// its own state inside its own label text ("Impact Location &
+    /// Direction — Recorded"). Everything the old footer could reach is
+    /// still reachable -- the five segments route to the SAME sheets the
+    /// five buttons did -- but the state is now glanceable in one row
+    /// instead of five rows of prose, and the data-quality cost of a
+    /// skip is stated BEFORE analysis rather than turning up afterwards
+    /// in `skippedShotsSummary` on the results screen.
+    ///
+    /// The two long captions are gone, and deliberately NOT re-added to
+    /// their destination screens: both already say the same thing there.
+    /// `ImpactMarkerView`'s header carries "required to correlate impact
+    /// geometry between both vehicles" plus a why-note reading "confirm
+    /// both vehicles were hit in a way that matches", and
+    /// `ScarCaptureView`'s why-note explains the paint-taper reading of
+    /// direction. Copying the footer wording alongside them would have
+    /// produced two near-identical sentences on one screen, which is
+    /// worse than the tall footer was. One clause IS lost -- the
+    /// reversing / backing-out-of-a-parking-space example -- and that is
+    /// flagged for the copy owner rather than fixed here, since
+    /// `ScarCaptureView.swift` is being rewritten under a separate
+    /// change and must not be touched from this one.
+    ///
+    /// What deliberately did NOT change: `Continue to Suspect` / `Run
+    /// Analysis` keep the exact gate `isComplete && hasImpactProfile`.
+    /// The bar changes what the user SEES, not what the app ALLOWS.
     private var footerControls: some View {
-        VStack(spacing: 8) {
-            // NOTE(AI Developer), added 2026-07 per Sean's "review of all
-            // the thumbnails... before its submitted to be analysed"
-            // request -- a second, labeled entry point to
-            // `PhotoReviewView` alongside the icon-only one in
-            // `roleHeader` above, placed first in the footer since
-            // reviewing/fixing photos is naturally something a user
-            // checks before dealing with the impact/scar/LiDAR steps
-            // below it.
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Readiness — tap any segment")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            readinessSegmentRow
+
+            // Photo progress only, and deliberately secondary: the
+            // segments are the primary cue. A single bar cannot express
+            // five independent steps, which is the whole reason the
+            // segments exist.
+            ProgressView(value: viewModel.progress)
+                .tint(.accentColor)
+
+            readinessWarningLine
+            nextStepBox
+            primaryActions
+        }
+        .padding()
+        .background(.thinMaterial)
+    }
+
+    /// Five fixed segments in one row, each an equal-width `Button`
+    /// routing to the same destination its old footer button did.
+    ///
+    /// NOTE(AI Developer): the count is fixed at five, which is what
+    /// makes a non-scrolling row viable. If a sixth is ever added, wrap
+    /// to two rows of three -- do NOT let the text shrink, since these
+    /// labels must stay legible at large Dynamic Type sizes on a
+    /// roadside in sun.
+    private var readinessSegmentRow: some View {
+        HStack(spacing: 6) {
+            ForEach(viewModel.readinessSegments) { segment in
+                Button {
+                    open(segment.destination)
+                } label: {
+                    VStack(spacing: 2) {
+                        Text(segment.title)
+                            .font(.caption.weight(.semibold))
+                        Text(segment.detail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .tint(tint(for: segment.state))
+                .accessibilityLabel(accessibilityLabel(for: segment))
+            }
+        }
+    }
+
+    /// State severity is the ONLY thing colour encodes here, and it is
+    /// never the only carrier: `segment.detail` and the accessibility
+    /// label say the same thing in words. Semantic roles only -- no
+    /// literal RGB -- so the deferred high-contrast field theme stays a
+    /// token swap rather than a rewrite.
+    private func tint(for state: ReadinessSegment.State) -> Color {
+        switch state {
+        case .done: return .green
+        case .requiredMissing: return .orange
+        case .optionalMissing: return .secondary
+        }
+    }
+
+    /// NOTE(AI Developer): an optional gap must not be announced as a
+    /// problem. "Optional" is read out as optional, and an inconclusive
+    /// scar as inconclusive -- not as missing, which would send the user
+    /// to re-shoot a frame that was fine.
+    private func accessibilityLabel(for segment: ReadinessSegment) -> String {
+        switch segment.state {
+        case .done: return "\(segment.title), done, \(segment.detail)"
+        case .requiredMissing: return "\(segment.title), required, \(segment.detail)"
+        case .optionalMissing: return "\(segment.title), optional, \(segment.detail)"
+        }
+    }
+
+    /// Generated from the real count of required-but-missing segments,
+    /// and rendered ONLY when that count is at least one -- there is no
+    /// reassuring variant, because a permanently-present line is a line
+    /// users stop reading.
+    ///
+    /// The wording deliberately promises nothing specific about the
+    /// score: it says confidence is reduced and the report will list the
+    /// gaps, both of which are true and both of which the engine
+    /// actually does. It must not be reworded into a numeric claim.
+    @ViewBuilder
+    private var readinessWarningLine: some View {
+        let count = viewModel.readinessRequiredMissingCount
+        if count > 0 {
+            Label {
+                Text("\(count) required \(count == 1 ? "item is" : "items are") missing. Analysis will run, but confidence will be reduced and the report will list these as limitations.")
+            } icon: {
+                Image(systemName: "exclamationmark.triangle.fill")
+            }
+            .font(.caption)
+            .foregroundStyle(.orange)
+        }
+    }
+
+    /// One box naming the single highest-impact remaining item. Priority
+    /// lives in the view model (`readinessNextStep`), not here.
+    @ViewBuilder
+    private var nextStepBox: some View {
+        if let next = viewModel.readinessNextStep {
+            Button {
+                open(next.destination)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Next step")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Text(nextStepTitle(for: next))
+                        .font(.subheadline.weight(.semibold))
+                    if let why = nextStepReason(for: next) {
+                        Text(why)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .multilineTextAlignment(.leading)
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    private func nextStepTitle(for segment: ReadinessSegment) -> String {
+        switch segment.destination {
+        case .impact: return "Impact location & direction"
+        case .photos: return "Remaining protocol photos"
+        case .height: return "Height reference photo"
+        case .scar: return segment.detail == "retry" ? "Scar photo — direction not yet read" : "Scar photo & direction"
+        case .lidar: return "LiDAR height measurement"
+        }
+    }
+
+    /// Only the scar carries a reason line, and only because it is the
+    /// step users skip most while it feeds four of the seven
+    /// comparisons. Every other segment's title is self-explanatory, and
+    /// a reason under each one would be the caption stack this bar
+    /// replaced.
+    private func nextStepReason(for segment: ReadinessSegment) -> String? {
+        guard segment.destination == .scar else { return nil }
+        return "Feeds 4 of the 7 comparisons. Highest impact of anything left."
+    }
+
+    private var primaryActions: some View {
+        HStack(spacing: 16) {
             Button {
                 showPhotoReview = true
             } label: {
                 Label("Review Photos", systemImage: "square.grid.2x2")
-                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            // NOTE(AI Developer): checks BOTH vehicles' progress -- see
+            // the identical guard in `roleHeader`.
             .disabled(viewModel.shotIndex(for: .victim) == 0 && viewModel.shotIndex(for: .suspect) == 0)
 
-            // NOTE(AI Developer), added 2026-07 per Sean's decision that
-            // impact location + direction of travel is a REQUIRED step
-            // (unlike the skippable photo protocol) -- surfaced as its
-            // own row so it's visible and actionable independent of shot
-            // count, with a checkmark once `hasImpactProfile` is true so
-            // it's clear at a glance whether this vehicle still needs it.
-            Button {
-                showImpactMarker = true
-            } label: {
-                Label(
-                    viewModel.hasImpactProfile ? "Impact Location & Direction — Recorded" : "Impact Location & Direction — Required",
-                    systemImage: viewModel.hasImpactProfile ? "checkmark.circle.fill" : "exclamationmark.circle"
-                )
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(viewModel.hasImpactProfile ? .green : .orange)
+            Spacer()
 
-            // NOTE(AI Developer), added 2026-07 per Sean's request for
-            // in-flow "why this matters" guidance -- this button is the
-            // entry point to `ImpactMarkerView` (where the fuller
-            // one-line explanation also lives), but a user deciding
-            // whether to tap it here benefits from knowing why it's
-            // required *before* opening the sheet, not just that it is.
-            if !viewModel.hasImpactProfile {
-                Text("Required because it's what lets the app confirm both vehicles were hit in a way that matches — not just photos of separate damage.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 4)
-            }
-
-            // NOTE(AI Developer), added 2026-07 for the Scar-Direction
-            // Consistency feature -- deliberately styled/worded as
-            // OPTIONAL ("Recommended", not "Required"), unlike the
-            // Impact Location row above, per Sean's explicit answer
-            // that a missing/inconclusive scar reading should let the
-            // other 6 correlation factors decide rather than block
-            // analysis. Three visual states: not yet attempted (gray/
-            // outline), photo taken but direction inconclusive (orange,
-            // "Inconclusive" -- a real, expected outcome for a blunt
-            // dent with no taper to read, not an error), and resolved
-            // (green, checkmark).
-            Button {
-                showScarCapture = true
-            } label: {
-                Label(
-                    viewModel.hasScarDirection ? "Scar Direction — Recorded"
-                        : viewModel.hasScarPhoto ? "Scar Direction — Inconclusive (tap to retry)"
-                        : "Scar Direction — Recommended",
-                    systemImage: viewModel.hasScarDirection ? "checkmark.circle.fill"
-                        : viewModel.hasScarPhoto ? "questionmark.circle"
-                        : "camera.viewfinder"
-                )
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(viewModel.hasScarDirection ? .green : viewModel.hasScarPhoto ? .orange : .secondary)
-
-            if !viewModel.hasScarDirection {
-                Text("Optional, but a physical scar's paint taper can reveal the true direction of motion — even when the vehicle was reversing (e.g. backing out of a parking space) in a way a guessed compass heading can't.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 4)
-            }
-
-            HStack(spacing: 16) {
+            // NOTE(AI Developer), unchanged since 2026-07 and must stay
+            // unchanged: both buttons require `isComplete &&
+            // hasImpactProfile`. Per Sean's decision that impact
+            // location/direction is required, this gate is what enforces
+            // it at the UI level (alongside
+            // `ForensicCase.isReadyForAnalysis` guarding the engine).
+            // The readiness bar above is informational; it does not
+            // introduce a bypass.
+            if viewModel.captureRole == .victim {
                 Button {
-                    showLiDAR = true
+                    viewModel.switchToSuspect()
                 } label: {
-                    Label("LiDAR Scan", systemImage: "scanner.fill")
+                    Label("Continue to Suspect", systemImage: "arrow.right.circle.fill")
                 }
-                .buttonStyle(.bordered)
-
-                Spacer()
-
-                // NOTE(AI Developer), updated 2026-07: both buttons below
-                // now also require `viewModel.hasImpactProfile` alongside
-                // `isComplete` -- per Sean's decision that impact
-                // location/direction is required, this gate is what
-                // actually enforces that at the UI level (in addition to
-                // `ForensicCase.isReadyForAnalysis` guarding the analysis
-                // engine itself).
-                if viewModel.captureRole == .victim {
-                    Button {
-                        viewModel.switchToSuspect()
-                    } label: {
-                        Label("Continue to Suspect", systemImage: "arrow.right.circle.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!(viewModel.isComplete && viewModel.hasImpactProfile))
-                } else {
-                    Button {
-                        showAnalysis = true
-                    } label: {
-                        Label("Run Analysis", systemImage: "wand.and.stars")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!(viewModel.isComplete && viewModel.hasImpactProfile))
+                .buttonStyle(.borderedProminent)
+                .disabled(!(viewModel.isComplete && viewModel.hasImpactProfile))
+            } else {
+                Button {
+                    showAnalysis = true
+                } label: {
+                    Label("Run Analysis", systemImage: "wand.and.stars")
                 }
+                .buttonStyle(.borderedProminent)
+                .disabled(!(viewModel.isComplete && viewModel.hasImpactProfile))
             }
         }
-        .padding()
-        .background(.thinMaterial)
+    }
+
+    /// Segment routing. Every case opens an EXISTING presentation flag --
+    /// no new navigation was added for the bar, so a segment cannot lead
+    /// somewhere the old footer could not.
+    private func open(_ destination: ReadinessSegment.Destination) {
+        switch destination {
+        case .photos: showPhotoReview = true
+        case .impact: showImpactMarker = true
+        case .scar: showScarCapture = true
+        // The protocol's height slots are captured in the main camera
+        // flow, so the actionable destination is the photo review grid --
+        // the one screen that shows which slots are filled, skipped, or
+        // pending and lets the user fix them.
+        case .height: showPhotoReview = true
+        case .lidar: showLiDAR = true
+        }
     }
 }
 
