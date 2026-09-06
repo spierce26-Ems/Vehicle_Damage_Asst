@@ -201,7 +201,18 @@ def check_skeleton_drift():
         report = fail if key in critical else warn
         remedy = f"set {key} in BOTH {PBXPROJ} and {SKELETON}"
         if key == "DEVELOPMENT_TEAM":
-            remedy += " -- ./scripts/set_dev_team.sh <team-id> does both"
+            # NOT "set_dev_team.sh does both" unconditionally. That script
+            # refuses when DEVELOPMENT_TEAM is already present in either
+            # file -- which is true in every case that reaches this branch
+            # except a key missing from both. Measured: with the pbxproj's
+            # team emptied, the remedy's own command exits 1 with "already
+            # present ... not overwriting" and the failure stands. Eighth
+            # unperformable remedy today, and the first found in the 32
+            # sites nobody had executed (PROCESS sec.4c).
+            remedy += (" -- ./scripts/set_dev_team.sh <team-id> does both, "
+                       "but ONLY when DEVELOPMENT_TEAM is absent from both "
+                       "files; it refuses rather than overwrite an existing "
+                       "value, so for a MISMATCH edit both files by hand")
         report("skeleton-drift",
                f"{key} differs: project.pbxproj has {lv or 'nothing'}, "
                f"skeleton has {sv or 'nothing'}",
