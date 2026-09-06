@@ -348,7 +348,7 @@ def _parse_field(decl):
 
 
 def codable_line_spans(path):
-    """1-based (start, end) line ranges of every Codable type body in `path`.
+    """1-based (start, end, name) for every Codable type body in `path`.
 
     Used to scope the persisted-field check to types that actually get
     encoded. Brace-matched rather than regex-to-end-of-type so a nested
@@ -446,9 +446,58 @@ def codable_line_spans(path):
                 depth -= 1
                 if depth == 0:
                     spans.append((line_of.get(open_idx, 1),
-                                  line_of.get(j, line)))
+                                  line_of.get(j, line),
+                                  m.group(1)))
                     break
     return spans
+
+
+def types_added_in_diff(path):
+    """Names of Codable types whose DECLARATION is added in the current diff.
+
+    A non-optional field on a brand-new persisted type is harmless by
+    construction: no saved case can contain a type that did not exist when it
+    was written, so there is no old payload missing the key. Treating "new
+    field in a diff" as "new field on an existing persisted type" is what
+    produced eight false positives on the first real rebase -- and the whole
+    hazard lives in that difference.
+    """
+    diff = sh("git", "diff", *diff_args(), "--", path)
+    added = set()
+    for line in diff.splitlines():
+        if not line.startswith("+") or line.startswith("+++"):
+            continue
+        m = re.match(r"\+\s*(?:public\s+|internal\s+|private\s+|fileprivate\s+)?"
+                     r"(?:final\s+)?(?:struct|class|enum|actor)\s+(\w+)",
+                     line)
+        if m:
+            added.add(m.group(1))
+    return added
+
+
+def types_with_custom_decoder(path, spans):
+    """Names of types declaring their own `init(from:)`.
+
+    Imperfect on purpose. A hand-written decoder CAN still decode a new key
+    non-optionally, so this does not prove the migration is safe. What it
+    proves is that a human made a decoding decision for this type -- and the
+    remedy this check recommends IS `decodeIfPresent` in an explicit
+    `init(from:)`, so blocking a type that has one blocks the fix. Moving the
+    judgement to someone who has demonstrably thought about decoding beats
+    refusing every correct migration; a blocking check that fires on correct
+    code gets --no-verify'd, and that flag takes every other check with it.
+    """
+    try:
+        with open(os.path.join(REPO, path), encoding="utf-8") as fh:
+            lines = fh.readlines()
+    except OSError:
+        return set()
+    out = set()
+    for lo, hi, name in spans:
+        body = "".join(lines[lo - 1:hi])
+        if re.search(r"\binit\s*\(\s*from\s+\w+\s*:\s*Decoder\s*\)", body):
+            out.add(name)
+    return out
 
 
 def check_persisted_model(files):
@@ -500,6 +549,10 @@ def check_persisted_model(files):
         if not codable_spans:
             continue
 
+        # Two exemptions, both about whether an OLD payload can exist.
+        new_types = types_added_in_diff(f)
+        decoded_by_hand = types_with_custom_decoder(f, codable_spans)
+
         # A type change appears as a -/+ pair on the same field name, so the
         # removed side has to be collected before the added side can be
         # judged. Nothing about such a line looks dangerous in review.
@@ -526,7 +579,18 @@ def check_persisted_model(files):
             if not line.startswith("+") or line.startswith("+++"):
                 continue
             current_line, new_line = new_line, new_line + 1
-            if not any(lo <= current_line <= hi for lo, hi in codable_spans):
+            enclosing = [nm for lo, hi, nm in codable_spans
+                         if lo <= current_line <= hi]
+            if not enclosing:
+                continue
+            # Innermost wins: a nested type inside a Codable one is its own
+            # persistence unit, and the outer type's decoder says nothing
+            # about it.
+            owner = enclosing[-1]
+
+            # Exemption 1: the type itself is introduced in this diff, so no
+            # saved case can hold a payload missing the key.
+            if owner in new_types:
                 continue
             parsed = _parse_field(line[1:].strip())
             if not parsed:
@@ -550,6 +614,21 @@ def check_persisted_model(files):
 
             if type_str.endswith("?") or type_str.startswith("Optional"):
                 continue
+
+            # Exemption 2: the type has a hand-written init(from:), which is
+            # the remedy this check recommends -- blocking it would block the
+            # fix. Advisory rather than silent: the decoder still has to read
+            # this key tolerantly, and only a human can confirm that.
+            if owner in decoded_by_hand:
+                warn("persisted-model",
+                     f"{f}: new non-optional field `{name}: {type_str}` on "
+                     f"`{owner}`, which has a hand-written init(from:)",
+                     "not blocking -- an explicit decoder is the recommended "
+                     "remedy. Confirm it reads this key with decodeIfPresent "
+                     "and a default, since a custom decoder can still decode "
+                     "a new key non-optionally.")
+                continue
+
             fail("persisted-model",
                  f"{f}: new non-optional field `{name}: {type_str}` on a "
                  "persisted model",
