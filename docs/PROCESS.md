@@ -306,9 +306,28 @@ describing which statistical test runs is not, and will not be. `preflight`'s
 staged checks see the resolution's diff, not its omissions relative to a third
 tree. So the guard is a review habit, and it is narrow enough to be followed:
 
-- **After resolving a conflict, diff the resolved file against *both* parents,
-  not just against the branch you are landing on.** An omission relative to one
-  parent is invisible in a diff against the other.
+- **After any commit that relocates code, diff the affected file against
+  *every* parent — not just against the branch you are landing on.** An
+  omission relative to one parent is invisible in a diff against the other.
+  A conflict resolution is the two-parent case; a rebase or a refactor that
+  moves code between functions is the one-parent case, and it fails the same
+  way. Vector found a lost `Group`-idiom rationale on an ordinary #13 rebase
+  with no conflict at all: the wrapper moved out of the measurement banner and
+  its comment stayed behind, leaving the idiom without its reason. The next
+  reader to "simplify" it into a bare if/else gets a ViewBuilder
+  modifier-chaining error that looks like a mistake in their own edit.
+- **Use the comments-only form, because it is unskimmable:**
+  `git diff <parent> HEAD -- <file> | grep -E "^-\s*(///|//)"`. A 900-line
+  diff gets skimmed and a four-line one does not. Most review rules fail on
+  volume rather than on principle, which is the only reason this one is
+  expected to hold.
+- **Then confirm each removal survives somewhere, by grepping for the concept
+  rather than judging the list.** This is the part that costs something:
+  "those look superseded" is exactly the conclusion a reader reaches from
+  reading the removals, and it is reached without evidence. Vector checked all
+  39 other removed comment lines on that rebase this way and they were
+  genuinely relocated; the point is that the check, not the impression, is
+  what established it.
 - **Prose adjacent to changed code is part of the resolution.** A comment that
   explains a behaviour is as load-bearing as the code when it is the artefact a
   reviewer consults, and it fails more quietly, because code that contradicts
@@ -316,6 +335,14 @@ tree. So the guard is a review habit, and it is narrow enough to be followed:
 - Two statements about one behaviour inside one file is always a defect, even
   when one of them is right. Whichever is stale, a reader has no way to tell
   which.
+
+Scope, corrected after the fact: this section was written for conflict
+resolutions, but **prose loss does not require a conflict.** It happens
+whenever code moves — the loss is at the join between where the code left and
+where it arrived, which has the same structure as a merge with one parent
+instead of two. Every check passed on the clean single-parent rebase that
+produced the instance above. Read every clause here as applying to any commit
+that relocates code.
 
 This is the third distinct thing a conflict resolution can silently produce,
 alongside a decoder that forgets a field (§1) and a manifest resolved by picking
