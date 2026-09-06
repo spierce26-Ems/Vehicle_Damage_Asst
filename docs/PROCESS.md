@@ -512,82 +512,40 @@ rather than in the artefact.**
 told.** *"The condition persists after the remedy"* is the signature of a
 **correct reminder** and of a **broken drift-check remedy** at once: one
 observation, two opposite verdicts, which is this document's own
-predicate-one-short shape aimed at the fix for it. The class is not marginal —
-`preflight.py` carries **38 remedy call sites (26 `warn()` + 12 `fail()`)**, of
-which **2** are reminders — both in `check_docs_owed`. A harness that guessed
-would manufacture false positives inside the tool built to end false remedies,
-and train the bypass habit the grading rules exist to prevent.
-**Declare the kind at the call site; do not derive it from behaviour.**
+predicate-one-short shape aimed at the fix for it. **The class is 2 of 39, and
+its smallness is the argument.** `preflight.py` carries 39 remedy sites; being
+diff-keyed is **necessary and not sufficient** for a reminder, because a
+diff-keyed check whose finding concerns the *content* the diff introduced — a
+non-optional field, an oversized commit — clears when that content is fixed.
+Only the **presence-keyed** subset cannot clear: a file added or removed, which
+no remedy retracts because performing it does not un-make the change. Both live
+in `check_docs_owed`. **A class that small is proof no heuristic would ever
+have found it** — a stronger argument for call-site declaration than any
+percentage. **Declare the kind at the call site; do not derive it from
+behaviour.**
+
+**How this paragraph previously said "7, matching the `diff_args()` count
+exactly" is the day's shape at its purest: two independent miscounts landing on
+the same wrong number, and their agreement reading as verification.** `7` was a
+grep over `diff_args` — two of those lines are its own `def` and a comment —
+against 5 call sites, one of which is the shared file selector rather than a
+check. **Corroboration between two instruments is worth nothing when both share
+a method**, and the parenthetical below warns about that exact method one
+clause earlier. The harness's own output disagreed with the document before
+anyone looked: it declared 2.
 (Count the calls, not the greps: a bare `warn(`/`fail(` grep also matches the
 two function definitions, which is how 37, 38 and 40 were all quoted for the
-same file within one hour. The same applies to `diff_args` — see below.)
-
-**The reminder count is 2, not 7, and `diff_args()` was never the predicate.**
-`diff_args` appears on **7** lines, but two are its own `def` and a comment
-naming it: there are **5** call sites — `changed_files()`,
-`check_commit_size`, `check_docs_owed`, `types_added_in_diff`,
-`check_persisted_model` — and `changed_files()` is the shared file selector
-every commit-shaped check goes through, not a check of its own. Those three
-checks hold **8** remedy sites between them, of which 2 are reminders:
-`check_commit_size` and `check_persisted_model` are diff-keyed and still name
-state their remedies genuinely change. So *"7 reminders, matching the
-`diff_args()` count exactly"* was **two independent grep miscounts landing on
-the same wrong number — and the agreement is what made it look verified.** It
-is the grep error this section warns about, committed inside the warning.
-
-**The measured predicate is narrower, and it is the one to declare against.** A
-reminder is keyed to the *presence* of a change in the diff — a file added or
-removed, a commit's shape — which no remedy can retract, because performing it
-does not un-make the change. Being diff-keyed is necessary and not sufficient:
-a diff-keyed check whose finding is about the *content* the diff introduced (a
-non-optional field, a 700-line file) clears when that content is fixed. **Only
-the presence-keyed subset cannot clear, and it is 2 of 38.** That sharpens the
-argument rather than weakening it: the class is far too small for any
-heuristic to have found it, and small is not marginal — those 2 are the sites
-where a reader who performed all three steps correctly is told the work did
-not take.
-
-**Built, as `scripts/check_remedies.py`.** It walks `preflight.py`'s AST and
-fails the run when any `warn()`/`fail()` site lacks a
-`# remedy: <fixes|reminder|external|state>` declaration, and additionally fails
-a `reminder` whose remedy text never says it will not clear. All 38 sites are
-declared; **2 are reminders** — the paragraph above corrects the 7, which was
-a grep of `diff_args` counting its own definition. `fixes` =
-following it removes the finding, and name the thing that does. `reminder` =
-keyed to the diff, so **no correct work clears it in this run** — say so, and
-name the checks that verify the result. `external` = needs a device, Xcode, a
-push, or a person. `state` = the finding *is* the state; restore it from
-elsewhere, and say so where no generator exists.
-
-**A declaration is a claim, not a proof, and the first two claims were wrong.**
-The script cannot verify that a `fixes` remedy fixes. Two sites were annotated
-`fixes` and Compass measured both false within the hour — the pbxproj ghost
-(the regenerator only ADDS sources, so a stale entry survives a run that
-*reports success*) and the `DEVELOPMENT_TEAM` mismatch (`set_dev_team.sh`
-correctly refuses to overwrite, so the remedy is true for first-time setup and
-false for every mismatch that reaches the check). They are now `state` and
-`external`. **That is the mechanism working as designed rather than a
-counter-example to it:** the wrong claim was written down where a reader could
-disagree with it, which is the whole difference from an omission. *A remedy is
-read as instruction, never as a claim, and nobody audits an imperative* —
-declaring the kind is what turns it into something auditable.
-
-**One caution built in rather than discovered, Ledger's.** The `reminder`
-grading is a **prose** predicate — the one part of this script that matches
-wording rather than structure — and a prose predicate goes stale in wording
-while staying true in substance, which is this document's dead-check shape
-arriving through the tool built to end it. So it matches a disjunction of
-phrasings rather than one canonical string, and a site can opt out with
-`# remedy-clears-note: ok` when it states the fact in words the list does not
-know. **A false positive here would cost a correct remedy being reworded to
-satisfy a regex, which is how a tool starts training the bypass habit.** If the
-opt-out is ever needed more than once or twice, delete the predicate rather
-than extending it: the declaration is the load-bearing part and this is a
-courtesy on top of it.
+same file within one hour. And an AST walk keyed on the NAME `warn`/`fail`
+misses a reporter bound to a variable first — `report = fail if key in critical
+else warn` — which is how 38 survived a mechanical recount: **the walk asked
+whether a call is NAMED warn or fail where the question is whether it REACHES
+them.** `exists` for `runs` again, in the tool built to end it. A count is
+itself a claim, so it needs a floor that fails on a DROP: an anchor assertion
+catches a rename to zero and cannot catch 39 quietly becoming 38.)
 
 **The denominator is the finding, and it is the last wrong all-clear of the
 day.** Six sites were swept and four of us called the surface closed. **Six of
-38 is 16%; the other 32 remedies have never been performed by anyone.** Nothing
+39 is 15%; the other 33 remedies have never been performed by anyone.** Nothing
 suggests they are broken — but nothing establishes they are not, and "no
 failures reported" from a sweep that never reached them is exactly what a dead
 check looks like. **The honest word is *unexercised*: not suspect, not clear.**
@@ -599,7 +557,7 @@ sweep report instead of to a check. **A documented gap beats a fifth sweep
 declaring closure.**
 
 **Then two of the 32 were exercised and both were defective**, which moves the
-count to 8 of 38 and puts a number on what "unexercised" was protecting: the
+count to 8 of 39 and puts a number on what "unexercised" was protecting: the
 `pbxproj` remedy names a regeneration that only ever ADDS sources, so a stale
 entry survives a run **that reports success**; and the `skeleton-drift` remedy
 names a script that refuses precisely when the check has fired. Two of two is a
