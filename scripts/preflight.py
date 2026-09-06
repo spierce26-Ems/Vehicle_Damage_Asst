@@ -903,17 +903,42 @@ def _sha_is_reachable(sha):
     at is not, however well it resolves here. Proven on `3c262e2`: `cat-file`
     calls it a commit in my clone, and it is an ancestor of nothing.
 
-    Note what this still cannot establish -- whether the sha is reachable on
-    the SERVER. A local branch nobody pushed satisfies this. The residual is
-    stated rather than hidden, per sec.5b, and the honest bound is that this
-    catches the rebased-away case, which is all three instances found today.
+    Scoped to remote-tracking refs and tags, not local branches -- see the
+    comment in the body. A local branch is my view of history, not a
+    reader's, and that gap was not theoretical: it passed two dead shas in
+    the Tech Lead's clone through leftover scratch branches.
+
+    The remaining bound, stated rather than hidden per sec.5b: a
+    remote-tracking ref can be stale, so `git fetch --prune` before trusting
+    a clean line is required -- the same rule this section already states
+    about asserting any remote fact.
     """
     if sh("git", "cat-file", "-t", sha).strip() != "commit":
         return False
     # --contains over all refs: cheaper and more direct than walking history
     # ourselves, and it answers exactly "does any ref lead here".
+    # refs/remotes and refs/tags ONLY -- deliberately not refs/heads.
+    #
+    # The residual this docstring used to state as theoretical was already
+    # firing. The Tech Lead had ~40 leftover scratch branches from today's
+    # testing (`_t6`, `_t13b`, ...) that existed on no remote, and two shas
+    # dead for every reader were REACHABLE in his clone through them. The
+    # check passed them until he pruned. So "reachable from any ref" is the
+    # same mistake one step out: a local branch is my view, not a reader's.
+    #
+    # A remote-tracking ref or a tag is a claim about what the REMOTE has, so
+    # it is the closest thing a local command can get to the reader's
+    # question. Requiring a prune is a remedy that depends on the reader
+    # already suspecting the problem, which is the shape this repo spent the
+    # day removing.
+    #
+    # Honest bound, still: a remote-tracking ref can itself be stale, so
+    # `git fetch --prune` before trusting a clean line is the standing
+    # requirement -- sec.5b's own rule about asserting a remote fact. What
+    # this now cannot do is pass a sha kept alive only by a local branch,
+    # which is what it was doing.
     refs = sh("git", "for-each-ref", "--format=%(refname)",
-              "--contains", sha).strip()
+              "--contains", sha, "refs/remotes", "refs/tags").strip()
     return bool(refs)
 
 
