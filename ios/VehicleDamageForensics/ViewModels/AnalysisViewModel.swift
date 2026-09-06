@@ -260,6 +260,73 @@ final class AnalysisViewModel: ObservableObject {
         forensicCase.matchResult?.toolMarkComparison
     }
 
+    // MARK: Per-Cross-Section Exclusion (item #4)
+
+    /// NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item
+    /// plan. Excludes one striation cross-section from the tool-mark
+    /// comparison, recomputes the filtered score and its own null-model
+    /// baseline, writes a chain-of-custody entry, and persists.
+    ///
+    /// `reason` is required and must be non-blank -- the call is a no-op
+    /// if it is empty. See `StriationExclusion`'s doc comment: an
+    /// undocumented post-hoc exclusion is score-shopping, and the stated
+    /// reason is the only thing that makes this an auditable examiner
+    /// judgement instead. The UI enforces this too (the confirm button
+    /// stays disabled), but it is enforced here as well so no future
+    /// caller can bypass it.
+    ///
+    /// Deliberately does NOT re-run `MatchScoreCalculator.evaluate` --
+    /// exclusion only ever re-scores the tool-mark factor from data
+    /// already extracted at capture time. Re-running the full pipeline
+    /// would recompute unrelated factors (Vision contour detection,
+    /// paint analysis) and could shift the composite score as a side
+    /// effect of an unrelated examiner note, which would be both
+    /// expensive and wrong.
+    func excludeCrossSection(
+        _ crossSection: StriationCrossSection,
+        role: VehicleRole,
+        reason: String
+    ) async {
+        let trimmedReason = reason.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedReason.isEmpty else { return }
+        guard var result = forensicCase.matchResult,
+              let comparison = result.toolMarkComparison else { return }
+        // Ignore a duplicate exclusion of the same probe rather than
+        // stacking two records for one decision.
+        guard !comparison.excludedIDs(for: role).contains(crossSection.id) else { return }
+
+        let exclusion = StriationExclusion(
+            crossSectionID: crossSection.id,
+            vehicleRole: role,
+            positionAlongLine: crossSection.positionAlongLine,
+            reason: trimmedReason
+        )
+        result.toolMarkComparison = ToolMarkMatcher.applying(
+            exclusions: comparison.exclusions + [exclusion],
+            to: comparison
+        )
+        forensicCase.matchResult = result
+        matchResult = result
+        forensicCase.recordAudit(.striationProbeExcluded, detail: exclusion.displaySummary)
+        await storage.save(forensicCase)
+    }
+
+    /// Restores a previously-excluded cross-section, recomputing the
+    /// filtered result (or clearing it entirely if this was the last
+    /// exclusion) and logging the reversal.
+    func restoreCrossSection(_ exclusion: StriationExclusion) async {
+        guard var result = forensicCase.matchResult,
+              let comparison = result.toolMarkComparison else { return }
+        let remaining = comparison.exclusions.filter { $0.id != exclusion.id }
+        guard remaining.count != comparison.exclusions.count else { return }
+
+        result.toolMarkComparison = ToolMarkMatcher.applying(exclusions: remaining, to: comparison)
+        forensicCase.matchResult = result
+        matchResult = result
+        forensicCase.recordAudit(.striationProbeRestored, detail: exclusion.displaySummary)
+        await storage.save(forensicCase)
+    }
+
     /// NOTE(AI Developer), added 2026-07 implementing Sean's explicit
     /// hard exclusion rule. Non-nil means BOTH a Height Alignment
     /// mismatch AND a Scar-Direction Consistency conflict were detected

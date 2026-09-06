@@ -23,6 +23,22 @@ struct MatchResultsView: View {
     /// `PaywallView`. See `AnalysisViewModel.isUnlocked`.
     @State private var showPaywall = false
 
+    /// NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item
+    /// plan (per-cross-section exclude). Identifies the probe the user
+    /// has tapped but not yet confirmed an exclusion for -- non-nil
+    /// drives the reason-entry sheet. A named struct (rather than a
+    /// tuple) both for `Identifiable` sheet presentation and for the
+    /// same SourceKit-stability reason `ScarCaptureView.FocusDragStart`
+    /// exists: large SwiftUI files with inline tuple state were
+    /// implicated in the earlier Xcode editor crash.
+    private struct PendingExclusion: Identifiable {
+        let id = UUID()
+        let crossSection: StriationCrossSection
+        let role: VehicleRole
+    }
+    @State private var pendingExclusion: PendingExclusion?
+    @State private var exclusionReason = ""
+
     init(forensicCase: ForensicCase) {
         _viewModel = StateObject(wrappedValue: AnalysisViewModel(forensicCase: forensicCase))
     }
@@ -100,6 +116,15 @@ struct MatchResultsView: View {
             PaywallView {
                 viewModel.markUnlockedFromPaywall()
             }
+        }
+        // NOTE(AI Developer), added 2026-09 for item #4: the reason is
+        // collected in a blocking sheet with a disabled confirm button
+        // until something is typed, rather than an optional note the
+        // user can skip. See `StriationExclusion`'s doc comment -- an
+        // exclusion without a stated reason is indistinguishable from
+        // score-shopping, so the app declines to record one.
+        .sheet(item: $pendingExclusion) { pending in
+            exclusionReasonSheet(pending)
         }
         .task {
             if viewModel.forensicCase.matchResult == nil {
@@ -622,35 +647,204 @@ struct MatchResultsView: View {
             Text(comparison.summary)
                 .font(.subheadline)
 
+            // NOTE(AI Developer), added 2026-09 for item #4: the
+            // affordance has to explain itself, because a tap that
+            // changes a forensic score must never feel incidental.
+            if comparison.isDeterminable {
+                Text("Tap any probe below to exclude it from the comparison — for example if it landed on a tape measure, a panel gap, or a reflection rather than the scar. You'll be asked to state a reason, and the full score is always kept alongside the filtered one.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
             HStack(alignment: .top, spacing: 16) {
-                toolMarkColumn(title: "Victim", profile: comparison.victimProfile)
+                toolMarkColumn(title: "Victim", role: .victim, profile: comparison.victimProfile, comparison: comparison)
                 Divider()
-                toolMarkColumn(title: "Suspect", profile: comparison.suspectProfile)
+                toolMarkColumn(title: "Suspect", role: .suspect, profile: comparison.suspectProfile, comparison: comparison)
+            }
+
+            if comparison.hasExclusions {
+                filteredOutcomeBlock(comparison)
             }
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
-    private func toolMarkColumn(title: String, profile: StriationProfile) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(title) (\(profile.crossSections.count) probes)").font(.subheadline.bold())
+    /// NOTE(AI Developer), reworked 2026-09 for item #4 of Sean's 5-item
+    /// plan (per-cross-section exclude). Each probe row is now tappable
+    /// to exclude it, and an already-excluded probe stays listed --
+    /// struck through, with its reason visible and a Restore action --
+    /// rather than disappearing. Keeping excluded probes on screen is
+    /// deliberate: an exclusion is an examiner judgement the reader
+    /// should be able to see and disagree with, not a way to make
+    /// inconvenient data vanish.
+    private func toolMarkColumn(
+        title: String,
+        role: VehicleRole,
+        profile: StriationProfile,
+        comparison: ToolMarkComparison
+    ) -> some View {
+        let excluded = comparison.excludedIDs(for: role)
+        let keptCount = profile.crossSections.count - profile.crossSections.filter { excluded.contains($0.id) }.count
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(excluded.isEmpty
+                 ? "\(title) (\(profile.crossSections.count) probes)"
+                 : "\(title) (\(keptCount) of \(profile.crossSections.count) probes)")
+                .font(.subheadline.bold())
             if !profile.isDeterminable {
                 Text("Not enough striation detail found")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(profile.crossSections) { cs in
-                    Label(
-                        String(format: "%.0f%%: %d marks found", cs.positionAlongLine * 100, cs.peakCount),
-                        systemImage: "line.3.horizontal.decrease"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    let isExcluded = excluded.contains(cs.id)
+                    Button {
+                        if let existing = comparison.exclusions.first(where: {
+                            $0.crossSectionID == cs.id && $0.vehicleRole == role
+                        }) {
+                            Task { await viewModel.restoreCrossSection(existing) }
+                        } else {
+                            pendingExclusion = PendingExclusion(crossSection: cs, role: role)
+                            exclusionReason = ""
+                        }
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Image(systemName: isExcluded
+                                  ? "slash.circle.fill"
+                                  : "line.3.horizontal.decrease")
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(String(format: "%.0f%%: %d marks found", cs.positionAlongLine * 100, cs.peakCount))
+                                    .strikethrough(isExcluded)
+                                if isExcluded,
+                                   let reason = comparison.exclusions.first(where: {
+                                       $0.crossSectionID == cs.id && $0.vehicleRole == role
+                                   })?.reason {
+                                    Text("Excluded: \(reason)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                    Text("Tap to restore")
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                }
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(isExcluded ? .orange : .secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: Exclusion reason entry
+
+    /// NOTE(AI Developer), added 2026-09 for item #4. Deliberately
+    /// states the consequence of the action ("the full score is kept")
+    /// before asking for the reason, and offers concrete example reasons
+    /// so the recorded justification tends to be specific ("probe landed
+    /// on the tape measure") rather than a shrug ("bad data"). The
+    /// quality of what gets written into the audit log is decided
+    /// entirely by this screen's copy.
+    private func exclusionReasonSheet(_ pending: PendingExclusion) -> some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text(String(format: "%@ probe at %.0f%% along the scar — %d marks found",
+                                pending.role.displayName,
+                                pending.crossSection.positionAlongLine * 100,
+                                pending.crossSection.peakCount))
+                        .font(.subheadline.bold())
+                } header: {
+                    Text("Excluding this probe")
+                }
+
+                Section {
+                    TextField("e.g. probe landed on the tape measure, not the scar", text: $exclusionReason, axis: .vertical)
+                        .lineLimit(2...4)
+                } header: {
+                    Text("Reason (required)")
+                } footer: {
+                    Text("This reason is recorded permanently in the case's chain-of-custody audit log and appears in the exported report. The full, unfiltered score is always kept alongside the filtered one — excluding a probe never replaces or erases the original result.")
+                }
+            }
+            .navigationTitle("Exclude Probe")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { pendingExclusion = nil }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Exclude") {
+                        let reason = exclusionReason
+                        let cs = pending.crossSection
+                        let role = pending.role
+                        pendingExclusion = nil
+                        Task { await viewModel.excludeCrossSection(cs, role: role, reason: reason) }
+                    }
+                    .disabled(exclusionReason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    // MARK: Filtered (post-exclusion) result
+
+    /// NOTE(AI Developer), added 2026-09 for item #4. Renders the
+    /// filtered score as a clearly-secondary, visually distinct block
+    /// UNDER the full score, never in place of it -- Sean's brief for
+    /// this item required that both be shown, and that is also what
+    /// keeps a post-hoc filtered number from being mistaken for the raw
+    /// result. The recomputed chance baseline is shown alongside it (see
+    /// `ToolMarkFilteredOutcome`), and the delta against the unfiltered
+    /// score is spelled out in `filteredSummary` rather than left for
+    /// the reader to work out.
+    private func filteredOutcomeBlock(_ comparison: ToolMarkComparison) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Filtered result (investigator exclusions applied)", systemImage: "line.3.horizontal.decrease.circle")
+                .font(.subheadline.bold())
+                .foregroundStyle(.orange)
+            if let outcome = comparison.filteredOutcome,
+               let score = outcome.matchScorePercent {
+                Text(String(format: "%.0f%% filtered striation rhythm match", score))
+                    .font(.headline)
+                    .foregroundStyle(.orange)
+                if let significant = outcome.isStatisticallySignificant {
+                    Label(
+                        significant
+                        ? "Still distinguishable from chance after exclusions"
+                        : "NOT distinguishable from chance after exclusions",
+                        systemImage: significant ? "checkmark.seal" : "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(significant ? .secondary : .red)
+                }
+            }
+            if let summary = comparison.filteredSummary {
+                Text(summary).font(.caption)
+            }
+            Text("The full, unfiltered score above remains the primary result and is what appears as the headline figure in the exported report. Every exclusion and its stated reason is recorded in this case's audit log.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            ForEach(comparison.exclusions) { exclusion in
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Image(systemName: "slash.circle")
+                    Text(exclusion.displaySummary)
+                    Spacer(minLength: 8)
+                    Button("Restore") {
+                        Task { await viewModel.restoreCrossSection(exclusion) }
+                    }
+                    .font(.caption2)
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(10)
+        .background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.orange.opacity(0.35), lineWidth: 1))
     }
 
     // MARK: Recommendations

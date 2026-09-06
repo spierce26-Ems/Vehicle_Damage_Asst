@@ -476,6 +476,21 @@ enum AuditAction: String, Codable {
     // evidence having been superseded after the fact, not just filled
     // once.
     case photoReplaced = "photo_replaced"
+    // NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item
+    // plan (per-cross-section exclude). Excluding a striation probe
+    // changes a reported forensic score, so it is exactly the kind of
+    // mutation the chain-of-custody log exists to capture -- and unlike
+    // most entries here, this one records a human JUDGEMENT rather than
+    // a data event, which is precisely why it must be attributable and
+    // timestamped. The `detail` string carries the affected probe and
+    // the investigator's stated reason (see
+    // `StriationExclusion.displaySummary`).
+    case striationProbeExcluded = "striation_probe_excluded"
+    // Recorded when a previously-excluded probe is restored, so the log
+    // shows the full history of the examiner's decisions rather than
+    // only their final state -- an exclusion that was made and then
+    // quietly reversed is itself meaningful context.
+    case striationProbeRestored = "striation_probe_restored"
 
     var displayName: String {
         switch self {
@@ -495,6 +510,8 @@ enum AuditAction: String, Codable {
         case .scarDirectionRecorded: return "Scar Direction Recorded"
         case .scarPhotoCaptured: return "Scar Photo Captured"
         case .photoReplaced: return "Photo Replaced"
+        case .striationProbeExcluded: return "Striation Probe Excluded"
+        case .striationProbeRestored: return "Striation Probe Restored"
         }
     }
 }

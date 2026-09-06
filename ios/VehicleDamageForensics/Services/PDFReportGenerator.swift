@@ -532,26 +532,83 @@ struct PDFReportGenerator {
         let rightX: CGFloat = 50 + columnWidth + 30
         let startY = y
 
-        func drawProfileColumn(title: String, profile: StriationProfile, x: CGFloat) -> CGFloat {
+        // NOTE(AI Developer), reworked 2026-09 for item #4 of Sean's
+        // 5-item plan: an excluded probe is still PRINTED, marked as
+        // excluded with its stated reason, rather than omitted. A report
+        // that silently dropped the data an examiner chose to ignore
+        // would be actively misleading -- the reader must be able to see
+        // what was set aside and judge that decision for themselves.
+        func drawProfileColumn(title: String, role: VehicleRole, profile: StriationProfile, x: CGFloat) -> CGFloat {
             var cy = startY
-            "\(title) (\(profile.crossSections.count) probes)".draw(at: CGPoint(x: x, y: cy), font: .boldSystemFont(ofSize: 12))
+            let excluded = comparison.excludedIDs(for: role)
+            let keptCount = profile.crossSections.filter { !excluded.contains($0.id) }.count
+            let header = excluded.isEmpty
+                ? "\(title) (\(profile.crossSections.count) probes)"
+                : "\(title) (\(keptCount) of \(profile.crossSections.count) probes used)"
+            header.draw(at: CGPoint(x: x, y: cy), font: .boldSystemFont(ofSize: 12))
             cy += 16
             if !profile.isDeterminable {
                 "Not enough striation detail found".draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10), color: .darkGray)
                 cy += 14
             } else {
                 for cs in profile.crossSections {
-                    String(format: "%.0f%%: %d marks found", cs.positionAlongLine * 100, cs.peakCount)
-                        .draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10), maxWidth: columnWidth, color: .darkGray)
+                    let isExcluded = excluded.contains(cs.id)
+                    let base = String(format: "%.0f%%: %d marks found", cs.positionAlongLine * 100, cs.peakCount)
+                    let line = isExcluded ? "[EXCLUDED] " + base : base
+                    line.draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10),
+                              maxWidth: columnWidth, color: isExcluded ? .orange : .darkGray)
                     cy += 14
+                    if isExcluded,
+                       let reason = comparison.exclusions.first(where: {
+                           $0.crossSectionID == cs.id && $0.vehicleRole == role
+                       })?.reason {
+                        ("    Reason: " + reason).draw(at: CGPoint(x: x, y: cy), font: .italicSystemFont(ofSize: 9),
+                                                       maxWidth: columnWidth, color: .orange)
+                        cy += 12
+                    }
                 }
             }
             return cy
         }
 
-        let leftEndY2 = drawProfileColumn(title: "Victim", profile: comparison.victimProfile, x: leftX)
-        let rightEndY2 = drawProfileColumn(title: "Suspect", profile: comparison.suspectProfile, x: rightX)
-        _ = max(leftEndY2, rightEndY2)
+        let leftEndY2 = drawProfileColumn(title: "Victim", role: .victim, profile: comparison.victimProfile, x: leftX)
+        let rightEndY2 = drawProfileColumn(title: "Suspect", role: .suspect, profile: comparison.suspectProfile, x: rightX)
+        y = max(leftEndY2, rightEndY2) + 18
+
+        // NOTE(AI Developer), added 2026-09 for item #4: Sean's brief
+        // required exports to show BOTH the full and the filtered score.
+        // The filtered block is rendered AFTER (and visually subordinate
+        // to) the full score above, with its own recomputed chance
+        // baseline -- see `ToolMarkFilteredOutcome`'s doc comment for
+        // why the baseline must be recomputed rather than inherited.
+        guard comparison.hasExclusions else { return }
+
+        "Filtered Result — Investigator Exclusions Applied"
+            .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14), color: .orange)
+        y += 20
+        if let outcome = comparison.filteredOutcome, let score = outcome.matchScorePercent {
+            String(format: "%.0f%% filtered striation rhythm match (full, unfiltered score above remains the primary result)", score)
+                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 12),
+                      maxWidth: rect.width - 100, color: .orange)
+            y += 20
+        }
+        if let filteredSummary = comparison.filteredSummary {
+            filteredSummary.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
+            y += 48
+        }
+        "Exclusions recorded for this comparison:".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 11))
+        y += 16
+        for exclusion in comparison.exclusions {
+            let stamp = DateFormatter.localizedString(from: exclusion.timestamp, dateStyle: .short, timeStyle: .short)
+            ("• " + exclusion.displaySummary + " (recorded \(stamp))")
+                .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10),
+                      maxWidth: rect.width - 100, color: .darkGray)
+            y += 14
+        }
+        y += 6
+        "Each exclusion above was made by the investigator after reviewing the photographs, and is also recorded in this case's chain-of-custody audit log. Excluding probes after seeing a score can bias the result upward; the unfiltered score and the recomputed chance baseline are both reported here so this result can be assessed independently."
+            .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 9),
+                  maxWidth: rect.width - 100, color: .darkGray)
     }
 
     private func drawPhotoEvidence(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {

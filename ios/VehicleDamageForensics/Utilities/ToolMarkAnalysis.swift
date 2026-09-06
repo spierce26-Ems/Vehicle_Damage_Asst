@@ -156,6 +156,24 @@ struct StriationProfile: Codable, Equatable {
     var isDeterminable: Bool { rhythmSequence.count >= Self.minimumRhythmLength }
 
     static func empty() -> StriationProfile { StriationProfile(crossSections: []) }
+
+    // NOTE(AI Developer), added 2026-09 for the per-cross-section
+    // exclude feature (item #4 of Sean's 5-item plan). Returns a copy of
+    // this profile with the cross-sections whose `id` appears in
+    // `excludedIDs` removed, so `rhythmSequence` (and therefore every
+    // score derived from it) is rebuilt from only the kept probes.
+    //
+    // Deliberately a pure function returning a NEW profile rather than a
+    // mutation: the original, complete profile must stay intact and
+    // persisted, because the whole defensibility of this feature rests
+    // on being able to show the full and filtered results side by side
+    // (see `ToolMarkComparison.filtered`). A destructive filter would
+    // make the unfiltered score unrecoverable and turn an auditable
+    // examiner judgement into silent data loss.
+    func excluding(_ excludedIDs: Set<UUID>) -> StriationProfile {
+        guard !excludedIDs.isEmpty else { return self }
+        return StriationProfile(crossSections: crossSections.filter { !excludedIDs.contains($0.id) })
+    }
 }
 
 // MARK: - Striation Extractor
@@ -548,6 +566,99 @@ enum ToolMarkOrientation: String, Codable {
     case reversed = "reversed"
 }
 
+// MARK: - Per-Cross-Section Exclusion
+
+/// One investigator decision to exclude a single striation cross-section
+/// from the tool-mark comparison, with the reason why.
+///
+/// NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item plan
+/// ("per-cross-section exclude affordance in the results UI"). A probe
+/// can legitimately land on something that isn't the scar at all -- a
+/// tape measure edge, a panel gap, a reflection, a patch of dirt -- and
+/// an examiner who can see that in the photo should be able to say so
+/// rather than having the score silently polluted by it.
+///
+/// The `reason` is REQUIRED (non-optional, and the UI refuses to commit
+/// an empty one). This is the single most important design decision in
+/// this feature: excluding data points AFTER seeing the score they
+/// produced is textbook post-hoc selection, exactly the bias the
+/// null-model layer exists to detect. With only
+/// `ToolMarkExtractor.crossSectionCount` (7) probes per photo, an
+/// investigator could otherwise exclude their way from a weak score to a
+/// strong-looking one with no record of having done so. Requiring a
+/// stated reason per exclusion, timestamping it, and mirroring it into
+/// the case's chain-of-custody `auditLog` turns that from invisible
+/// score-shopping into a documented examiner judgement that opposing
+/// counsel can read and challenge -- which is the only form in which
+/// this feature is defensible at all.
+struct StriationExclusion: Codable, Equatable, Identifiable {
+    var id: UUID = UUID()
+    /// `StriationCrossSection.id` this exclusion refers to.
+    var crossSectionID: UUID
+    /// Which vehicle's profile the excluded cross-section belongs to --
+    /// needed because the two profiles are compared against each other
+    /// and a bare `crossSectionID` alone wouldn't say which side to
+    /// remove it from.
+    var vehicleRole: VehicleRole
+    /// Copied from the excluded `StriationCrossSection.positionAlongLine`
+    /// at exclusion time so the audit trail and report stay readable
+    /// ("the probe at 45% along the scar") even if the underlying
+    /// profile is later re-extracted and the ids change.
+    var positionAlongLine: Double
+    /// Why the investigator excluded it. Required -- see this type's
+    /// doc comment for why this is non-optional.
+    var reason: String
+    var timestamp: Date = Date()
+
+    /// One-line rendering for the audit log, the results UI, and the PDF.
+    var displaySummary: String {
+        String(format: "%@ probe at %.0f%% along the scar -- %@",
+               vehicleRole.displayName, positionAlongLine * 100, reason)
+    }
+}
+
+// MARK: - Filtered Outcome
+
+/// The tool-mark scores recomputed with the investigator's exclusions
+/// applied. Deliberately a SEPARATE, additive record rather than an
+/// overwrite of `ToolMarkComparison`'s own score fields.
+///
+/// NOTE(AI Developer), added 2026-09 for item #4. The full, unfiltered
+/// score remains the headline number everywhere (screen and PDF); this
+/// sits alongside it, clearly labelled as filtered, with the exclusions
+/// that produced it listed. Sean's brief for this item was explicit that
+/// exports must show BOTH -- and that is also what makes the feature
+/// survivable under scrutiny: a reader can always see what the score was
+/// before the examiner's judgement was applied and decide for themselves
+/// whether that judgement was reasonable.
+///
+/// Critically, `nullModelMeanPercent`/`stdDev`/`zScore` here are
+/// RECOMPUTED against the filtered rhythm sequences, not inherited from
+/// the unfiltered run. A shorter sequence is easier to align by chance,
+/// so the baseline for "what would an unrelated scrape score?" shifts
+/// upward as probes are removed. Reusing the full run's baseline against
+/// a filtered score would systematically overstate significance -- the
+/// exact error this whole statistical layer was added to prevent.
+struct ToolMarkFilteredOutcome: Codable, Equatable {
+    var matchScorePercent: Double?
+    var orientationUsed: ToolMarkOrientation?
+    var overlapLength: Int?
+    var nullModelMeanPercent: Double?
+    var nullModelStdDevPercent: Double?
+    var zScore: Double?
+    /// How many cross-sections remained on each side after filtering --
+    /// context for how much data the filtered score rests on.
+    var victimCrossSectionsKept: Int
+    var suspectCrossSectionsKept: Int
+
+    var isDeterminable: Bool { matchScorePercent != nil }
+
+    var isStatisticallySignificant: Bool? {
+        guard let zScore else { return nil }
+        return zScore >= ToolMarkMatcher.significanceZScoreThreshold
+    }
+}
+
 /// Result of comparing two vehicles' `StriationProfile`s. NOTE(AI
 /// Developer): follows the exact same "independent signal, never blended
 /// into the composite score" pattern as `ScarDirectionCheck`/
@@ -622,7 +733,100 @@ struct ToolMarkComparison: Codable, Equatable {
     /// demonstrate anything smaller than p < 1/121.
     var nullTrialCount: Int?
 
+    // NOTE(AI Developer), added 2026-09 for item #4 (per-cross-section
+    // exclude). Both fields default to empty/nil so every
+    // `ToolMarkComparison` persisted before this feature existed decodes
+    // as "no exclusions, no filtered result" -- i.e. exactly the
+    // unfiltered behavior it already had. Same non-punitive
+    // backward-compat convention as every other optional field here.
+    /// The investigator's exclusion decisions, in the order they were
+    /// made. Empty means nobody has excluded anything and
+    /// `filteredOutcome` is `nil`.
+    var exclusions: [StriationExclusion] = []
+    /// Scores recomputed with `exclusions` applied. `nil` whenever
+    /// `exclusions` is empty. Never replaces the unfiltered fields above
+    /// -- see `ToolMarkFilteredOutcome`'s doc comment.
+    var filteredOutcome: ToolMarkFilteredOutcome?
+
+    // NOTE(AI Developer), added 2026-09 alongside item #4's `exclusions`
+    // field. This custom `init(from:)` is REQUIRED, not stylistic: Swift's
+    // synthesized `Codable` conformance does NOT fall back to a stored
+    // property's default value when a key is absent from the JSON --
+    // for a non-optional property it throws `keyNotFound` instead. So
+    // adding `exclusions: [StriationExclusion] = []` above would, on its
+    // own, make every `MatchResult` persisted before this feature
+    // existed fail to decode, silently breaking every saved case on
+    // upgrade. `decodeIfPresent ?? []` restores the intended
+    // backward-compatible behavior.
+    //
+    // (`filteredOutcome` needs no such handling -- optional properties
+    // are decoded with `decodeIfPresent` by the synthesized code
+    // already, so a missing key correctly yields `nil`. It is listed
+    // here only because writing `init(from:)` means decoding every
+    // field explicitly.)
+    //
+    // `encode(to:)` and `CodingKeys` stay auto-synthesized: providing
+    // only `init(from:)` does not suppress them, and every implied
+    // CodingKey here maps to a real stored property -- unlike
+    // `MatchResult`, whose `legacyProbabilityRange` key does not and
+    // which therefore needed a hand-written `encode(to:)`.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        victimProfile = try c.decode(StriationProfile.self, forKey: .victimProfile)
+        suspectProfile = try c.decode(StriationProfile.self, forKey: .suspectProfile)
+        matchScorePercent = try c.decodeIfPresent(Double.self, forKey: .matchScorePercent)
+        orientationUsed = try c.decodeIfPresent(ToolMarkOrientation.self, forKey: .orientationUsed)
+        overlapLength = try c.decodeIfPresent(Int.self, forKey: .overlapLength)
+        nullModelMeanPercent = try c.decodeIfPresent(Double.self, forKey: .nullModelMeanPercent)
+        nullModelStdDevPercent = try c.decodeIfPresent(Double.self, forKey: .nullModelStdDevPercent)
+        zScore = try c.decodeIfPresent(Double.self, forKey: .zScore)
+        permutationPValue = try c.decodeIfPresent(Double.self, forKey: .permutationPValue)
+        nullTrialCount = try c.decodeIfPresent(Int.self, forKey: .nullTrialCount)
+        exclusions = try c.decodeIfPresent([StriationExclusion].self, forKey: .exclusions) ?? []
+        filteredOutcome = try c.decodeIfPresent(ToolMarkFilteredOutcome.self, forKey: .filteredOutcome)
+    }
+
+    /// Memberwise init, restored explicitly because declaring
+    /// `init(from:)` above suppresses the compiler-synthesized one.
+    init(
+        victimProfile: StriationProfile,
+        suspectProfile: StriationProfile,
+        matchScorePercent: Double? = nil,
+        orientationUsed: ToolMarkOrientation? = nil,
+        overlapLength: Int? = nil,
+        nullModelMeanPercent: Double? = nil,
+        nullModelStdDevPercent: Double? = nil,
+        zScore: Double? = nil,
+        permutationPValue: Double? = nil,
+        nullTrialCount: Int? = nil,
+        exclusions: [StriationExclusion] = [],
+        filteredOutcome: ToolMarkFilteredOutcome? = nil
+    ) {
+        self.victimProfile = victimProfile
+        self.suspectProfile = suspectProfile
+        self.matchScorePercent = matchScorePercent
+        self.orientationUsed = orientationUsed
+        self.overlapLength = overlapLength
+        self.nullModelMeanPercent = nullModelMeanPercent
+        self.nullModelStdDevPercent = nullModelStdDevPercent
+        self.zScore = zScore
+        self.permutationPValue = permutationPValue
+        self.nullTrialCount = nullTrialCount
+        self.exclusions = exclusions
+        self.filteredOutcome = filteredOutcome
+    }
+
     var isDeterminable: Bool { matchScorePercent != nil }
+
+    /// `StriationCrossSection.id`s excluded on the given side.
+    func excludedIDs(for role: VehicleRole) -> Set<UUID> {
+        Set(exclusions.filter { $0.vehicleRole == role }.map(\.crossSectionID))
+    }
+
+    /// True once the investigator has excluded at least one probe, i.e.
+    /// the UI and PDF must present the full/filtered pair rather than a
+    /// single number.
+    var hasExclusions: Bool { !exclusions.isEmpty }
 
     /// `nil` alongside `matchScorePercent` (nothing to test yet).
     /// `true` only when the permutation p-value clears
@@ -714,6 +918,60 @@ struct ToolMarkComparison: Codable, Equatable {
         } else {
             return baseSummary + String(format: " However, unrelated/random spacing patterns scored this well or better in %d of %d chance trials (%@; typical chance score ~%.0f%%) -- this result is NOT statistically distinguishable from random and must not be treated as meaningful evidence on its own.", hits, trials, pText, baselineMean)
         }
+    }
+
+    /// Plain-language summary of the FILTERED result, in the same
+    /// non-overclaiming register as `summary` above. `nil` when no
+    /// exclusions have been made.
+    ///
+    /// NOTE(AI Developer): deliberately leads with the fact that probes
+    /// were excluded, before quoting any number. An investigator reading
+    /// this months later (or a reviewer reading the PDF) must not be
+    /// able to mistake a filtered score for the raw one, and the honest
+    /// framing of a post-hoc filtered score is "here is what remains
+    /// after a judgement call was made," never a bare percentage.
+    var filteredSummary: String? {
+        guard let outcome = filteredOutcome else { return nil }
+        let excludedCount = exclusions.count
+        let lead = String(
+            format: "%d striation probe%@ excluded by the investigator; the figures below are recomputed from the remaining %d victim and %d suspect probe%@.",
+            excludedCount, excludedCount == 1 ? "" : "s",
+            outcome.victimCrossSectionsKept, outcome.suspectCrossSectionsKept,
+            outcome.suspectCrossSectionsKept == 1 ? "" : "s"
+        )
+        guard let score = outcome.matchScorePercent, let overlap = outcome.overlapLength else {
+            return lead + " After those exclusions there is no longer enough striation detail on both scars to produce a comparison at all."
+        }
+        var text = lead + String(format: " Filtered striation spacing rhythm correlates at %.0f%% across %d overlapping marks.", score, overlap)
+        // The recomputed baseline, not the unfiltered one -- see
+        // `ToolMarkFilteredOutcome`'s doc comment for why this
+        // distinction matters.
+        if let baselineMean = outcome.nullModelMeanPercent, let significant = outcome.isStatisticallySignificant {
+            if significant {
+                text += String(format: " Against a baseline recomputed for this shorter sequence (~%.0f%% by chance), the filtered correlation is still statistically distinguishable from random.", baselineMean)
+            } else {
+                text += String(format: " Against a baseline recomputed for this shorter sequence, unrelated patterns of this length score around %.0f%% by chance, so the filtered result is NOT statistically distinguishable from random.", baselineMean)
+            }
+        } else {
+            text += " Too few values remain to recompute a chance baseline, so no significance test can be offered for the filtered result."
+        }
+        // NOTE(AI Developer): the comparison against the unfiltered
+        // score is stated explicitly rather than left for the reader to
+        // compute, because the direction of that change is the single
+        // most diagnostic fact about whether the exclusions were
+        // reasonable. Exclusions that happen to raise the score deserve
+        // more scrutiny than ones that lower it, and saying so in the
+        // report itself is what keeps this feature honest.
+        if let full = matchScorePercent, let filtered = outcome.matchScorePercent {
+            let delta = filtered - full
+            if abs(delta) < 0.5 {
+                text += String(format: " This is essentially unchanged from the full %.0f%% score.", full)
+            } else {
+                text += String(format: " This is %.0f points %@ than the full, unfiltered %.0f%% score.",
+                               abs(delta), delta > 0 ? "HIGHER" : "lower", full)
+            }
+        }
+        return text
     }
 
     static func notDeterminable(victim: StriationProfile = .empty(), suspect: StriationProfile = .empty()) -> ToolMarkComparison {
@@ -877,6 +1135,71 @@ enum ToolMarkMatcher {
             permutationPValue: pValue,
             nullTrialCount: baseline?.scores.count
         )
+    }
+
+    // NOTE(AI Developer), added 2026-09 for item #4 (per-cross-section
+    // exclude). Applies a set of exclusions to an EXISTING comparison
+    // and returns a new comparison carrying both the untouched original
+    // scores and a freshly computed `filteredOutcome`.
+    //
+    // Three properties this deliberately guarantees:
+    //
+    // 1. The unfiltered score fields are copied through untouched. The
+    //    headline number an investigator (or a court) sees can never be
+    //    silently rewritten by a later exclusion.
+    // 2. The full `victimProfile`/`suspectProfile` are also kept intact,
+    //    exclusions included -- so an exclusion is always reversible and
+    //    the excluded probe's own data is still on record rather than
+    //    deleted. Removing evidence from a forensic file because someone
+    //    decided it was noise is not something this app should be able
+    //    to do.
+    // 3. The null model is re-run against the FILTERED sequences via the
+    //    same `compare` path as the real score, so significance is
+    //    judged against the right baseline for the shorter sequence.
+    //
+    /// Recomputes the tool-mark comparison with `exclusions` applied,
+    /// preserving the original unfiltered result.
+    static func applying(
+        exclusions: [StriationExclusion],
+        to comparison: ToolMarkComparison
+    ) -> ToolMarkComparison {
+        var updated = comparison
+        updated.exclusions = exclusions
+
+        guard !exclusions.isEmpty else {
+            // Clearing the last exclusion returns the comparison to its
+            // pristine unfiltered state rather than leaving a stale
+            // filtered outcome behind.
+            updated.filteredOutcome = nil
+            return updated
+        }
+
+        let victimFiltered = comparison.victimProfile.excluding(
+            Set(exclusions.filter { $0.vehicleRole == .victim }.map(\.crossSectionID))
+        )
+        let suspectFiltered = comparison.suspectProfile.excluding(
+            Set(exclusions.filter { $0.vehicleRole == .suspect }.map(\.crossSectionID))
+        )
+
+        // Reuse `compare` wholesale rather than reimplementing the
+        // scoring path: it already runs the identical both-orientations
+        // search AND builds the matching null-model baseline for
+        // whatever sequences it's handed. Any future change to the
+        // scoring or baseline logic therefore applies to filtered
+        // results automatically, with no chance of the two drifting.
+        let refreshed = compare(victim: victimFiltered, suspect: suspectFiltered)
+
+        updated.filteredOutcome = ToolMarkFilteredOutcome(
+            matchScorePercent: refreshed.matchScorePercent,
+            orientationUsed: refreshed.orientationUsed,
+            overlapLength: refreshed.overlapLength,
+            nullModelMeanPercent: refreshed.nullModelMeanPercent,
+            nullModelStdDevPercent: refreshed.nullModelStdDevPercent,
+            zScore: refreshed.zScore,
+            victimCrossSectionsKept: victimFiltered.crossSections.count,
+            suspectCrossSectionsKept: suspectFiltered.crossSections.count
+        )
+        return updated
     }
 
     /// Tries both orientations (forward/reversed suspect rhythm) against
