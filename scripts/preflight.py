@@ -560,17 +560,38 @@ def types_with_custom_decoder(path, spans):
     judgement to someone who has demonstrably thought about decoding beats
     refusing every correct migration; a blocking check that fires on correct
     code gets --no-verify'd, and that flag takes every other check with it.
+
+    Scanned across the WHOLE file per type name, not only inside the type's
+    own Codable spans. A decoder is frequently written in an extension --
+    `extension ForensicCase { init(from:) ... }` -- and such an extension
+    carries no `Codable` in its declaration, so it is not a Codable span at
+    all. Looking only inside the spans finds nothing and the exemption
+    silently fails to apply, which blocks correct code: exactly the false
+    positive this exemption exists to prevent, relocated one level down.
     """
     try:
         with open(os.path.join(REPO, path), encoding="utf-8") as fh:
-            lines = fh.readlines()
+            src = fh.read()
     except OSError:
         return set()
+
+    names = {name for _, _, name in spans}
+    if not names:
+        return set()
+
     out = set()
-    for lo, hi, name in spans:
-        body = "".join(lines[lo - 1:hi])
-        if re.search(r"\binit\s*\(\s*from\s+\w+\s*:\s*Decoder\s*\)", body):
-            out.add(name)
+    # Walk every type/extension declaration in the file and attribute the
+    # decoders inside it to that type, whether or not the declaration itself
+    # mentions Codable.
+    decls = [(m.start(), m.group(2))
+             for m in re.finditer(
+                 r"\b(struct|class|enum|actor|extension)\s+(\w+)", src)]
+    for idx, (pos, name) in enumerate(decls):
+        if name not in out and name in names:
+            end = decls[idx + 1][0] if idx + 1 < len(decls) else len(src)
+            if re.search(r"\binit\s*\(\s*from\s+\w+\s*:\s*Decoder\s*\)",
+                         src[pos:end]):
+                out.add(name)
     return out
 
 
