@@ -129,6 +129,16 @@ whole report already operates under (`MatchResult.disclaimerText`):
   on purpose.
 - **No missing-data implications.** An unmeasured value is unmeasured, not
   failed.
+- **No distinction may be carried by colour alone.** Every state this report
+  distinguishes — significant against not-distinguishable-from-chance, excluded
+  against included, confirmed against not recorded — must be readable in the
+  words or the layout. This is a requirement on the report, not a checklist
+  item to be walked once. A forensic report is printed, photocopied and
+  scanned; P1b exists precisely so a high-but-insignificant score cannot look
+  like a good result, and a colour-only encoding of that reverts it on the
+  first monochrome copy while every on-screen check passes. Colour may
+  reinforce a distinction the text already makes; it may never be the thing
+  that makes it.
 
 ---
 

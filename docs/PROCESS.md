@@ -184,6 +184,36 @@ device and observe. "Verify the algorithm is correct" is not a checklist item;
 "re-run analysis on the same two photos twice and confirm the same percentage
 both times" is.
 
+**A checklist constant is a claim about the build the reader is holding, not
+about the commit the entry describes**, and those diverge the moment anything
+below the entry lands. P1b shipped `v1.1.0` at 120 null trials and the audit
+below it moved to `v1.2.0` at 1000: a checklist item reading "the card shows
+v1.1.0" fails on a current device *for the right reason* and reads as a defect.
+So write the value the reader will see, and let the entry's prose keep the
+historical record. Where two entries describe one behaviour and the later one
+narrows the earlier — #10a's standalone height rule-out gated by #14 part 1 —
+each must point at the other: an entry consulted alone overstates what the app
+does, and that is §4d at document scale.
+
+**A change that removes an obstacle owes an edit everywhere the obstacle is
+cited as current.** Raising a constant is a one-line diff whose blast radius is
+every argument that rested on the old value. The audit that took the trial
+count to 1000 dropped the p-value floor from 0.0083 to 0.000999 and thereby
+made a Bonferroni-corrected alpha of 0.0017 expressible — while the comment
+arguing Bonferroni was impossible still stated the old direction as live fact.
+The conclusion there is unchanged for other reasons, which is exactly what
+makes it dangerous: a true conclusion resting on arithmetic a reader can
+recompute and find false. When you change a constant, grep for the number.
+
+**A requirement is not a checklist item.** If a property must hold for the
+change to be worth anything, it belongs in the spec the implementation is
+written against, not only in the walk-through — a checklist is walked once, and
+a requirement has to survive the next person who does not walk it. Significance
+must be distinguishable on the report without colour: P1b exists so a
+high-but-insignificant score cannot look like a good result, and colour-only
+encoding reverts that on the first photocopy, which is what happens to a
+forensic report in practice.
+
 Non-trivial functions also get an inline `NOTE(<author>)` comment
 cross-referencing the changelog entry, so a reader in the code finds the
 rationale without leaving the file.
@@ -623,6 +653,32 @@ Two design rules govern it, and they are the reason to trust its output:
   guard landed and not yet rebased: a smaller and shrinking set, but not an
   empty one. A rule that claims mechanical enforcement it does not
   yet have is the true-instruction-false-reason failure above.
+- **Install a parser; the constraint was never real.** The missing toolchain
+  was recorded here as a structural limit of this team and worked around in
+  language for an afternoon — "nobody says a tree parses without naming who
+  parsed it" — before anyone tried to remove it. A swift.org **Linux tarball is
+  enough**: parsing needs no Xcode and no iOS SDK, and four environments went
+  from zero to parsing in minutes once one person tried. The general form is
+  this document's own error one level up: **a constraint nobody has attempted
+  to remove is an assumption, not a constraint.** What remains is real — no
+  Xcode and no device, so no type check and no run — and Compiled/run fields
+  must say that rather than the superseded version.
+
+  Two installation details, both of which produced a silently non-parsing
+  check:
+
+  - **Install where the discovery table looks, not in a version-suffixed
+    directory.** `~/toolchains/swift-6.0.3` is invisible to it; symlink
+    `~/toolchains/swift` at it. And not in `/tmp` — it parses from there and
+    says it will stop, because `/tmp` does not survive a rebuild, and a reader
+    who saw the check working yesterday will not reread the advisory.
+  - **Verify in the environment the hook runs in, not the one you type in.**
+    `SWIFT_FRONTEND` exported from `~/.profile` makes interactive runs clean
+    while `git commit` still prints the no-toolchain advisory: the pre-commit
+    hook runs with a bare environment. Check with
+    `env -i PATH=/usr/bin:/bin HOME=$HOME`. The check was working exactly where
+    it was being looked at and not where it actually fires, which is the
+    assert-on-behaviour rule aimed at *which* behaviour.
 - **Passing means "worth compiling", never "works".** The tool says so in its
   own output. §4 clauses 4-6 still need Xcode and a device. Given this repo's
   history, tooling that could be mistaken for a build would be worse than no
