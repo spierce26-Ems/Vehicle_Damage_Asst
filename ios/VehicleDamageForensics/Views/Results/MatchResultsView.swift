@@ -282,11 +282,20 @@ struct MatchResultsView: View {
     /// The heading is the one line this view supplies, and "Rule-out
     /// assessment" is true on all three paths: two reach a rule-out, one
     /// reports that it cannot be reached from these photographs.
+    ///
+    /// The reason string is rendered RAW as of this commit. It previously
+    /// went through an interim `exclusionReasonWithoutPlacementClause`,
+    /// which stripped a trailing clause promising the reader the factor
+    /// breakdown -- false above a paywall that gates it. `cd21683` and
+    /// `e52e9e5` removed that clause, and the last positional word with
+    /// it, from all three engine strings, so the interim was deleted per
+    /// the removal condition written on it. Nothing in this view now
+    /// depends on the wording of the engine strings.
     private var exclusionBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Rule-out assessment", systemImage: "exclamationmark.triangle")
                 .font(.headline)
-            if let reason = exclusionReasonWithoutPlacementClause {
+            if let reason = viewModel.suspectExclusionReason {
                 Text(reason)
                     .font(.subheadline.bold())
             }
@@ -301,62 +310,6 @@ struct MatchResultsView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
-    /// INTERIM, 2026-09-07. All three `suspectExclusionReason` strings
-    /// (`MatchScoreCalculator.swift` L515/L545/L568 @ 84aa2a9) END by
-    /// promising the reader the factor breakdown: "The full factor
-    /// breakdown is still shown for reference", "The full factor breakdown
-    /// below is unaffected", "the rest of the factor breakdown below is
-    /// still shown for reference". Those sentences were true of the surface
-    /// they were written for -- inside `scarDirectionSection`, which only a
-    /// paying user sees. This banner renders above the paywall, where the
-    /// breakdown is NOT shown, so rendering them raw would put a false
-    /// sentence on screen, and L515's "not a reason to hide the evidence"
-    /// would be contradicted by the lock icon directly beneath it.
-    ///
-    /// The rule to keep: a string that narrates its own placement cannot be
-    /// relocated. Moving it across a visibility boundary falsifies it while
-    /// the diff shows no change to the string at all.
-    ///
-    /// The permanent fix is Ledger's approved engine-string commit, which
-    /// removes the placement clause from all three and leaves their own
-    /// consequence sentences untouched. DELETE THIS PROPERTY WHEN THAT
-    /// LANDS and render `viewModel.suspectExclusionReason` directly.
-    ///
-    /// This is prose-dependent, which point 2 above rejects for the
-    /// heading -- the difference is the failure mode, and it is the whole
-    /// reason this one is acceptable and that one is not. A reworded engine
-    /// string makes this drop nothing and render the reason unchanged: a
-    /// stale placement clause, which is the status quo. The same rewording
-    /// would make a prose classifier assert the wrong finding. It also
-    /// never returns empty -- if the strip consumed everything, the
-    /// unmodified reason is rendered.
-    private var exclusionReasonWithoutPlacementClause: String? {
-        guard let reason = viewModel.suspectExclusionReason else { return nil }
-        let marker = "factor breakdown"
-
-        func stripTrailingClauses(_ text: String, separator: Character) -> String {
-            var parts = text.split(separator: separator, omittingEmptySubsequences: false)
-                .map { String($0) }
-            while let last = parts.last,
-                  last.lowercased().contains(marker),
-                  parts.count > 1 {
-                parts.removeLast()
-            }
-            return parts.joined(separator: String(separator))
-        }
-
-        // Sentences first (L515 and L545 carry the clause as its own
-        // sentence), then semicolon clauses inside whatever sentence is now
-        // last (L568 carries it after a semicolon).
-        var kept = stripTrailingClauses(reason, separator: ".")
-        kept = stripTrailingClauses(kept, separator: ";")
-        var trimmed = kept.trimmingCharacters(in: .whitespacesAndNewlines)
-        while let last = trimmed.last, last == "." || last == ";" || last == "," {
-            trimmed.removeLast()
-            trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        return trimmed.isEmpty ? reason : trimmed + "."
-    }
 
     // MARK: Correlation card
 
