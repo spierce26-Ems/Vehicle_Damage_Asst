@@ -757,6 +757,27 @@ been repaired; the surface being substituted is the clone's own configuration,
 and the next person to verify from a fresh clone will see 1 and have to decide
 whether it is a finding. It is not.
 
+**The mechanism, because it is what makes the direction structural rather
+than lucky.** A blob that was never fetched becomes a missing *file* on disk,
+not a corrupt one: `git status` shows ` D`, and `swift-parse` treats an
+unreadable input as a failure rather than a skip — a deliberate choice in its
+doc comment. So a partial clone degrades toward *refusing*, and what you would
+file off one is a phantom defect, never a phantom clean. Tip work from a local
+clone is safe, because the tip's blobs are the ones you fetched; history work
+is not.
+
+**The three procedural steps, enumerated on purpose.** The class description
+above is deliberately general — a list of surfaces invites checking the list
+instead of the question. Remedies are the opposite: they are performed, not
+matched, so they belong as a list.
+
+1. Apply the refspec remedy and re-fetch **before** measuring advisories.
+2. Clone the remote **by URL** for any per-commit or historical check.
+3. `git log --oneline origin/main -6` **before** testing an attachment.
+
+Three ways this was got wrong in one round, by three people, each covered by
+one step.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
