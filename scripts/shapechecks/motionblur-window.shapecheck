@@ -1,3 +1,10 @@
+// anchor lines below, added 2026-09-07 (Vector). Each names a line in the
+// SHIPPING file this reduced model stands for. preflight fails if one stops
+// resolving: without them every model here re-declares its own subject and
+// passes on a tree whose real code was deleted -- verified by mutating the
+// landed selector and watching all eight stay green.
+// anchor: ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift private(set) var motionMeasured: Bool = false
+
 // Reduced shape of hasMotionBlur's new input: peak-over-window vs the
 // live gate. The claim under test is that the flag reports a MEASUREMENT
 // over the exposure window, and is silent when nothing was measured.

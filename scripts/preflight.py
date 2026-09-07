@@ -468,6 +468,94 @@ def check_default_valued_predicates():
                  "-- never a second flag that happens to agree today")
 
 
+def check_shapecheck_anchors():
+    """A shape check must be ANCHORED to the tree line it models.
+
+    # remedy: fixes
+
+    NOTE(Vector), 2026-09-07. Reviewing the Designer's capability-field
+    patch I mutated the LANDED selector in `PDFReportGenerator` back to v1
+    -- the exact defect `allclear-variant-selector.shapecheck` was written
+    to catch -- and `preflight --all` stayed CLEAR at 0 advisories. Mutating
+    the shape check's OWN copy of the selector fails it correctly. So the
+    instrument discriminates perfectly, on a model that no longer has any
+    connection to the file.
+
+    This is the storage-versus-execution finding one turn further out. That
+    one asked whether anything RUNS the checks; this asks whether what they
+    run against is the SHIPPING CODE. A reduced model is a legitimate way to
+    test a shape without an SDK -- but a reduced model plus a claim about the
+    tree is two artefacts, and only the first was being verified. Every one
+    of the eight shape checks re-declares its subject as a local `struct`
+    and a local `func`, so all eight pass on a tree whose real predicate has
+    been deleted. Eight instruments, mutation-tested, all satisfiable by an
+    empty repository.
+
+    The mechanism is the same one that made a citation to `File:NNN` read as
+    precision: a check names its subject in prose (`// Encodes only facts
+    read from the tree at e685c06`) and prose does not fail. A commit sha in
+    a comment records WHEN the model was true and nothing detects that it
+    stopped being true.
+
+    So: each `.shapecheck` must declare `// anchor: <path> <substring>`, and
+    the substring must be PRESENT in that file. This is deliberately the
+    weakest possible binding -- a grep, not a parse -- because the strong
+    version is the compile that PROCESS.md sec.4 still owes. What it buys is
+    exactly one property: mutating or deleting the modelled line in the real
+    file makes a shape check fail. The check cannot tell whether the anchor
+    is the RIGHT line; it can tell that the line the author named still
+    exists.
+
+    Blocking rather than advisory, and this is the one place I'll spend that:
+    an unanchored shape check reports a property of its own file while its
+    name says it reports one about the app, and today it did so through a
+    clear run in front of three reviewers.
+    """
+    d = os.path.join(REPO, "scripts", "shapechecks")
+    if not os.path.isdir(d):
+        return
+    checks = sorted(n for n in os.listdir(d) if n.endswith(".shapecheck"))
+    if not checks:
+        return
+    missing, broken = [], []
+    for name in checks:
+        text = open(os.path.join(d, name), encoding="utf-8").read()
+        anchors = re.findall(r"^//\s*anchor:\s*(\S+)\s+(.+?)\s*$",
+                             text, re.M)
+        if not anchors:
+            missing.append(name)
+            continue
+        for rel, needle in anchors:
+            target = os.path.join(REPO, rel)
+            if not os.path.exists(target):
+                broken.append(f"{name} -> {rel} (no such file)")
+                continue
+            hay = open(target, encoding="utf-8").read()
+            if needle not in hay:
+                broken.append(f"{name} -> {rel} (`{needle[:60]}` absent)")
+    if missing:
+        # remedy: fixes
+        fail("shapecheck-anchors",
+             f"{len(missing)} of {len(checks)} shape checks declare no "
+             f"`// anchor:` line ({', '.join(missing)}) -- each models a "
+             f"shape it re-declares locally, so it passes on a tree whose "
+             f"real code was deleted",
+             "add `// anchor: <path> <substring>` naming the line in the "
+             "shipping file the model stands for. A reduced model tests a "
+             "shape; only an anchor makes it test THIS tree's shape. A sha "
+             "in a comment records when the model was true and never "
+             "detects that it stopped being")
+    if broken:
+        # remedy: fixes
+        fail("shapecheck-anchors",
+             f"{len(broken)} shape-check anchor(s) no longer resolve: "
+             f"{'; '.join(broken)}",
+             "the modelled line changed or moved. Re-read the shipping code "
+             "and either update the model and its anchor together, or fix "
+             "the code the model says is correct -- never the anchor alone, "
+             "which converts a real alarm into a silent one")
+
+
 def check_shapechecks_run():
     """The shape-check runner must actually be RUN by something.
 
@@ -2710,6 +2798,7 @@ def main():
     check_delimiter_balance(files)
     check_manifest_drift()
     check_cited_doc_copy()
+    check_shapecheck_anchors()
     check_shapechecks_run()
     check_note_rows_implemented()
     check_default_valued_predicates()

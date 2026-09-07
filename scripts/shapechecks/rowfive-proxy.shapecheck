@@ -1,3 +1,10 @@
+// anchor lines below, added 2026-09-07 (Vector). Each names a line in the
+// SHIPPING file this reduced model stands for. preflight fails if one stops
+// resolving: without them every model here re-declares its own subject and
+// passes on a tree whose real code was deleted -- verified by mutating the
+// landed selector and watching all eight stay green.
+// anchor: ios/VehicleDamageForensics/Services/PDFReportGenerator.swift photo.sharpnessScore == nil && photo.sharpnessMeasurable
+
 // Reduced shape of the appendix's fifth note condition, before and after
 // the proxy repair. No SwiftUI / no iOS SDK; the shape under test is the
 // guard's truth table across the four capture provenances that exist.

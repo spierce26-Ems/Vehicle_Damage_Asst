@@ -1,3 +1,10 @@
+// anchor lines below, added 2026-09-07 (Vector). Each names a line in the
+// SHIPPING file this reduced model stands for. preflight fails if one stops
+// resolving: without them every model here re-declares its own subject and
+// passes on a tree whose real code was deleted -- verified by mutating the
+// landed selector and watching all eight stay green.
+// anchor: ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift @State private var pendingFrameClear: Bool?
+
 // Reduced shape of the sec.1.3 attestation AFTER the decline affordance.
 // The claim under test: all three states of frameConfirmedClear are
 // reachable from user input, and a decline does not carry forward.

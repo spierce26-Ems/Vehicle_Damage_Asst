@@ -1,3 +1,14 @@
+// anchor lines below, added 2026-09-07 (Vector). Each names a line in the
+// SHIPPING file this reduced model stands for. preflight fails if one stops
+// resolving: without them every model here re-declares its own subject and
+// passes on a tree whose real code was deleted -- verified by mutating the
+// landed selector and watching all eight stay green.
+// anchor: ios/VehicleDamageForensics/Services/PDFReportGenerator.swift $0.motionMeasurementAttempted && !$0.motionMeasurable
+// anchor: ios/VehicleDamageForensics/Models/CapturedPhoto.swift var motionMeasurementAttempted: Bool
+// anchor: ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift motionMeasurementAttempted: true
+// anchor: ios/VehicleDamageForensics/Services/CameraService.swift motionMeasurementAttempted: false
+// anchor: ios/VehicleDamageForensics/Models/Vehicle.swift static let requiredCaptureProtocol: [PhotoType] = [
+
 // Shape check: does sec.2.3's all-clear selector reach BOTH variants once a
 // per-path capability field exists?
 //

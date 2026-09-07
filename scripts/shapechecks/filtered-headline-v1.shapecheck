@@ -1,3 +1,10 @@
+// anchor lines below, added 2026-09-07 (Vector). Each names a line in the
+// SHIPPING file this reduced model stands for. preflight fails if one stops
+// resolving: without them every model here re-declares its own subject and
+// passes on a tree whose real code was deleted -- verified by mutating the
+// landed selector and watching all eight stay green.
+// anchor: ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift var headlineDisplay: String? {
+
 // Shape check for the filtered-headline contradiction (Tech Lead's finding).
 //
 // Reduced shape. Encodes only what was read from the tree at bea84c0:

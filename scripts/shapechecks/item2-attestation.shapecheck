@@ -1,3 +1,10 @@
+// anchor lines below, added 2026-09-07 (Vector). Each names a line in the
+// SHIPPING file this reduced model stands for. preflight fails if one stops
+// resolving: without them every model here re-declares its own subject and
+// passes on a tree whose real code was deleted -- verified by mutating the
+// landed selector and watching all eight stay green.
+// anchor: ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift frameConfirmedClear: attestation
+
 // Reduced shape of CaptureCameraView's new sec.1.2/sec.1.3 members:
 // the tri-state attestation state machine and the analysis-ness
 // derivation. No SwiftUI (no iOS SDK here) -- the shapes under test are

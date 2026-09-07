@@ -1,3 +1,11 @@
+// anchor lines below, added 2026-09-07 (Vector). Each names a line in the
+// SHIPPING file this reduced model stands for. preflight fails if one stops
+// resolving: without them every model here re-declares its own subject and
+// passes on a tree whose real code was deleted -- verified by mutating the
+// landed selector and watching all eight stay green.
+// anchor: ios/VehicleDamageForensics/Models/CapturedPhoto.swift var motionMeasurable: Bool
+// anchor: ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift motionMeasurable: camera.motionMeasurable,
+
 // Reduced shape: does a persisted motionMeasurable let the report tell
 // "measured and steady" from "never measured"? The point of the field is
 // that hasMotionBlur == false is two different facts without it.

@@ -155,20 +155,20 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/build_pbxproj.py` | 143 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 312 |
-| `scripts/preflight.py` | 2763 |
+| `scripts/preflight.py` | 2852 |
 | `scripts/check_doc_drift.py` | 555 |
 | `scripts/regen_manifest.py` | 110 |
 | `scripts/check_remedies.py` | 311 |
 | `scripts/set_dev_team.sh` | 44 |
 | `scripts/shapechecks/README.md` | 144 |
-| `scripts/shapechecks/decline-affordance.shapecheck` | 104 |
-| `scripts/shapechecks/filtered-headline.shapecheck` | 168 |
-| `scripts/shapechecks/filtered-headline-v1.shapecheck` | 137 |
-| `scripts/shapechecks/item2-attestation.shapecheck` | 102 |
-| `scripts/shapechecks/motionblur-window.shapecheck` | 105 |
-| `scripts/shapechecks/motionmeasurable.shapecheck` | 116 |
-| `scripts/shapechecks/rowfive-proxy.shapecheck` | 84 |
-| `scripts/shapechecks/allclear-variant-selector.shapecheck` | 118 |
+| `scripts/shapechecks/decline-affordance.shapecheck` | 111 |
+| `scripts/shapechecks/filtered-headline.shapecheck` | 176 |
+| `scripts/shapechecks/filtered-headline-v1.shapecheck` | 144 |
+| `scripts/shapechecks/item2-attestation.shapecheck` | 109 |
+| `scripts/shapechecks/motionblur-window.shapecheck` | 112 |
+| `scripts/shapechecks/motionmeasurable.shapecheck` | 124 |
+| `scripts/shapechecks/rowfive-proxy.shapecheck` | 91 |
+| `scripts/shapechecks/allclear-variant-selector.shapecheck` | 129 |
 | `scripts/shapechecks/run.sh` | 80 |
 
 ## Repo root
