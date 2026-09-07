@@ -1020,6 +1020,40 @@ def check_variant_output_binding():
              "condition's true arm -- an anchor that finds nothing is the "
              "absence asserting a pass")
         return
+    # sec.4c-xxv member (a), closed at grep strength. Vector's consumer seq
+    # binds the RIGHT draw, so it holds while a SECOND `drawWrapping` of the
+    # unqualified literal is appended after it -- the page then carries both
+    # sentences and the last one drawn wins. Measured line-count neutral on
+    # Ledger's rule: rc=0, zero warn/FAIL lines, every instrument satisfied.
+    #
+    # "Absence of a consumer is not a substring" was the right argument for
+    # the class and, twice now, not decisive for the member in front of us.
+    # Here the required property IS countable: each locked variant is emitted
+    # from exactly ONE place -- the ternary arm -- so a second occurrence in
+    # the code means a second emission the lock never authorised. MULTIPLICITY
+    # IS THE CHANNEL A CONTAINMENT TEST CANNOT SEE: `in` answers "at least
+    # once", and "exactly once" is the claim the section actually makes.
+    #
+    # This closes duplication only. An early `return` before the draw --
+    # member (b) -- has every asserted token present and none of it running,
+    # and no counting reaches that: it needs sec.4's renderer.
+    for label, variant in (("qualified", qualified),
+                           ("plain", " ".join(variants[0].split()))):
+        n = flat.count(variant)
+        if n > 1:
+            # remedy: fixes
+            fail("variant-binding",
+                 f"sec.2.3's {label} all-clear literal appears {n} times in "
+                 f"PDFReportGenerator.swift; it is emitted from exactly one "
+                 f"place, the ternary arm",
+                 "a second copy is a second emission the lock never "
+                 "authorised: the ternary still selects correctly, every "
+                 "anchor and the consumer seq still resolve, and the page "
+                 "carries both sentences with the last one drawn winning. "
+                 "Delete the duplicate rather than re-pointing an anchor at "
+                 "it -- two emitters of one locked string are two claims "
+                 "that must agree")
+            return
     negated, cond, true_arm = ternary.groups()
     if negated or " ".join(true_arm.split()) != qualified:
         # remedy: fixes
