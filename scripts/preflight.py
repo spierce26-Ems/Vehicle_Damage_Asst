@@ -3209,6 +3209,74 @@ exec python3 "$SCRIPT"
 """
 
 
+def check_no_duplicate_defs():
+    """No two `def`s in this file may share a name.
+
+    # remedy: fixes
+
+    NOTE(Tech Lead), 2026-09-07. sec.4c-xxvi. The Designer's shared-view
+    patch and Vector's note-rows patch each introduced a helper called
+    `swift_code_only` -- the same name, the same intent, the same reasoning,
+    and DIFFERENT SIGNATURES: one took a repo-relative PATH, the other took
+    SOURCE. `git am` applied both clean, no conflict marker went near either,
+    and Python keeps the LAST definition, so the path-passing call sites
+    handed their own path string to a function expecting source and matched
+    note strings against a 60-character filename. I merged them in that
+    order and measured it: `check_note_rows_implemented` reported ALL
+    FIFTEEN appendix strings missing from a tree that has none missing.
+
+    Both patches are correct in isolation and both verified so -- clean,
+    `--strict` rc=0, zero warn lines, in their own clones. Neither author
+    could have seen it, because THE COLLISION IS IN THE MODULE NAMESPACE AND
+    A TEXTUAL MERGE INSPECTS LINES. sec.4d is the same location with the loss
+    in prose; this is the same location with the loss in the import graph,
+    and with no conflict at all.
+
+    Vector withdrew his helper in favour of the better signature before this
+    landed, so the tree never carried the defect. The check ships anyway,
+    because that resolution was a conversation and this file's own rule --
+    sec.4c-xxii, a stated limit is not a covered limit -- says the next
+    instance will not have one. A SHARED HELPER IS THE RIGHT ANSWER TO THREE
+    PRIVATE COPIES, AND TWO TEAMMATES REACHING IT INDEPENDENTLY PRODUCE A
+    COLLISION THAT LOOKS LIKE AGREEMENT.
+
+    Blocking, and cheap: an AST walk over this file's own top-level and
+    nested `def`s. It is loud only by luck in the instance measured -- the
+    mangled haystack could not match anything -- and had the two signatures
+    been PATH and PATH-OR-SOURCE it would have been silent.
+
+    Scope, so a clear run is not read as stronger than it is: this covers
+    `preflight.py` itself, which is where the collision happened and where
+    every guard in this repository lives. It says nothing about the other
+    scripts, and nothing about two helpers with DIFFERENT names and
+    incompatible contracts.
+    """
+    import ast as _ast
+    src = open(__file__, encoding="utf-8").read()
+    seen, dupes = {}, []
+    for node in _ast.walk(_ast.parse(src)):
+        if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+            if node.name in seen:
+                dupes.append(f"{node.name} (lines {seen[node.name]} and "
+                             f"{node.lineno})")
+            else:
+                seen[node.name] = node.lineno
+    if dupes:
+        # remedy: fixes
+        fail("duplicate-defs",
+             f"{len(dupes)} duplicate `def` name(s) in preflight.py: "
+             f"{'; '.join(dupes)}",
+             "Python keeps the LAST definition, so every earlier call site "
+             "silently calls the later function -- and if the signatures "
+             "differ, it is called with the wrong kind of argument. Merge "
+             "the two into one definition and fold BOTH authors' findings "
+             "into its docstring: deleting one and keeping the other drops "
+             "the deleted author's finding, which is sec.4d's omission "
+             "failure")
+        return 1
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if "--install-hook" in args:
@@ -3308,6 +3376,28 @@ def main():
         return 0
 
     # Tree-wide checks: valid whether or not anything is staged.
+    # FIRST, and it refuses before anything else runs. Measured while
+    # building it: with the collision reintroduced, `check_variant_output_
+    # binding` raised from inside the mangled helper and preflight died with
+    # a TRACEBACK before any summary line printed. A traceback is not a
+    # finding -- it names a Python file and a line number, not the tree's
+    # defect -- and this file's whole subject today is findings that reach
+    # the reader through the wrong channel. So the namespace is checked
+    # before any consumer of it can crash on it.
+    if check_no_duplicate_defs():
+        # PRINT before returning. Caught by my own mutant: the first version
+        # of this early exit returned 1 without reaching the reporting loop
+        # at the bottom, so the collision refused the commit and printed
+        # NOTHING -- a refusal with no finding, which is Ledger's sec.4c-xviii
+        # arriving in the guard written for today's defect. An exit code is
+        # not a finding either.
+        for check, msg, remedy in failures:
+            print(f"FAIL  [{check}] {msg}\n      -> {remedy}")
+        print("\npreflight: refusing before any other check -- a duplicate "
+              "`def` means later checks call the WRONG function, so every "
+              "result below it would be about the wrong code. Commit "
+              "refused.")
+        return 1
     check_pbxproj_registration()
     check_skeleton_drift()
     check_signing_configured()

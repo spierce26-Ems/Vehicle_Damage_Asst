@@ -1907,6 +1907,62 @@ instruments reaches it and a seventh member of that family would not either.
 standing debt, and it is now the only thing between this page and an examiner's
 signature.
 
+### 4c-xxvi. Two correct fixes, one name, two signatures — a collision no textual merge inspects
+
+**The Designer's shared-view patch and Vector's note-rows patch each introduced
+a helper called `swift_code_only`. I merged them in that order and `git am` was
+clean both times, no conflict marker went near either — and the result was
+BROKEN.** One took a repo-relative PATH, the other took SOURCE. **Python keeps
+the LAST definition**, so the path-passing call sites handed their own path
+string to a function expecting source. Measured on that merge:
+`check_note_rows_implemented` reported **all fifteen** appendix strings missing
+from a tree that has none missing, and reintroducing the collision on the
+current stack kills preflight with a **traceback** before any summary prints.
+
+**Both patches were correct in isolation and both verified so — clean,
+`--strict` rc=0, zero warn lines, in their own fresh clones. Neither author
+could have seen it, because THE COLLISION IS IN THE MODULE NAMESPACE AND A
+TEXTUAL MERGE INSPECTS LINES.** §4d is this location with the loss in prose;
+this is the same location with the loss in the import graph, and with no
+conflict at all.
+
+**The shape: A SHARED HELPER IS THE RIGHT ANSWER TO THREE PRIVATE COPIES, AND
+TWO TEAMMATES REACHING IT INDEPENDENTLY PRODUCE A COLLISION THAT LOOKS LIKE
+AGREEMENT** — same name, same intent, same reasoning, incompatible contract.
+Loud only by luck here: the mangled haystack could not match anything, and had
+the signatures been PATH and PATH-OR-SOURCE it would have been silent.
+
+**Vector withdrew his helper in favour of the better signature before either
+landed, so `main` never carried it. The check ships anyway, on this document's
+own rule — §4c-xxii, a stated limit is not a covered limit — because that
+resolution was a conversation and the next instance will not have one.**
+`check_no_duplicate_defs` is an AST walk over this file's own `def`s, top-level
+and nested, blocking, and it runs **FIRST**: a namespace collision makes every
+result below it a statement about the wrong code.
+
+**Two things the guard's own construction taught, both found by mutation:**
+
+- **My first early exit returned 1 without reaching the reporting loop, so the
+  collision refused the commit and printed NOTHING.** A refusal with no
+  finding — §4c-xviii arriving inside the guard written for today's class. It
+  prints before it returns.
+- **The mutant's first form crashed a LATER check before the summary line, so
+  the only channel carrying the finding was a Python traceback**, which names a
+  file and a line number rather than the tree's defect. That is why the guard
+  is first rather than merely present.
+
+**Four mutants, each graded on its NAMED finding rather than on rc, per
+Ledger's rule, and all line-count neutral:** the exact collision → `1
+blocking` naming both line numbers, rc=1; the guard's body deleted with the
+collision kept → **no finding at all**, rc=0, the canary; the print-before-return
+reverted with the collision kept → rc=1 and **zero bytes of output**, which is
+the second lesson above; a NESTED `def` shadowing `strip_trailing_comment` →
+named correctly, so the walk is not top-level-only; no-op → `clear`, rc=0.
+
+**Check that follows, and it is cheap: after merging two patches that each
+introduce a helper, grep the module for duplicate `def` names.** `git am` clean
+is a statement about lines, never about the namespace they define.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
