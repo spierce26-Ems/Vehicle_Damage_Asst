@@ -2091,6 +2091,34 @@ attached to it is wrong, and the reason is what gets generalised** — that
 wrong reason had already been carried into §4c as a rule about answer
 lifetimes before anyone constructed the case it predicted.
 
+**Grouping two findings by a shared symptom asserts they share a cause.**
+`isTooClose` and `hasMotionBlur` travelled as one open item for a month —
+"written on no path, no gate measures them" — and the second half was true of
+one and false of the other. The gyro was measured at 30 Hz the whole time;
+what `hasMotionBlur` lacked was a **window**, not a sensor. Pairing them
+meant every reader who accepted the item accepted the false half with the true
+one, and the pair read as a single well-understood gap. **Split an item the
+moment its members' causes differ, even when the remediation is identical** —
+and when a shared item is closed, say which member closed and why the other
+did not.
+
+**A guard no reachable state can falsify is worth keeping, but say so
+explicitly.** The mutation runner reported `drop-measured-guard` as surviving
+on the motion-blur shape, and it was right: `peakRotationRate` is only ever
+raised on the same line that sets `motionMeasured`, so the first clause is
+implied by the second in every reachable state. **That is a fact about the
+guard, not a hole in the assertions** — and the wrong responses are deleting
+the guard (it becomes load-bearing the moment any path seeds a peak without a
+reading: a replayed buffer, a restored draft, a fixture) and adding an
+assertion that merely re-states the reachable behaviour. The right one is an
+assertion of the **implication** over the state space, plus a case
+constructing the unreachable state directly, so a future edit that breaks it
+fails there rather than in an evidence appendix. **A redundant guard on a
+persisted claim costs one `&&`; the failure it prevents is a finding asserted
+about a device that measured nothing.** (Found on a run whose verdict I first
+read through a pipe, and so first read as passing — the pipe-masking failure
+recorded above, hit in the course of using the rule that names it.)
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.

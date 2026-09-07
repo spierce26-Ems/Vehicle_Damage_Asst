@@ -596,22 +596,44 @@ struct QualityFlags: Codable, Equatable {
     var isUnderexposed: Bool = false      // set by buildQualityFlags
     var isOverexposed: Bool = false       // set by buildQualityFlags
     var isTooFar: Bool = false            // set on the scar path (task #4), from the MEASURED term; NOT on the 30-shot path
-    // `isTooClose` and `hasMotionBlur` are still WRITTEN NOWHERE: their only
-    // occurrences are the two `issueDescriptions` reads below. A sweep that
-    // models every write form -- assignment, compound assignment, initialiser
-    // argument, `&inout`, mutating-method sinks and `$` bindings -- returns
-    // exactly these two here, where one modelling only `name =` returns
-    // thirty-three names across the tree.
-    var isTooClose: Bool = false          // STILL NEVER WRITTEN -- no gate measures it
-    var hasMotionBlur: Bool = false       // STILL NEVER WRITTEN -- no gate measures it
+    // NOTE(Designer), 2026-09-07 (task #4 item 1). These two were carried
+    // as ONE open item -- "written on no path, no gate measures them" --
+    // and that pairing was the error: the claim was true of one and false
+    // of the other, and stating them together hid it for a month.
+    // Grouping two fields by a shared SYMPTOM asserts they share a cause.
+    //
+    // `hasMotionBlur` had a measured signal the whole time. The gyro is
+    // read at 30 Hz on the scar path; `isSteady` consumes it as a live
+    // gate. What was missing was a WINDOW, not a sensor: a photograph is
+    // blurred by movement during the exposure, not by movement at the
+    // instant the gate last recomputed. It is now written from
+    // `ScarCaptureCameraService.measuredMotionBlur` -- the peak
+    // rotation-rate magnitude since arming, against the gate's own
+    // threshold -- and is `false` on a device with no gyro, where nothing
+    // was measured at all.
+    //
+    // `isTooClose` genuinely has no measurement and cannot get one here.
+    // The fill gate measures edge-energy CONCENTRATION, which rises
+    // monotonically as the subject fills the guide box, so it cannot
+    // separate "filling the box" from "nearer than the lens can focus" --
+    // both read as high concentration. The honest signal is minimum focus
+    // distance, which is Prism's. Deriving it from the fill ratio would be
+    // the gate-versus-measurement error with the sign flipped.
+    var isTooClose: Bool = false          // STILL NEVER WRITTEN -- no signal can measure it here; Prism's
+    var hasMotionBlur: Bool = false       // set on the scar path from the MEASURED peak gyro over the capture window
     var isOffAngle: Bool = false          // set by buildQualityFlags
 
-    /// NOTE(AI Developer), 2026-09-07: currently reports only exposure and
-    /// angle problems, because four of the seven flags it reads are never
-    /// assigned (see the audit on `QualityFlags` above). It cannot report a
-    /// blurred, too-far, too-close or motion-blurred photograph, and an
-    /// empty result here reads as "no problems found" rather than "not
-    /// measured". Zero readers today; task #4 wires the four flags.
+    /// NOTE(AI Developer), 2026-09-07, updated by Designer the same day:
+    /// six of the seven flags it reads are now assigned somewhere -- only
+    /// `isTooClose` never is (see the audit above). But the defect that
+    /// keeps this at zero readers is unchanged and is not about coverage:
+    /// **an empty result reads as "no problems found" when it can equally
+    /// mean "not measured"**, and a list of problems cannot express
+    /// "unmeasured" by being short. The bare adjectives are the other half
+    /// -- "Out of focus" / "Motion blur detected" assert about the
+    /// photograph what §2.2 of the appendix lock is careful to attribute
+    /// to a measurement. Whoever surfaces this reaches for that wording,
+    /// not for these strings.
     var issueDescriptions: [String] {
         var issues: [String] = []
         if isBlurry { issues.append("Out of focus") }

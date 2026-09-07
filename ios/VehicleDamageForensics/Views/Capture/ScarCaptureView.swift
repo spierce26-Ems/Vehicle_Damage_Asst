@@ -723,7 +723,17 @@ struct ScarCaptureView: View {
                 // being tri-state one field below.
                 qualityFlags: QualityFlags(
                     isBlurry: camera.measuredNotSharp,
-                    isTooFar: camera.measuredNotCloseEnough
+                    isTooFar: camera.measuredNotCloseEnough,
+                    // NOTE(Designer), 2026-09-07 (task #4 item 1). From
+                    // the PEAK gyro magnitude over the window since
+                    // arming, not from `isSteady` -- a photograph is
+                    // blurred by movement during the exposure, not by
+                    // movement at the instant the gate last recomputed.
+                    // `measuredMotionBlur` is false on a device with no
+                    // gyro, where nothing was measured; "no motion blur"
+                    // and "motion was never measured" are different
+                    // claims and only the second is true there.
+                    hasMotionBlur: camera.measuredMotionBlur
                 ),
                 annotationNotes: auto ? "Scar photo (auto-captured)" : "Scar photo (manual capture)",
                 // This screen is unconditionally an analysis surface, so

@@ -618,17 +618,46 @@ is §1.2 unbuilt on the surface §1.2 was written for.**
    as the gate wiring would put a build-system risk inside a camera-path
    change. **§1.1 remains unbuilt and this table is the record of that**, not a
    silence to be read as done.
-5. **`QualityFlags.isTooClose` / `hasMotionBlur` remain unassigned.**
-   `isBlurry` and `isTooFar` are now set at capture time from the MEASURED
-   sharpness and fill terms rather than the gate booleans (§2.4, and see the
-   correction recorded there — the gate-derived version made an unmeasured
-   capture print two notes claiming a measurement). The other two have no signal behind them yet: this screen measures
-   sharpness and fill, not distance-too-near or motion specifically. They are
-   left declared and annotated rather than assigned from a proxy, because a
-   flag set from something it does not measure is worse than one that is
-   honestly absent. Their `false` default is still the always-false disguise
-   Vector's sweep identified — that is now a narrower open item, not a
-   closed one.
+5. **`hasMotionBlur` is now assigned; `isTooClose` deliberately stays
+   unassigned, and the split is the finding.** `isBlurry` and `isTooFar` are
+   set from the MEASURED sharpness and fill terms rather than the gate
+   booleans (§2.4, and see the correction recorded there — the gate-derived
+   version made an unmeasured capture print two notes claiming a
+   measurement). Treating the remaining two as one item was the error: **"no
+   signal behind it" was true of one of them and false of the other, and
+   pairing them hid that for a month.**
+
+   **`hasMotionBlur` had a measured signal all along and it was never carried
+   to the flag.** `startMotionUpdates` reads the gyro at 30 Hz; `isSteady`
+   consumes it as a live gate. What was missing is not a sensor but a
+   *window*: a photograph is blurred by movement **during the exposure**, not
+   by movement at the instant the gate last recomputed, and `isSteady` at the
+   moment of capture says nothing about the half-second before it. So the
+   service records `peakRotationRate` over the window since arming —
+   arming, not session start, because a peak from while the examiner was
+   walking up to the vehicle is not a fact about the photograph — and
+   `measuredMotionBlur` is `motionMeasured && peak >= rotationRateThreshold`.
+   Same threshold as the gate on purpose: a looser one would let the report
+   contradict the gate about the same frames. `motionMeasured` is `false` on
+   a device with no gyro, where `startMotionUpdates` sets `isSteady = true`
+   rather than block capture on an unreadable signal — right for a gate, and
+   a lie as a finding.
+
+   **`isTooClose` has no measurement and cannot get one from this signal
+   set.** The fill gate measures edge-energy *concentration*, which rises
+   monotonically as the subject fills the guide box — it cannot distinguish
+   "filling the box" from "closer than the lens can focus", because both
+   read as high concentration. The honest signal is minimum focus distance,
+   which is Prism's CV work alongside the threshold calibration. **Deriving
+   it from the fill ratio would be the gate-versus-measurement error with the
+   sign flipped: a flag set from something it does not measure.** It stays
+   declared, annotated, and named as unassigned.
+
+   The always-false disguise therefore narrows to one field rather than
+   closing. **And `issueDescriptions` still cannot express "unmeasured" by
+   being short** — an empty list reads as "no problems found". That is
+   unchanged by this diff and is why it still has zero readers; see §3's
+   no-bare-adjectives rule in the appendix lock.
 6. **`qualityScore` on the clean scar path is still `1.0`.** The override path
    no longer claims it (it records `0.5`, above `isUsable`'s `0.4`, so the shot
    is never dropped). What a scar capture *should* record is a persisted-model
@@ -669,7 +698,9 @@ artefact this whole round was about.
 1. §1.2 / §1.3 / §1.4 on the 30-shot camera — unbuilt, above.
 2. §1.1's explainer card — unbuilt, needs a new file and its `project.pbxproj`
    registration.
-3. `QualityFlags.isTooClose` and `hasMotionBlur` — assigned on no path.
+3. `QualityFlags.isTooClose` — assigned on no path, and cannot be measured
+   from this signal set (see divergence 5). `hasMotionBlur` is now assigned
+   from the peak gyro reading over the capture window.
 4. `qualityScore` semantics for a scar capture — Sean's decision.
 5. Both threshold calibrations — Prism, on real frames.
 6. §2.4's reference is section-level, not per-factor, pending photo linkage on

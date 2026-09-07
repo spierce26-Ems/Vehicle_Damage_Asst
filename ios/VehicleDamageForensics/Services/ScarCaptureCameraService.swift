@@ -178,6 +178,38 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     /// True only when framing was measured and the measurement failed.
     var measuredNotCloseEnough: Bool { framingMeasured && !isCloseEnough }
 
+    /// Peak gyro rotation-rate magnitude (rad/s) over the current
+    /// good-streak window, and whether any reading arrived at all.
+    ///
+    /// NOTE(Designer), 2026-09-07 (task #4 item 1). `hasMotionBlur` is
+    /// persisted into evidence, so it may only be written from a
+    /// measurement -- the same rule `measuredNotSharp` exists for. The
+    /// gyro IS measured on this path already (`startMotionUpdates`), it
+    /// was simply never carried to the flag: `isSteady` is a live gate
+    /// reading the instantaneous magnitude, and a photograph is blurred
+    /// by movement DURING the exposure, not by movement at the instant
+    /// the verdict was last recomputed.
+    ///
+    /// So this records the PEAK since the streak last reset, which is
+    /// the window the shutter actually fires in. `motionMeasured` is
+    /// `false` on a device with no gyro -- where `startMotionUpdates`
+    /// deliberately sets `isSteady = true` rather than block capture on
+    /// an unreadable signal. That is right for a gate and would be a lie
+    /// as a finding: "no motion blur" and "motion was never measured"
+    /// are different claims, and only the second is true there.
+    private(set) var motionMeasured: Bool = false
+    private(set) var peakRotationRate: Double = 0
+
+    /// True only when motion WAS measured and the peak over the capture
+    /// window exceeded the steadiness threshold.
+    ///
+    /// Deliberately the same threshold as the gate: the gate's job is to
+    /// hold the shutter until the phone is still, and this records that
+    /// it was not still at some point in the window the shutter fired
+    /// in. Using a looser threshold here would let the report contradict
+    /// the gate about the same frames.
+    var measuredMotionBlur: Bool { motionMeasured && peakRotationRate >= rotationRateThreshold }
+
     // MARK: Private AVFoundation state
 
     // NOTE(AI Developer): same `nonisolated(unsafe)` rationale as
@@ -371,6 +403,14 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
             let r = motion.rotationRate
             let magnitude = (r.x * r.x + r.y * r.y + r.z * r.z).squareRoot()
             self.isSteady = magnitude < self.rotationRateThreshold
+            // NOTE(Designer), 2026-09-07. Recorded for `hasMotionBlur`,
+            // separately from the gate above: the gate is the current
+            // instant, the flag is the whole window the shutter fires
+            // in. `motionMeasured` flips on the first real reading and
+            // stays true -- it answers "did the gyro ever report", not
+            // "is it reporting now".
+            self.motionMeasured = true
+            self.peakRotationRate = max(self.peakRotationRate, magnitude)
             self.updateGoodStreak()
         }
     }
@@ -426,6 +466,13 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
         lastNotGoodTime = Date()
         hasFiredAutoCaptureForCurrentGoodStreak = false
         autoCaptureProgress = 0
+        // NOTE(Designer), 2026-09-07. The motion-blur window OPENS here,
+        // not at session start: arming is the point from which the shot
+        // is being taken, and a peak from while the examiner was still
+        // walking up to the vehicle is not a fact about the photograph.
+        // `motionMeasured` is NOT reset -- whether the gyro reports at
+        // all is a property of the device, not of the window.
+        peakRotationRate = 0
     }
 
     // MARK: Photo capture
