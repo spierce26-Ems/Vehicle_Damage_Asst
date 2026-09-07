@@ -2208,9 +2208,10 @@ claim about two things is two claims wearing one bullet.**
 
 **A guard no reachable state can falsify is worth keeping, but say so
 explicitly.** The mutation runner reported `drop-measured-guard` as surviving
-on the motion-blur shape, and it was right: the peak was only ever raised on
-the same line that set `motionMeasured`, so the first clause was implied by the
-second in every reachable state. (Recorded against the `peakRotationRate`
+on the motion-blur shape, and it was right: a sample is only ever appended to
+`motionSamples` — before the trailing-window rewrite, the peak was only ever
+raised — on the same line that sets `motionMeasured`, so the first clause is
+implied by the second in every reachable state. (Recorded against the `peakRotationRate`
 field, which the trailing-window fix has since replaced with a rolling
 `motionSamples` buffer; the guard and the reasoning carry over unchanged, since
 the buffer's recency filter is likewise only fed where `motionMeasured` is

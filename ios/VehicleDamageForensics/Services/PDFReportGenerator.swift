@@ -360,6 +360,23 @@ struct PDFReportGenerator {
         if photo.sharpnessScore == nil && photo.sharpnessMeasurable {
             notes.append("Sharpness was not measured for this photograph.")
         }
+        // NOTE(Tech Lead), 2026-09-07. The sixth row. `hasMotionBlur` was
+        // persisted from a measured window and given a locked string and a
+        // condition-table row in the appendix -- and this function, the only
+        // thing that renders any of them, was not extended, so the note
+        // still could not reach the report. That is the same shape as the
+        // defect the row was added to fix, one file further along: the
+        // distinction existed and nothing carried it to the artefact that
+        // makes the claim.
+        //
+        // Wording is locked copy, appendix sec.2.2, reproduced verbatim. The
+        // trigger is the MEASURED flag and never `isSteady`, because
+        // driving it from the gate would restate a9deebb's defect in a
+        // third field: a gate may say "not yet", a recorded finding may
+        // only say what was measured.
+        if photo.qualityFlags.hasMotionBlur {
+            notes.append("The app measured camera movement during this capture that exceeded its steadiness threshold.")
+        }
         return notes
     }
 
