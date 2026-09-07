@@ -1819,6 +1819,14 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     as a certified forensic identification. **Treat a near-miss as the same defect as an overrun**,
     re-measure whenever that text is edited, and note that the text is inside the copy lock — a
     frame that cannot fit it is a layout defect and never a licence to shorten it.
+  - [ ] **The cover page has no collision below the disclaimer box.** Measuring that box changed
+    its failure mode rather than removing it: a literal height clipped inside its own frame, a
+    measured one grows. The box is drawn at a literal `y: 430` and the duplicated-case note at a
+    literal `y: 574`, so there is 144pt of headroom against about 120pt of current text — it does
+    not collide today, and it would if the disclaimer grew. **An overlap is the better failure,
+    because it is visible on the page and a truncation is not, but it is not safety.** Export a
+    cover for a duplicated case and confirm the note is clear of the box. The real fix is a flow
+    layout for the cover's fixed y-offsets; it has no task yet and belongs in its own diff.
   - [ ] **Negative case**: a case with **no** exclusion. No card renders at all — not an empty one,
     not a "no exclusion found" one. An absence must not assert anything.
   - [ ] **Not unlocked**: the pointer line *"The per-factor evidence behind this finding is part of

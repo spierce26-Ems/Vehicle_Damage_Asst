@@ -849,6 +849,32 @@ advance is wrong regardless of the number. **The fit does, and the only
 instrument for it is exporting a PDF of all three paths.** That is what the
 checklist item is for; it is not doing the arithmetic again.
 
+**Quote a measurement with its method, or do not quote the number.** Five
+figure-sets circulated for three strings in one exchange, and the outlier was
+not a worse estimate — it was a *different quantity*: the three strings summed,
+less the shortest, presented as a maximum. Two of the others differed only as
+template length versus rendered length and agreed on the ranking. An unmethoded
+figure cannot be checked without redoing the work, so the next reader treats
+the most recent one as measured; that is the corrected-count substitution with
+a helpful teammate as the surface. **The manifest total is the same class:
+measure the landed total, never add a delta to a remembered base** — a correct
+delta against a base that has moved is a wrong number arrived at carefully.
+
+**Measuring a frame can change a failure mode rather than remove it, and the
+comment has to say which.** The disclaimer box is drawn at a literal `y: 430`
+on a cover whose duplicated-case note sits at a literal `y: 574` — 144pt of
+headroom against roughly 120pt of current text, which is arithmetic on two
+literals and depends on no estimate. A literal height clipped *inside* its own
+frame; a measured one grows, so copy past that headroom now overlaps the note
+instead of truncating. **That is the better failure — an overlap is visible on
+the page and a truncation is not — but it is not safety**, and a comment that
+implies otherwise is the round's own defect in miniature. Every measured frame
+on a fixed-offset page has this property: the helper returns the height
+consumed, which is exactly what a fixed-offset sibling cannot see. The honest
+fix is a flow layout for the cover, in its own diff. On a second pass none of
+`drawWrapping`'s seventeen call sites shares a function with an absolute
+`y:` literal, so the cover is the only page where this applies today.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
