@@ -1197,6 +1197,30 @@ a re-cut is still needed before applying it, because re-landing a no-op is how
 a correct patch produces a wrong tree. Both directions are the same
 substitution with elapsed commits as the surface.
 
+**A word inside locked copy can be the constraint, and softening it removes the
+constraint silently.** "Measured" in the two flag notes is what makes each
+sentence a claim about a measurement, and therefore what forbids driving its
+trigger from a gate. Fixing the wiring and stating the rule here left the copy
+table itself saying nothing: reword either note without that word and the
+sentence becomes satisfiable by a gate again, with nothing in the document able
+to catch the contradiction returning. **So a copy lock has to record which words
+carry a constraint on the data behind them**, or the lock protects only the
+wording it was meant to protect the meaning of.
+
+**And copy rows can be coupled, which a table of independent strings does not
+show.** The "sharpness was not measured" note is the *negative case* for the two
+"the app measured…" notes — mutually exclusive at source, `!= nil` against
+`== nil` — so an edit to any of the three has to be checked against the others.
+That coupling is what made the defect disprovable from one document; recording
+it is what lets the next editor inherit the check instead of rediscovering it.
+
+**A missing checklist item is the mirror of an unpassable one.** An unpassable
+item converts a tester's effort into false evidence; a missing item leaves a
+disprovable claim untested. The contradiction here was demonstrable by one
+manual shutter tap and an export, and no line asked anyone to do it — so when a
+claim is disprovable from the artefact alone, the item that disproves it is
+owed.
+
 The general form: **an unset value is unmeasured, not failed; an unasked
 question is unanswered, not declined; an unbuilt field is absent, not empty.**
 When a surface cannot express the difference, it says nothing at all — silence
