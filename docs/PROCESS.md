@@ -803,16 +803,23 @@ inherits the count instead of the recollection.
 **And a de-styling diff is when to re-measure the frame, because removing a
 decoration can reveal a layout fault rather than create one.** The PDF
 callout's box was a literal 60pt tall with its body drawn 26pt down — about two
-lines — while the three strings it renders run roughly 3, 6 and 8 lines at that
-width. Every path had overrun since 2026-07, the longest by around 45pt into
-the line below. It was invisible because a filled tinted band makes overflowing
+lines — while the three strings it renders measure 249, 470 and 235 characters
+from their format templates, i.e. roughly three, six and three lines at that
+width. Every path had overrun since 2026-07, the worst by around 45pt into the
+line below — and that worst case is the LiDAR-inconclusive path, the one that
+*denies* an exclusion, whose text an investigator most needs in full. It was invisible because a filled tinted band makes overflowing
 text read as text on a band; a hairline border draws the boundary the overflow
 crosses, so the neutral treatment exposed the fault it is now blamed on
 introducing. **A frame that cannot fit the real string is a layout defect and
 never a licence to shorten locked copy** — and where the string *is* the
 finding, a clipped exclusion is a missing one. Measure the body and size the
 frame to it; no check reads a box's height against its content, which puts this
-squarely on the silent side above.
+squarely on the silent side above. **The count that fixed the frame was not the
+count that described it:** four different figure-sets were quoted for these
+three strings inside one exchange, including a total presented as a maximum,
+which would have sent a tester to export the case least likely to overflow
+while calling it the worst case. Measure from the format templates in the
+source, and name which path is worst rather than a character count alone.
 
 ### 4d. A conflict resolution is where prose goes missing
 

@@ -362,8 +362,17 @@ struct PDFReportGenerator {
         if let reason = c.matchResult?.suspectExclusionReason {
             // The box is MEASURED, not fixed. At 60pt tall with the body
             // starting 26pt down, this box held ~2 lines at 11pt; the three
-            // strings `evaluateExclusionRule()` returns run roughly 270,
-            // 490 and 715 characters, i.e. 3, 6 and 8 lines at this width.
+            // strings `evaluateExclusionRule()` returns measure 249, 470
+            // and 235 characters from their format templates -- roughly
+            // three, six and three lines at this width, before the
+            // measured heights and the reciprocity delta are substituted
+            // in. The WORST case is the LiDAR-inconclusive path, not the
+            // combined rule (which is the shortest of the three), and it
+            // is the path that DENIES an exclusion -- so a clip there
+            // leaves a correctly neutral box that still reads as a
+            // finding, which is the defect the neutral treatment was
+            // chosen to prevent, arriving by truncation instead of
+            // colour.
             // Every one of them overran, and the longest by ~45pt into the
             // status line drawn below. The red fill hid it; a hairline
             // border does not, which is how it surfaced. A frame that
