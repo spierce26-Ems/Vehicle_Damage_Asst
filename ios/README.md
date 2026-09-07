@@ -1827,6 +1827,35 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     because it is visible on the page and a truncation is not, but it is not safety.** Export a
     cover for a duplicated case and confirm the note is clear of the box. The real fix is a flow
     layout for the cover's fixed y-offsets; it has no task yet and belongs in its own diff.
+  - [ ] **Four of the twenty surviving pairs are not fixed literals.** `5e2a536` fixed 17
+    wrapping draws and recorded that "the 12 remaining maxWidth-plus-literal-advance pairs are
+    fixed string literals whose length the author could measure and did." Grepping the pairing
+    against the landed tip finds **20**, and **six** of them draw a bare literal. Of the other
+    fourteen, ten interpolate a number into a short literal and cannot plausibly wrap; **four draw
+    content whose length the caller does not control**, which is the same class the commit set out
+    to close:
+    - `PDFReportGenerator.drawScarLineSection`, the per-column `motionDescription` at an advance of
+      **28pt**. The engine's own two forms in `MatchScoreCalculator.scoreScarDirectionConsistency`
+      run 99 and 94 characters into a **241pt** column at 10pt — about three lines and two lines,
+      so roughly **36pt against 28**. The FORWARD form overruns; the REVERSING form does not.
+      **This is the scar-direction narrative's sibling and it was missed because the fix followed
+      the string rather than the pairing** — `victimMotionDescription`/`suspectMotionDescription`
+      on the wider single-column page were converted, and the same sentences in a half-width
+      column were not. It is the only content-dependent overrun among the four that is *live at
+      today's content lengths*.
+    - The two `headlineDisplay` draws (fingerprint and tool-mark sections) at an advance of
+      **30pt**. Built by `String(format:)` from a score, a p-value display and a verdict phrase —
+      the long branch reads *"NOT distinguishable from chance"* — so its length moves with
+      `ForensicNullModel.pValueDisplay` and with a trial count nobody has run yet.
+    - The `"    Reason: " + reason` draw at an advance of **12pt**, in a 241pt column at 9pt.
+      `StriationExclusion.reason` is **free examiner text with no length limit anywhere** — the
+      `TextField` in `exclusionReasonSheet` is `axis: .vertical` and validates only that it is
+      non-empty. A two-line reason overlaps the next probe row. **This one is not bounded by any
+      string we own**, which makes it the only pair in the file whose fit no measurement of ours
+      can ever settle.
+    Report the count either way when this is walked. **The correction is not that the fix was
+    wrong — it is that a commit closing a class stated a residue it had not counted**, which is
+    the round's own shape one layer in: the enumeration, not the rule.
   - [ ] **Negative case**: a case with **no** exclusion. No card renders at all — not an empty one,
     not a "no exclusion found" one. An absence must not assert anything.
   - [ ] **Not unlocked**: the pointer line *"The per-factor evidence behind this finding is part of
