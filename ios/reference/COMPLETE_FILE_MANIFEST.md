@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 75 tracked files, of which 42 Swift sources (20992 lines).
+Totals: 75 tracked files, of which 42 Swift sources (21057 lines).
 
 ## iOS app — Xcode project
 
@@ -30,7 +30,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 686 |
+| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 694 |
 | `ios/VehicleDamageForensics/Models/Case.swift` | 851 |
 | `ios/VehicleDamageForensics/Models/MatchResult.swift` | 709 |
 | `ios/VehicleDamageForensics/Models/PaintSampleKit.swift` | 140 |
@@ -53,7 +53,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift` | 537 |
 | `ios/VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift` | 212 |
 | `ios/VehicleDamageForensics/Views/Capture/PhotoReviewView.swift` | 359 |
-| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1514 |
+| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1538 |
 | `ios/VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift` | 189 |
 | `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift` | 596 |
 | `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift` | 319 |
@@ -72,7 +72,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
 | `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1348 |
 | `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
-| `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 605 |
+| `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 638 |
 | `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
 
 ## Utilities — pure-function analysis algorithms
@@ -117,8 +117,8 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | File | Lines |
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 740 |
-| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 569 |
-| `docs/PROCESS.md` | 1527 |
+| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 597 |
+| `docs/PROCESS.md` | 1558 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1911 |
