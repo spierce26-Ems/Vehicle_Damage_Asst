@@ -332,7 +332,10 @@ nothing in this document able to catch it.
 > All analysis photographs met the app's capture-quality checks at the time of
 > capture.
 
-**When any analysis photograph in the set has `motionMeasurable == false`,
+<!-- CONDITION: allclear.partial = $0.motionMeasurementAttempted && !$0.motionMeasurable -->
+
+**When any analysis photograph in the set ATTEMPTED a motion measurement and
+could not obtain one — `motionMeasurementAttempted && !motionMeasurable` —
 emit this instead:**
 
 > All analysis photographs met the app's capture-quality checks that could be
@@ -341,6 +344,29 @@ emit this instead:**
 
 Emit one or the other rather than omitting the section. A silent section is
 indistinguishable from a section that was never generated.
+
+**This section specified the condition as `motionMeasurable == false` in five
+places until 2026-09-07, and that is the v1 selector the per-path capability
+field replaced.** Left in place it was worse than stale. The Tech Lead
+mutated the renderer's selector back to v1 and preflight stayed clean; the
+first reflex is to call that a missing check, but **a reviewer who had checked
+the renderer against THIS DOCUMENT would have found the regression CORRECT
+and closed the review.** A document carrying a superseded condition does not
+merely fail to catch the regression — it ratifies it, and it is the artefact a
+reviewer consults precisely when they doubt the code.
+
+`motionMeasurable == false` alone is true for every photograph that never
+claimed a measurement, which makes the qualified variant the only reachable
+one and the plain sentence dead: **the always-firing qualification the lock
+below forbids in four paragraphs, arriving through the condition instead of
+the wording.** The lock guarded the WORDS and nothing guarded the PREDICATE
+they were locked against.
+
+The `<!-- CONDITION: -->` comment above is the machine-readable form of the
+predicate, asserted against the renderer by
+`preflight.check_locked_variant_conditions`. It is a comment rather than a
+row in the locked table on purpose: it is a claim about CODE in a document of
+COPY, and a code change must not read as a copy change to the lock.
 
 **The all-clear's precondition is the INPUT SET, not the note logic, and that
 is where it failed.** This sentence is only true if the set it was computed
@@ -362,8 +388,12 @@ about the shot the analysis actually runs on.
 **The second defect in this sentence is a MEMBER MISSING A CHECK, and it is
 now fixed in the wording rather than recorded.** "Met the app's
 capture-quality checks" is a claim about checks that RAN.
-`motionMeasurable == false` means motion was not measured for that
-photograph — no gyro, or no reading inside the trailing window — and the
+`motionMeasurementAttempted && !motionMeasurable` means a path claimed a
+motion measurement and could not obtain one — no gyro, or no reading inside
+the trailing window. `!motionMeasurementAttempted` is the different fact that
+nothing ever asked (the 30-shot protocol camera measures no motion; a library
+import has no live frame), which §2.2 row two forbids from producing output.
+`motionMeasurable == false` ALONE cannot separate those, and the
 unqualified sentence covers such a photograph as though its steadiness had
 been verified. **The input-set defect above is a set missing a member; this is
 a member missing a check**, and the two are independent: fixing the population
@@ -384,8 +414,8 @@ one back in: a per-photograph "motion was not measured" on a gyro-less device
 annotates every photograph and destroys the note's meaning for the one that
 needed it. **A per-set qualification says the same true thing once, where its
 cost is one clause instead of N lines.** So the trigger is
-`anyAnalysisPhoto(motionMeasurable == false)` over the same population §1
-names, not a per-photo predicate.
+`anyAnalysisPhoto(motionMeasurementAttempted && !motionMeasurable)` over the
+same population §1 names, not a per-photo predicate.
 
 **Three wordings are forbidden, and each fails in a way the diff would not
 show.** "Some photographs may not have been fully checked" — *may* makes a
@@ -396,7 +426,7 @@ could not be ruled out" — a forensic conclusion this document does not draw
 as a defect in the photograph rather than an absence in the instrument, which
 is §4.2's failure direction and row two's whole distinction.
 
-**And do not fix it by treating `motionMeasurable == false` as a pass**, which
+**And do not fix it by treating `motionMeasurementAttempted && !motionMeasurable` as a pass**, which
 is what the unqualified sentence does today by silence — the absence asserting
 the clean case (§5) for the third time in this section.
 
@@ -983,7 +1013,7 @@ rather than letting it decay into a defect nobody remembers choosing.
 | 2026-09-07 | `confirm.no` | *(text unchanged)* | *(text unchanged; presentation corrected)* | **No text change — recorded because the string's PRESENTATION violated its own lock entry.** It shipped with an `exclamationmark.circle` and a dimmed capsule against `confirm.yes` on a blue primary one, passing this lock byte-for-byte while breaking the symmetry constraint above. **A warning glyph is a warning adjective the lock cannot see.** Corrected to identical styling with no icon on either, held by one shared label builder per screen. Recorded here because a ledger triggered only by changed characters would not have caught it — the same gap as `confirm.arm`'s row, pointed at presentation instead of meaning. |
 | 2026-09-07 | `attest.body` | I generated this report from the case data described above. I make no claim of forensic identification. | I documented this case using this application and attested to the capture conditions recorded in it. This report makes no claim of forensic identification. | **Ruled after the Tech Lead found the lock in LIVE CONFLICT with `drawAttestationBlock`** — the tree was third-person and about capture conditions, the lock first-person and about generating the report, and the code had dropped the identification limit. **The code's SUBJECT is adopted, its OMISSION rejected, and FIRST PERSON KEPT for sentence one after the Tech Lead's objection — I had the halves swapped.** "I generated this report" was wrong in its VERB, not its PERSON: the app generates the report, so that clause had the examiner claiming an act the app performs (§4.0.1). Documenting the case and answering the capture-condition question per frame ARE the examiner's acts and are recorded, so they stay first person — **a person can be held to "I …" and an app printing a disclaimer about itself cannot**, which is the property that makes an attestation worth printing at all. **Sentence two is deliberately third person:** the identification limit is the only one the report states, so it must hold whether or not an examiner is named — a first-person limit vanishes with the signature precisely when the report is least attributable. The tree had dropped that sentence entirely, the most consequential half of the conflict. Neither side adopted whole, and neither was my first ruling. |
 | 2026-09-07 | §6.1 filtered `headlineDisplay` | *(template, unusable whole on this surface)* | Unfiltered comparison — NN% similarity across all cross-sections. Statistical significance is not established for a filtered subset. See the exclusion record in the appendix. | **Scope ruling on the UI/UX Designer's question.** The locked template's first sentence describes the FILTERED figure and `headlineDisplay` carries the UNFILTERED score, so the template cannot be used whole — **that would make the number lie to fit the lock.** But the shipped string left a BARE percentage beside "for a filtered subset", and **an unqualified quantity inherits its subject from the sentence next to it**, so the correct claim silently mislabelled the number. First sentence now names the score's own subject; the claim-bearing second sentence is verbatim and unchanged. **Where a surface carries the FILTERED figure the original template stands unchanged** (`filteredSummary`). Rule: when a locked template cannot be used whole because one figure is not the figure at hand, **name the subject of the figure you do have — never drop the qualifier, never keep a bare number.** |
-| 2026-09-07 | `allclear.partial` | *(new)* | All analysis photographs met the app's capture-quality checks that could be run at the time of capture. Camera movement was not measured for every photograph. | **A second variant of §2.3's all-clear, not a replacement for it.** Added because `motionMeasurable` makes "a check did not run" visible in the persisted model for the first time, and the unqualified sentence covered such a photograph as though its steadiness had been verified. Emitted only when some analysis photograph has `motionMeasurable == false`, so the qualification distinguishes something rather than appearing on every report. **Must not be merged into one softened sentence** — a permanent "checks that could be run" is the always-firing note in the section whose purpose is the quiet case. **Must not become a per-photograph note**: §1's motion row has no "not measured" line deliberately, and this is the per-set form of the same fact. Must not drift to "may not have been fully checked" (a recorded fact read as a hedge), "motion blur could not be ruled out" (a conclusion this report does not draw, §4.0.1), or the second clause alone (blames the photograph rather than the instrument). |
+| 2026-09-07 | `allclear.partial` | *(new)* | All analysis photographs met the app's capture-quality checks that could be run at the time of capture. Camera movement was not measured for every photograph. | **A second variant of §2.3's all-clear, not a replacement for it.** Added because `motionMeasurable` makes "a check did not run" visible in the persisted model for the first time, and the unqualified sentence covered such a photograph as though its steadiness had been verified. Emitted only when some analysis photograph has `motionMeasurementAttempted && !motionMeasurable` — a path claimed a motion measurement and could not obtain one — so the qualification distinguishes something rather than appearing on every report. **This cell said `motionMeasurable == false` until 2026-09-07 (Designer):** that form is also true of every photograph that never asked, which would have made the qualified variant the only reachable one. The `Why` cell is where a reviewer checks a condition, so a superseded condition here ratifies the regression it should catch. **Must not be merged into one softened sentence** — a permanent "checks that could be run" is the always-firing note in the section whose purpose is the quiet case. **Must not become a per-photograph note**: §1's motion row has no "not measured" line deliberately, and this is the per-set form of the same fact. Must not drift to "may not have been fully checked" (a recorded fact read as a hedge), "motion blur could not be ruled out" (a conclusion this report does not draw, §4.0.1), or the second clause alone (blames the photograph rather than the instrument). |
 
 The current value of `review.flag` is therefore **"Analysis photo — examiner
 did not confirm the frame was clear"**, and the §2.2 note wording for

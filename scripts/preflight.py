@@ -596,6 +596,268 @@ def check_shapecheck_anchors():
              "obituary")
 
 
+def check_locked_variant_conditions():
+    """The DOCUMENT's stated condition must be the renderer's condition.
+
+    # remedy: fixes
+
+    NOTE(Designer), 2026-09-07. Third edge of one defect, and the only one
+    still open after two patches. The Tech Lead mutated the renderer's
+    sec.2.3 selector back to v1 and preflight stayed clean; Vector's
+    `// anchor:` lines closed that, blocking, for all eight instruments.
+
+    This is the edge neither closes. sec.2.3's PROSE specified the condition
+    as `motionMeasurable == false` -- the v1 selector -- in five places,
+    including the locked ledger row's `Why` cell. So a reviewer who doubted
+    the renderer and checked it against the owning document would have found
+    the regression CORRECT and closed the review. A DOCUMENT CARRYING A
+    SUPERSEDED CONDITION DOES NOT MERELY FAIL TO CATCH THE REGRESSION, IT
+    RATIFIES IT -- and it is the artefact a reviewer consults precisely when
+    they doubt the code, so its failure is silent in the direction of
+    agreement.
+
+    Measured, not argued: with the anchors in place, regressing the DOC's
+    wording while the renderer stays correct produced no finding at all.
+    The two halves are independent -- an anchor proves the tree still
+    contains the expression the model models, and says nothing about whether
+    the prose describes the same expression.
+
+    The copy lock is the precedent and the reason this is a separate
+    mechanism. It guards sec.2.3's WORDS in four paragraphs, byte for byte,
+    and the always-firing qualification it exists to forbid arrived through
+    the PREDICATE those words were locked against. A lock over copy cannot
+    see a condition; that is not a gap in the lock, it is a second artefact.
+
+    Scope, so a clear run is not read as stronger than it is: this matches an
+    expression TEXTUALLY between the declaration and the renderer, so it
+    proves the document and the code state the same predicate. It cannot say
+    the predicate is CORRECT -- both move together when the declaration is
+    edited to match a wrong selector, which is why Vector's anchor (bound to
+    the shape check, reviewed as code) stays the guard on the expression
+    itself. It closes "the prose ratifies a regression the code checks
+    catch" and nothing else. A variant with NO declaration is REPORTED, not
+    skipped: a check whose population can silently empty is the absence
+    asserting a pass, and that is this check's own regression.
+    """
+    doc = os.path.join(REPO, "docs", "EVIDENCE_APPENDIX_CAPTURE_NOTES.md")
+    gen = os.path.join(REPO, "ios", "VehicleDamageForensics", "Services",
+                       "PDFReportGenerator.swift")
+    if not os.path.exists(doc) or not os.path.exists(gen):
+        return
+    text = open(doc).read()
+    lines = text.splitlines()
+    declared = re.findall(r"<!--\s*CONDITION:\s*(\S+)\s*=\s*(.+?)\s*-->",
+                          text)
+    # Count sec.2.3's locked variants, so a DELETED declaration is reported
+    # rather than shrinking the population to zero and passing. One
+    # declaration covers both variants: the renderer computes ONE selector
+    # and branches a ternary, so the plain sentence's guard is that
+    # expression's else-branch and has no separate condition. Two
+    # independently declared conditions would be two predicates that must
+    # agree -- the duplicate-with-diverging-claims defect this repository has
+    # hit at every layer -- while one selector with two branches cannot drift
+    # against itself.
+    variant_count = 0
+    in_23 = False
+    prev_quote = False
+    for l in lines:
+        if l.startswith("### 2.3"):
+            in_23 = True
+            continue
+        if not in_23:
+            continue
+        if l.startswith("### "):
+            break
+        is_quote = l.startswith("> ")
+        if is_quote and not prev_quote:
+            variant_count += 1
+        prev_quote = is_quote
+    if variant_count and not declared:
+        # remedy: fixes
+        warn("variant-condition",
+             f"sec.2.3 defines {variant_count} locked all-clear variant(s) "
+             f"and declares no guarding condition",
+             "add a `<!-- CONDITION: <key> = <expression> -->` line in the "
+             "section that owns the copy. Without it the variant's STRING is "
+             "guarded by check_note_rows_implemented, its EXPRESSION by "
+             "Vector's shape-check anchor, and the PROSE a reviewer reads by "
+             "nothing -- which is how a superseded condition ratifies a "
+             "regression")
+        return
+    if not declared:
+        return
+    flat = " ".join(open(gen).read().split())
+    for key, expr in declared:
+        want = " ".join(expr.split())
+        if want not in flat:
+            # remedy: fixes
+            warn("variant-condition",
+                 f"`{key}`'s declared condition `{want}` does not appear in "
+                 f"PDFReportGenerator.swift",
+                 "read which side moved before editing either. If the "
+                 "renderer changed, Vector's shape-check anchor is failing "
+                 "too and that is the finding; if only this fires, the "
+                 "DECLARATION is stale -- and a stale condition in the "
+                 "owning document is the artefact a reviewer trusts when "
+                 "they doubt the code")
+        # The prose a reviewer actually reads, not only the declaration: the
+        # declaration is a copy, and a copy of a claim goes stale the way
+        # every duplicate in this repository does. sec.2.3 named the v1
+        # condition in five places while any single declaration would have
+        # matched, so the check asks whether the SUPERSEDED form still reads
+        # as current -- an unqualified `motionMeasurable == false` presented
+        # as the trigger, rather than as the form that was replaced.
+        if key != "allclear.partial":
+            continue
+        for i, l in enumerate(lines):
+            if not re.search(r"emit this instead", l):
+                continue
+            # The DECLARATION must be stripped from the window before the
+            # prose is judged. Caught by mutation, not by reading: with the
+            # comment left in, regressing the prose to v1 shortened it by a
+            # line, pulled `<!-- CONDITION: ... -->` into the window, and the
+            # correct expression it carries satisfied the very test meant to
+            # find the stale prose. THE DECLARATION IMMUNISED THE CHECK
+            # AGAINST THE DEFECT IT DECLARES -- an artefact that is both the
+            # reference and part of the searched text, which is the
+            # mutate-the-fixture member of the wrong-object family arriving
+            # inside my own check.
+            window = " ".join(
+                l for l in lines[max(0, i - 6):i + 1]
+                if not re.search(r"<!--\s*CONDITION:", l))
+            if "motionMeasurable == false" in window and want not in window:
+                # remedy: fixes
+                warn("variant-condition",
+                     "sec.2.3's emit instruction states the condition as "
+                     "`motionMeasurable == false`, which is the superseded "
+                     "v1 selector, while the renderer uses "
+                     f"`{want}`",
+                     "correct the prose, not only the declaration: a "
+                     "reviewer checking the renderer against this document "
+                     "would find a v1 regression CORRECT. The v1 form is "
+                     "true of every photograph that never claimed a "
+                     "measurement, which makes the qualified variant the "
+                     "only reachable one")
+
+
+def check_variant_output_binding():
+    """The condition must be bound to the ARM, not merely present.
+
+    # remedy: fixes
+
+    NOTE(Designer), 2026-09-07. Ledger's finding, measured on the fully
+    stacked tree: negate the ternary's TEST and leave the anchored condition
+    untouched, and every instrument passes -- `preflight --all --strict`
+    clear at rc=0, `run.sh` 8/8. A renderer emitting the wrong variant on
+    every report, with the selector correct, both strings locked byte-exact
+    and both variants reachable. WIRED TO THE WRONG ARMS.
+
+    And the direction is the bad one. Inverted, a photograph that ATTEMPTED
+    and FAILED to measure motion prints the UNQUALIFIED all-clear -- "All
+    analysis photographs met the app's capture-quality checks." That is the
+    sec.2.3 over-claim the entire variant mechanism exists to stop, on the
+    page an examiner signs.
+
+    Why nothing saw it: mutation-testing proves a check DISCRIMINATES, an
+    anchor proves the modelled line EXISTS, and neither asks whether the
+    line's VALUE reaches the reader unnegated. A grep-strength anchor binds a
+    substring's PRESENCE, so anything expressible BETWEEN the condition and
+    the drawn string is outside all fourteen anchors: a `!`, a swapped
+    ternary, a shadowed local, an early `return`. Ledger's framing is the
+    one to keep -- row-with-no-branch is detectable, the wrong CONDITION is
+    what the anchors close, and A CORRECT CONDITION WIRED TO THE WRONG OUTPUT
+    was invisible to everything we had.
+
+    Ledger declined to propose a check and recorded it as the anchors'
+    standing limit, on the ground that the assertion which catches it renders
+    the block and reads the emitted string -- sec.4's compile-and-run debt.
+    THAT IS RIGHT ABOUT THE CLASS AND WRONG ABOUT THIS MEMBER, and taking the
+    limit at its word is what a stated limit gets. The class needs a renderer.
+    But the SIGN is not between the condition and the string here: the
+    ternary's test and both arms are one expression, textually adjacent, so
+    which literal sits on the TRUE arm is a property a grep can read. This
+    check buys exactly that: the qualified string must be on the arm the
+    condition selects when it is TRUE.
+
+    It closes the instance and NOT the class, and that distinction is the
+    whole lesson of today's Swift-count round -- a fix that removes today's
+    instance while the class stays open reads exactly like a closure. So:
+    the class stays open in Ledger's sec.4c-xx as compile-and-run debt, and
+    a clean run here must not be read as covering a shadowed local, an early
+    return, or a variant drawn from a second call site.
+
+    Blocking, unlike my prose check: an inverted variant is a false statement
+    on a signed page, and unlike an environment-dependent shape check this is
+    a property of the tree alone.
+    """
+    gen = os.path.join(REPO, "ios", "VehicleDamageForensics", "Services",
+                       "PDFReportGenerator.swift")
+    doc = os.path.join(REPO, "docs", "EVIDENCE_APPENDIX_CAPTURE_NOTES.md")
+    if not os.path.exists(gen) or not os.path.exists(doc):
+        return
+    flat = " ".join(open(gen).read().split())
+    # The QUALIFIED variant is the second blockquote in sec.2.3 -- taken from
+    # the document rather than written here, so the check cannot drift into
+    # asserting its own copy of a locked string. That is the
+    # duplicate-with-diverging-claims defect aimed at a checker, and this
+    # file has already committed it once via HELD_UNEMITTED.
+    lines = open(doc).read().splitlines()
+    variants = []
+    buf = []
+    in_23 = False
+    for l in lines:
+        if l.startswith("### 2.3"):
+            in_23 = True
+            continue
+        if not in_23:
+            continue
+        if l.startswith("### "):
+            break
+        if l.startswith("> "):
+            buf.append(l[2:].strip())
+        elif buf:
+            variants.append(" ".join(buf))
+            buf = []
+    if buf:
+        variants.append(" ".join(buf))
+    if len(variants) < 2:
+        # remedy: fixes
+        warn("variant-binding",
+             f"sec.2.3 parsed to {len(variants)} locked variant(s); this "
+             "check needs both to know which belongs on which arm",
+             "verify the section's blockquote shape rather than trusting "
+             "this check's silence -- a population that can silently empty "
+             "is the absence asserting a pass")
+        return
+    qualified = " ".join(variants[1].split())
+    ternary = re.search(r"let allClear = (!?)(\w+)\s*\?\s*\"(.*?)\"\s*:",
+                        flat)
+    if not ternary:
+        # remedy: fixes
+        fail("variant-binding",
+             "could not find sec.2.3's `let allClear = <cond> ? ... : ...` "
+             "ternary in PDFReportGenerator.swift",
+             "the all-clear may have been restructured (an if/else, a "
+             "helper, a second call site). Re-point this check AND re-read "
+             "whether the new shape still puts the qualified variant on the "
+             "condition's true arm -- an anchor that finds nothing is the "
+             "absence asserting a pass")
+        return
+    negated, cond, true_arm = ternary.groups()
+    if negated or " ".join(true_arm.split()) != qualified:
+        # remedy: fixes
+        fail("variant-binding",
+             "sec.2.3's all-clear is wired to the wrong arm: the QUALIFIED "
+             f"variant must be the true arm of `{cond}` and the test must "
+             "not be negated",
+             "inverted, a photograph that ATTEMPTED and FAILED to measure "
+             "motion prints the UNQUALIFIED all-clear -- the sec.2.3 "
+             "over-claim the variant mechanism exists to stop, on the page "
+             "an examiner signs. The selector, the anchors and both locked "
+             "strings are all still correct when this fires: a correct "
+             "condition wired to the wrong output is a different defect")
+
+
 def check_shapechecks_run():
     """The shape-check runner must actually be RUN by something.
 
@@ -2839,8 +3101,10 @@ def main():
     check_manifest_drift()
     check_cited_doc_copy()
     check_shapecheck_anchors()
+    check_variant_output_binding()
     check_shapechecks_run()
     check_note_rows_implemented()
+    check_locked_variant_conditions()
     check_default_valued_predicates()
     check_doc_drift()
     check_conflict_markers()

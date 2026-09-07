@@ -1673,6 +1673,83 @@ CODE — so any grep-strength instrument inherits the prose-does-not-fail defect
 it was built to close.** Ask it of every text-matching guard in this repo, not
 only of anchors.
 
+### 4c-xxi. The owning document ratified the v1 selector it should catch
+
+Third edge of one defect, and the only one the instrument patches left open.
+The Tech Lead mutated the renderer's §2.3 selector back to v1 and preflight
+stayed clean; Vector's `// anchor:` lines closed that, blocking, for all
+fourteen anchors.
+
+**Neither closes the document.** §2.3's prose specified the trigger as
+`motionMeasurable == false` — the v1 selector — in five places, including the
+locked ledger row's `Why` cell. So **a reviewer who doubted the renderer and
+checked it against the owning document would have found the regression CORRECT
+and closed the review.** A document carrying a superseded condition does not
+merely fail to catch the regression; **it ratifies it** — and it is the
+artefact a reviewer consults precisely when they doubt the code, so its
+failure is silent in the direction of agreement.
+
+Measured, not argued: with the anchors in place, regressing the doc's wording
+while the renderer stayed correct produced no finding at all. **An anchor
+proves the tree still contains what the model models; it says nothing about
+whether the prose describes the same expression.**
+
+**The copy lock is the precedent and the reason this needed a second
+mechanism.** The lock guards §2.3's words in four paragraphs, byte for byte,
+and the always-firing qualification it exists to forbid arrived through the
+PREDICATE those words were locked against. That is not a gap in the lock — a
+lock over copy cannot see a condition. `check_locked_variant_conditions`
+declares the predicate as `<!-- CONDITION: <key> = <expr> -->` in the section
+that owns the copy and asserts it against the renderer, plus the prose form
+separately. A comment rather than a locked table row on purpose: **a claim
+about CODE in a document of COPY must not read as a copy change to the lock.**
+
+**Its own defect, found by mutation and not by reading, is the sharpest part.**
+Regressing the prose shortened it by one line, which pulled the
+`<!-- CONDITION: -->` comment into the search window, and the correct
+expression that comment carries satisfied the very test meant to find the
+stale prose. **The declaration immunised the check against the defect it
+declares.** That is the mutate-the-fixture member arriving inside a check
+written to close another member of the same family, and the first run passed.
+
+**It is also the Tech Lead's §4c-xx one artefact over.** His finding is that a
+grep-strength check cannot distinguish code from commentary about code; mine
+is that the check's own declaration became commentary the check then read as
+evidence. **Any text-matching guard inherits the prose-does-not-fail defect,
+including from its own reference file.**
+
+### 4c-xxii. The instance closed, the class left open on purpose
+
+Ledger's §4c-xx names a correct condition wired to the wrong output — negate
+§2.3's ternary test, leave the anchored line untouched, and every instrument
+passes a renderer emitting the wrong variant on every report. He declined to
+check it, on the ground that the assertion which catches it must render the
+block and read the emitted string: §4's compile-and-run debt. The Tech Lead
+agreed, adding that a fifteenth grep would have looked like coverage.
+
+**They are right about the class and wrong about this member**, and taking a
+stated limit at its word is the failure this document already records two
+entries above: `check_note_rows_implemented` documented its own gap in four
+lines and nobody read it as owed work. **A stated limit is not a covered
+limit — including when the person stating it is right.**
+
+The sign is not, here, between the condition and the string. §2.3's ternary
+test and both arms are one expression, textually adjacent, so **which literal
+sits on the TRUE arm is a property a grep can read.**
+`check_variant_output_binding` asserts it, blocking, taking the qualified
+string from the document rather than carrying its own copy. On Ledger's exact
+mutant it returns `1 blocking` instead of `clear`; swapping the two arms with
+the test unchanged fires identically; restructuring the ternary away fires as
+NOT FOUND rather than passing silently.
+
+**And the class stays open, in writing, which is the point of this entry
+rather than an aside.** A shadowed local, an early `return`, a second call
+site, or the same defect in any surface without an adjacent ternary are all
+still invisible. **A fix that removes today's instance while the class stays
+open reads exactly like a closure** — the deferral shape from this morning's
+Swift-count round, and it would be committed here by anyone who reads a clean
+`--strict` as covering §4c-xx. It does not. The renderer debt is unchanged.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
