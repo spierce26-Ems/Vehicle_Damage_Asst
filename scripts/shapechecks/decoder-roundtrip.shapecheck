@@ -1,0 +1,74 @@
+// Shape check: a DISABLED decode still WRITES, and only reverts on LOAD.
+//
+// The Designer's sec.4c-xxvi claim, verified by CONSTRUCTION rather than by
+// reading, because it is the half that makes a disabled decode worse than a
+// deleted one and it is not visible in any diff:
+//
+//   `CapturedPhoto` has a hand-written `init(from:)` and NO `encode(to:)` /
+//   `CodingKeys`, so the ENCODER stays synthesized. Disabling one decode
+//   line therefore leaves the field persisted CORRECTLY to disk and reverts
+//   it to the default only on load. A field that saves right and reads back
+//   `false` forever, with a green build.
+//
+//   For `motionMeasurementAttempted` that default is `!attempted` -- "never
+//   asked" -- which sec.2.2 row two forbids from producing output. So the
+//   qualified all-clear silently becomes unqualified on every report opened
+//   from storage, while the report generated before the save was correct.
+//   That is why the guard is the only thing that was going to object.
+//
+// RUN, not just typechecked: `swiftc x.swift -o x && ./x`.
+// Asserted, and confirmed failing when the disabled line is restored.
+//
+// anchor: ios/VehicleDamageForensics/Models/CapturedPhoto.swift motionMeasurementAttempted = try c.decodeIfPresent(Bool.self, forKey: .motionMeasurementAttempted) ?? false
+// anchor: ios/VehicleDamageForensics/Models/CapturedPhoto.swift var motionMeasurementAttempted: Bool
+
+import Foundation
+
+// Reduced shape of CapturedPhoto's Codable half: SYNTHESIZED encode, HAND-WRITTEN decode.
+// The Designer's claim under test: disabling one decode line leaves the field
+// WRITTEN to disk correctly and only reverts to the default on LOAD.
+struct Photo: Codable {
+    var id: String
+    var motionMeasurable: Bool
+    var motionMeasurementAttempted: Bool
+
+    // No encode(to:) and no CodingKeys -> encoder is synthesized.
+
+    init(id: String, motionMeasurable: Bool, motionMeasurementAttempted: Bool) {
+        self.id = id
+        self.motionMeasurable = motionMeasurable
+        self.motionMeasurementAttempted = motionMeasurementAttempted
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        motionMeasurable = try c.decodeIfPresent(Bool.self, forKey: .motionMeasurable) ?? false
+        // DISABLED, exactly the mutant:
+        // motionMeasurementAttempted = try c.decodeIfPresent(Bool.self, forKey: .motionMeasurementAttempted) ?? false
+        motionMeasurementAttempted = false
+    }
+}
+
+let scar = Photo(id: "scar", motionMeasurable: false, motionMeasurementAttempted: true)
+let data = try JSONEncoder().encode(scar)
+let json = String(data: data, encoding: .utf8)!
+var failures = 0
+func expect(_ label: String, _ got: Bool, _ want: Bool) {
+    if got == want { print("  ok   \(label)") }
+    else { print("  FAIL \(label): got \(got), want \(want)"); failures += 1 }
+}
+
+expect("the field IS written to disk despite the disabled decode",
+       json.contains("\"motionMeasurementAttempted\":true"), true)
+let back = try JSONDecoder().decode(Photo.self, from: data)
+expect("and reads back FALSE -- the value is lost on LOAD, not on SAVE",
+       back.motionMeasurementAttempted, false)
+// The selector sec.2.3 uses:
+func qualified(_ ps: [Photo]) -> Bool { ps.contains { $0.motionMeasurementAttempted && !$0.motionMeasurable } }
+expect("sec.2.3 selects QUALIFIED before the save (correct)",
+       qualified([scar]), true)
+expect("and PLAIN after the load -- the over-claim, from a green build",
+       qualified([back]), false)
+
+print("\n\(failures) failing assertion(s).")

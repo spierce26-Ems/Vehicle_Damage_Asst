@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 85 tracked files, of which 42 Swift sources (21973 lines). The `scripts/shapechecks/` instruments are deliberately NOT `.swift`: the Swift count is a signal quoted in review, and a reduced model that says nothing about the app must not move it. Stated without a file count on purpose -- the set grows, and a number here would go stale in the direction that reads as an oversight.
+Totals: 86 tracked files, of which 42 Swift sources (21973 lines). The `scripts/shapechecks/` instruments are deliberately NOT `.swift`: the Swift count is a signal quoted in review, and a reduced model that says nothing about the app must not move it. Stated without a file count on purpose -- the set grows, and a number here would go stale in the direction that reads as an oversight.
 
 ## iOS app — Xcode project
 
@@ -131,7 +131,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 199 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 200 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -162,6 +162,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/set_dev_team.sh` | 44 |
 | `scripts/shapechecks/README.md` | 144 |
 | `scripts/shapechecks/decline-affordance.shapecheck` | 111 |
+| `scripts/shapechecks/decoder-roundtrip.shapecheck` | 74 |
 | `scripts/shapechecks/filtered-headline.shapecheck` | 176 |
 | `scripts/shapechecks/filtered-headline-v1.shapecheck` | 144 |
 | `scripts/shapechecks/item2-attestation.shapecheck` | 109 |
