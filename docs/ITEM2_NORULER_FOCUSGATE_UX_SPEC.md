@@ -151,7 +151,40 @@ third line (the scar shot is the single worst offender for this bug):
 > 🔬 Damaged paint only — tape measure out of frame.
 
 ### 1.3 Arm-time confirmation (analysis shots only, once per shot)
-The Ready button already exists (`isArmed`). For analysis shots only, first tap
+
+**Corrected 2026-09-07: this section specified one button, and one button
+cannot record a decline.** As written below, the affordance was
+`[ Yes — capture ]` alone — so `frameConfirmedClear` could only ever be written
+`true`, and the `Bool?` whose entire purpose is to distinguish *declined* from
+*never asked* was two-state in the tree. §2.2's row two and §1.4's badge rest
+on the third state and could not fire on any build. **This is the spec's defect,
+not the implementation's: the code followed the section literally**, so the
+clause is corrected in place rather than annotated — same standard as §2.4's
+"from the live gate state".
+
+**The question takes two answers**, side by side in the row the Ready button
+occupied, neither blocking the capture:
+
+> **Tape measure out of frame?**  [ Yes — clear ]  [ No — not clear ]
+
+Symmetrical on purpose, so neither reads as the default, and both name the
+frame's state rather than the examiner's diligence. **A decline must not cost
+the examiner their shot** — a flagged photograph in the file beats a missing
+one, and an answer that loses evidence is an answer nobody gives twice. Not a
+new stacked row either: bottom-content overflow is a live regression on both
+camera screens, so an affordance that adds height can push itself off-screen.
+
+**And the two answers have different lifetimes, which the original per-session
+rule got wrong for one of them.** Asking once per camera session is the
+mash-through guard and is right for `true`: an examiner who cleared their
+working area has cleared it for the session. **`false` is a fact about THIS
+frame**, so it is cleared after the capture and the question is owed again on
+the next analysis shot. Persisting it would write "the examiner did not confirm
+the frame was clear" onto later photographs nobody was asked about — the same
+over-claim as a note that fires always, one field upstream.
+
+*Original text, superseded above:* The Ready button already exists (`isArmed`).
+For analysis shots only, first tap
 of Ready in a given capture session swaps the button label for one beat:
 
 > **Tape measure out of frame?**  [ Yes — capture ]
@@ -360,6 +393,8 @@ drop any of them; a flagged photo in the file is better than a missing one.
 | band.analysis | Analysis shot — damaged paint only. Move the tape measure out of frame. |
 | band.reference | Measurement shot — keep the tape measure in frame. |
 | confirm.arm | Tape measure out of frame? |
+| confirm.yes | Yes — clear |
+| confirm.no | No — not clear |
 | chip.sharp | Sharp |
 | chip.close | Close enough |
 | framing.tooFar | Move closer — fill the box with the scar |

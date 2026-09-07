@@ -1956,6 +1956,27 @@ same commit as its cause. **A correct finding addressed to the wrong owner
 looks completely handled**, which is why it survives review — nobody is
 waiting on it and nobody is working on it.
 
+**And the guards belong in a runner, because a rule about what to verify
+before believing a result lapses exactly when the technique stops feeling
+new.** Vector's `mutate.sh` mechanises all three: a mutant must **differ**,
+then **build**, then **fail** — and the exit status collapses those three
+states into one bit, which is why every free pass reads as coverage. It carries
+a deliberate no-op canary (a pattern that cannot match) which it must report
+*as* a no-op rather than as a pass, so guard 1 is proven on every run. **That
+canary is the mutation-testing form of confirming a reduced shape fails when
+the property under test is removed: the check checked through itself rather
+than through the thing it wraps.**
+
+Worth recording what it caught the first time it was pointed at new work.
+Running it over the decline-affordance shape killed three mutants and reported
+a fourth **surviving** — a mutation that wrote the live attestation onto a
+reference shot. The gap was real and specific: **my leak test used the decline
+path, which is cleared after its own capture, so there was nothing left to
+leak.** The affirmative persists for the session and is the only state that can
+leak, so the discriminating case was the one I had not written. **A negative
+test whose precondition is destroyed by the behaviour under test passes for the
+wrong reason** — and it took a mechanised runner, not a reviewer, to say so.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.

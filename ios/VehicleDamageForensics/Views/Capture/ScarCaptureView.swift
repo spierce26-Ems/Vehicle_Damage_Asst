@@ -497,37 +497,84 @@ struct ScarCaptureView: View {
     /// .readyButton` for the matching control on the main protocol
     /// camera and the shared rationale.
     private var readyButton: some View {
-        Button {
-            // NOTE(AI Developer), 2026-09 (Item 2 sec.1.3). First tap of
-            // Ready in a session swaps the label for one beat and asks
-            // the attestation; the second tap arms as normal. Subsequent
-            // shots in the same session skip it.
-            //
-            // Confirmation rather than detection, deliberately: a real
-            // ruler detector is CV work (long straight high-contrast edge
-            // plus regular perpendicular tick periodicity) and belongs to
-            // Prism. An examiner-attested boolean is cheap, shippable,
-            // and is the thing that actually holds up in a report -- "the
-            // examiner attested the frame was clear" beats "an algorithm
-            // guessed". It is also the only one of the two that can be
-            // stated in the appendix as an attribution.
-            if !didAskFrameClear {
-                didAskFrameClear = true
-                return
+        // NOTE(Designer), 2026-09-07 (Item 2 sec.1.3). Was one control
+        // with a two-tap sequence, which could only ever write `true` --
+        // see `CaptureCameraView.readyButton` for the full reasoning and
+        // Ledger's audit. `frameConfirmedClear` is `Bool?` so a decline
+        // differs from never having been asked, and with no decline
+        // affordance the third state was unreachable on any build.
+        //
+        // Confirmation rather than detection remains deliberate: a real
+        // ruler detector is CV work (long straight high-contrast edge
+        // plus regular perpendicular tick periodicity) and belongs to
+        // Prism. An examiner-attested boolean is cheap, shippable, and is
+        // the thing that holds up in a report -- "the examiner attested
+        // the frame was clear" beats "an algorithm guessed", and it is
+        // the only one of the two the appendix can state as an
+        // attribution. That argument was always about the ANSWER's
+        // provenance; it never said the question may have one answer.
+        if didAskFrameClear && pendingFrameClear == nil {
+            attestationAnswerRow
+        } else {
+            Button {
+                if !didAskFrameClear {
+                    didAskFrameClear = true
+                    return
+                }
+                camera.armAutoCapture()
+            } label: {
+                scarReadyLabel("Ready")
             }
-            if pendingFrameClear == nil { pendingFrameClear = true }
-            camera.armAutoCapture()
-        } label: {
-            Label(didAskFrameClear && pendingFrameClear == nil
-                    ? "Tape measure out of frame?"
-                    : "Ready",
-                  systemImage: "checkmark.circle.fill")
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(Color.blue, in: Capsule())
-                .foregroundStyle(.white)
         }
+    }
+
+    /// Both answers, in the row the single Ready button occupied -- not a
+    /// new stacked row. This screen's bottom column has overflowed twice
+    /// (Sean: "does not fit well within the view", the Ready button "low
+    /// on the screen and can't activate it"), so an affordance that adds
+    /// height can push itself off-screen.
+    ///
+    /// Neither answer blocks the capture: a flagged photograph in the
+    /// file beats a missing one, and an answer that costs the examiner
+    /// their shot is an answer nobody gives twice.
+    ///
+    /// Answer labels are NEW strings and need Ledger's lock entry;
+    /// `confirm.arm` above them is locked and verbatim.
+    private var attestationAnswerRow: some View {
+        VStack(spacing: 8) {
+            Text("Tape measure out of frame?")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            HStack(spacing: 10) {
+                Button {
+                    pendingFrameClear = true
+                    camera.armAutoCapture()
+                } label: {
+                    scarReadyLabel("Yes — clear")
+                }
+                Button {
+                    pendingFrameClear = false
+                    camera.armAutoCapture()
+                } label: {
+                    Label("No — not clear", systemImage: "exclamationmark.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private func scarReadyLabel(_ text: String) -> some View {
+        Label(text, systemImage: "checkmark.circle.fill")
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.blue, in: Capsule())
+            .foregroundStyle(.white)
     }
 
     /// Filling ring (progress toward auto-capture) with a manual shutter
@@ -697,6 +744,17 @@ struct ScarCaptureView: View {
             camera.resetAutoCaptureStreak()
             camera.stopSession()
             installFreshlyCapturedPhoto(photo)
+            // NOTE(Designer), 2026-09-07. A decline is a fact about THIS
+            // frame and must not carry forward to a retake; an
+            // affirmation may, since a cleared working area stays
+            // cleared. Persisting `false` would write "the examiner did
+            // not confirm the frame was clear" onto a later photograph
+            // nobody was asked about -- the same over-claim as a note
+            // that fires always, one field upstream.
+            if pendingFrameClear == false {
+                pendingFrameClear = nil
+                didAskFrameClear = false
+            }
             // Let the green flash animate out, then clear the flag so a
             // future retake/auto-capture can trigger it again.
             try? await Task.sleep(nanoseconds: 250_000_000)

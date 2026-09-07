@@ -363,40 +363,108 @@ struct CaptureCameraView: View {
     /// the shutter/library/skip circles below so it reads as a
     /// deliberate "start the timer" action, not another capture button.
     private var readyButton: some View {
-        Button {
-            // NOTE(Designer), 2026-09 (Item 2 sec.1.3). Analysis shots
-            // only: on the first tap of Ready in this camera session the
-            // label swaps for one beat and asks the attestation; the
-            // second tap arms as normal, and later shots in the same
-            // session skip the question. A reference shot arms on the
-            // first tap exactly as before -- asking "tape measure out of
-            // frame?" on the height-reference shot would be telling the
-            // user to remove the evidence that shot exists to capture.
-            if currentShotIsAnalysis && !didAskFrameClear {
-                didAskFrameClear = true
-                return
-            }
-            // Answering is what makes this `true`; an unasked question
-            // stays `nil`. A reference shot never reaches the branch
-            // above, so its captures record `nil` -- correct, because
-            // nobody was asked.
-            if didAskFrameClear && pendingFrameClear == nil {
-                pendingFrameClear = true
-            }
-            camera.armAutoCapture()
-        } label: {
-            Label(isAskingFrameClear ? "Tape measure out of frame?" : "Ready",
-                  systemImage: "checkmark.circle.fill")
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .background(Color.blue, in: Capsule())
-                .foregroundStyle(.white)
+        // NOTE(Designer), 2026-09-07 (Item 2 sec.1.3). This was ONE
+        // control with a two-tap sequence, and Ledger's audit showed why
+        // that was wrong: `frameConfirmedClear` is `Bool?` so that
+        // "declined" differs from "never asked", and a single button
+        // could only ever write `true`. No code path produced `false`, so
+        // sec.2.2's row two and sec.1.4's review badge could not fire on
+        // any build -- a three-state field that was two-state in the
+        // tree, with four documents resting on the third state.
+        //
+        // The question needs two ANSWERS, not an answer and a walk-away.
+        // An examiner who looks up, sees the tape measure still in frame
+        // and therefore does not tap again produces no photograph at all;
+        // silence is not a decline, and the field must not read it as
+        // one.
+        if isAskingFrameClear {
+            attestationAnswerRow
+        } else {
+            Button { armAfterAttestation() } label: { readyLabel("Ready") }
         }
     }
 
-    /// True for the one beat where the Ready button is carrying the
-    /// attestation question rather than its own label.
+    /// The two answers, side by side in the row the single Ready button
+    /// occupied -- deliberately NOT a new stacked row. Bottom-content
+    /// overflow is a live regression on both camera screens (Sean's "the
+    /// screen is not formatted properly", and the Ready button that
+    /// "can't activate it" because it sat below the visible edge), so an
+    /// affordance that adds height is an affordance that can push itself
+    /// off-screen.
+    ///
+    /// Neither answer blocks the capture. "Not clear" records the decline
+    /// and arms exactly as the affirmative does: the item's whole design
+    /// is that a flagged photograph in the file beats a missing one, and
+    /// an answer that costs the examiner their shot is an answer nobody
+    /// gives twice. The decline is what makes the appendix note and the
+    /// review badge reachable at all.
+    ///
+    /// Copy: `confirm.arm` is locked and reproduced verbatim as the
+    /// question above the row. The two ANSWER labels are new strings and
+    /// need Ledger's lock entry -- "Yes — clear" / "No — not clear" is
+    /// the recommendation, symmetrical so neither reads as the default,
+    /// and naming the frame's state rather than the examiner's diligence.
+    /// Do not word the decline as a fault: sec.2.2's row two describes
+    /// what a person did or did not do, and a button that reads as an
+    /// admission is a button people stop pressing, which loses the
+    /// finding rather than recording it.
+    private var attestationAnswerRow: some View {
+        VStack(spacing: 8) {
+            Text("Tape measure out of frame?")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+            HStack(spacing: 10) {
+                Button {
+                    pendingFrameClear = true
+                    armAfterAttestation()
+                } label: {
+                    Label("Yes — clear", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color.blue, in: Capsule())
+                        .foregroundStyle(.white)
+                }
+                Button {
+                    pendingFrameClear = false
+                    armAfterAttestation()
+                } label: {
+                    Label("No — not clear", systemImage: "exclamationmark.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private func readyLabel(_ text: String) -> some View {
+        Label(text, systemImage: "checkmark.circle.fill")
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(Color.blue, in: Capsule())
+            .foregroundStyle(.white)
+    }
+
+    /// Ready's own action, once the attestation is not owed. Analysis
+    /// shots raise the question on the first tap of a camera session; a
+    /// reference shot arms immediately, because asking "tape measure out
+    /// of frame?" on the height-reference shot would tell the user to
+    /// remove the evidence that shot exists to capture.
+    private func armAfterAttestation() {
+        if currentShotIsAnalysis && !didAskFrameClear {
+            didAskFrameClear = true
+            return
+        }
+        camera.armAutoCapture()
+    }
+
+    /// True while the attestation is owed and unanswered -- the window in
+    /// which the answer row replaces the Ready button.
     private var isAskingFrameClear: Bool {
         didAskFrameClear && pendingFrameClear == nil
     }
@@ -661,6 +729,23 @@ struct CaptureCameraView: View {
             // it here too closes the brief window between this
             // capture completing and that change propagating.
             camera.resetAutoCaptureStreak()
+            // NOTE(Designer), 2026-09-07. A DECLINE does not carry
+            // forward; an affirmation does. Asking once per camera
+            // session is the mash-through guard, and it is right for
+            // `true`: an examiner who has cleared their working area has
+            // cleared it for the session. `false` is the opposite -- it
+            // is a fact about THIS frame, and letting it persist would
+            // write "the examiner did not confirm the frame was clear"
+            // onto every later analysis shot in the session, including
+            // ones nobody was asked about. That is the same over-claim as
+            // a note that fires always, one field further upstream.
+            //
+            // So after a declined capture the question is owed again on
+            // the next analysis shot.
+            if pendingFrameClear == false {
+                pendingFrameClear = nil
+                didAskFrameClear = false
+            }
         } catch {
             lastError = error.localizedDescription
         }
