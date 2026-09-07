@@ -468,6 +468,104 @@ def check_default_valued_predicates():
                  "-- never a second flag that happens to agree today")
 
 
+def check_shapechecks_run():
+    """The shape-check runner must actually be RUN by something.
+
+    # remedy: fixes
+
+    NOTE(Vector), 2026-09-07. `scripts/shapechecks/run.sh` is mutation-tested
+    three ways and correct. Nothing invoked it. A TRACKED CHECK NOBODY RUNS
+    DECAYS INTO A FILE -- the same shape as `check_remedies.py`, which was
+    written, reviewed and landed unwired earlier today and reported nothing
+    for a full round.
+
+    Giving the instruments a durable home solved storage; this solves
+    execution, and they are different problems. A check nobody can re-run is
+    a claim; a check nobody does re-run is a decoration.
+
+    Scope, so a clear run is not read as stronger than it is: this proves each
+    shape check still COMPILES and its own assertions still HOLD. It does not
+    prove any of them still DISCRIMINATES -- that a mutation of the property
+    under test would make it fail. Verifying that requires mutating the tree,
+    which a preflight check must not do, so the entry condition stays a
+    written requirement in the README. And a passing shape check is evidence
+    about a reduced MODEL, which says nothing about the tree.
+
+    Advisory, and NAMED rather than silent when no toolchain is present: an
+    environment-dependent check reports a property of the pair, never of the
+    commit, and "the checks are clear" is a claim about the checks that RAN.
+    """
+    runner = os.path.join(REPO, "scripts", "shapechecks", "run.sh")
+    if not os.path.exists(runner):
+        return
+    swiftc = os.environ.get("SWIFTC") or shutil.which("swiftc")
+    if not swiftc:
+        home = os.path.join(os.path.expanduser("~"),
+                            "toolchains", "swift", "usr", "bin", "swiftc")
+        swiftc = home if os.access(home, os.X_OK) else None
+    if not swiftc:
+        # remedy: external
+        warn("shapechecks",
+             "the shape checks were NOT RUN -- no Swift compiler found "
+             "(set SWIFTC)",
+             "install a swift.org toolchain or set SWIFTC. Named rather than "
+             "skipped silently: a check that did not run must say so, or a "
+             "clear aggregate reads as coverage it does not have")
+        return
+    env = dict(os.environ, SWIFTC=swiftc)
+    # Captured, never piped: reading a runner's verdict through a pipe returns
+    # the PIPE's status, which is how a failing run was read as passing today.
+    out = subprocess.run(["bash", runner], capture_output=True, text=True,
+                         cwd=REPO, env=env)
+    # rc=3 is "could not run", not "failed" -- Ledger's exit-code split. A
+    # caller that treats every non-zero alike reports an absent toolchain as a
+    # failing instrument, which is the misattributing diagnostic this file has
+    # now hit four times: right about there being a problem, wrong about whose.
+    if out.returncode == 3:
+        # remedy: external
+        warn("shapechecks",
+             "the shape checks were NOT RUN -- run.sh reports no usable Swift "
+             "compiler (rc=3)",
+             "set SWIFTC to a swift.org toolchain. Named rather than skipped "
+             "silently, and deliberately NOT reported as a failure: no result "
+             "and a bad result are different claims")
+        return
+    if out.returncode == 2:
+        # remedy: fixes
+        warn("shapechecks",
+             "run.sh found NO shape checks (rc=2) -- an empty pass is not a "
+             "pass",
+             "restore the instruments or remove the runner: a check that "
+             "examines nothing cannot fail, which is the absence asserting "
+             "the clean case")
+        return
+    if out.returncode != 0:
+        # Name the FILES that failed, not the runner's whole FAIL line: the
+        # line carries the interpreter's own trailing output (a Swift
+        # precondition prints a backtrace), so quoting it verbatim produced
+        # "motionblur-window.shapecheck -- Backtrace took 0.00s" -- a true
+        # alarm whose text points at nothing. Verified by reading the EMITTED
+        # message on a mutant rather than the format string.
+        failing = []
+        for line in out.stdout.splitlines():
+            stripped = line.strip()
+            if not stripped.lower().startswith(("fail", "compile fail")):
+                continue
+            for token in stripped.split():
+                if token.endswith(".shapecheck"):
+                    failing.append(token)
+                    break
+        detail = ", ".join(sorted(set(failing))) if failing else \
+            f"runner exited {out.returncode} with no FAIL line"
+        # remedy: fixes
+        warn("shapechecks",
+             f"scripts/shapechecks/run.sh reports failures: {detail}",
+             "read the failing assertion's NAME before deciding which side "
+             "moved: a reduced model says nothing about the tree on its own, "
+             "so either the model is wrong or the behaviour it models "
+             "changed, and the assertion name is what distinguishes them")
+
+
 def check_note_rows_implemented():
     """Every note row the appendix SPECIFIES must exist in the renderer.
 
@@ -1596,7 +1694,29 @@ def check_manifest_drift():
     tracked = [f for f in tracked_paths if f]
     if not tracked:
         return
-    swift = [f for f in tracked if f.endswith(".swift")]
+    # "Swift sources" means APP sources -- the same population `tracked_swift`
+    # parses and `check_pbxproj_registration` requires in the Xcode target.
+    #
+    # NOTE(Vector), 2026-09-07. This counted every tracked `.swift` file while
+    # `tracked_swift()` counts only those under SOURCE_ROOT: TWO DEFINITIONS
+    # OF "SWIFT FILE" IN ONE REPOSITORY, agreeing for months only because
+    # every `.swift` file happened to be an app source -- the coincidence
+    # doing the work of a definition.
+    #
+    # The shape checks were landed as `.shapecheck` so the figure would not
+    # move, and that is right for those files (a verification instrument is
+    # not app source). But the extension was the WORKAROUND, not the fix: a
+    # real `.swift` file anywhere outside SOURCE_ROOT still moves this figure
+    # and not the parsed/pbxproj one. Measured on a probe at
+    # `ios/probe.swift`: tracked_swift 42, this check 43. So the two figures
+    # all four of us quote as one signal can still silently become different
+    # while both stay correct, which is the hazard the extension choice was
+    # made to avoid.
+    #
+    # A number quoted as a signal must be computed from the same set every
+    # time, or it is a different number wearing the same words.
+    swift = [f for f in tracked
+             if f.endswith(".swift") and f.startswith(SOURCE_ROOT + "/")]
 
     m = re.search(r"(\d+)\s*tracked files.*?(\d+)\s*Swift sources",
                   text, re.S)
@@ -2590,6 +2710,7 @@ def main():
     check_delimiter_balance(files)
     check_manifest_drift()
     check_cited_doc_copy()
+    check_shapechecks_run()
     check_note_rows_implemented()
     check_default_valued_predicates()
     check_doc_drift()

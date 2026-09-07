@@ -1365,6 +1365,75 @@ silent omission into a prompt, not into a diagnosis.** And a hold must be
 declared in exactly one place — recording it in the check and in the appendix
 section is the duplicate-with-diverging-claims defect aimed at a checker.
 
+### 4c-xvi. A tracked check nobody runs decays into a file
+
+`run.sh` was mutation-tested three ways, given a durable home, had its exit
+codes split, and **nothing invoked it.** Storage and execution are different
+problems, and four rounds of work on the instruments solved only the first.
+**A check nobody can re-run is a claim; a check nobody does re-run is a
+decoration.**
+
+Not hypothetical here: `check_remedies.py` was written, reviewed and landed
+**unwired** the same day and reported nothing for a full round — the same
+shape, one artefact over. That is also the reason `filtered-headline-v1` was
+renamed into the glob rather than archived beside it: **a stored instrument
+the runner does not execute is a file, not a check.**
+
+`preflight` now runs them, **captures the output rather than piping it** —
+reading a runner's verdict through a pipe returns the pipe's status, which
+produced two false readings today — and reads **all four** exit codes
+separately. A `3` is named as NOT RUN rather than reported as a failure,
+because **no result and a bad result are different claims**, and a caller that
+treats every non-zero alike undoes the split the codes were introduced for.
+
+**Scope stated, because the limit matters more than the check:** it proves
+each shape check still compiles and its own assertions still hold. **It does
+not prove any of them still DISCRIMINATES.** Verifying that requires mutating
+the tree, which a preflight check must not do, so the entry condition — *each
+must fail when the property under test is removed* — stays a written
+requirement in the README. A passing shape check is evidence about a reduced
+model, which says nothing about the tree.
+
+**One finding from building it: the emitted-text rule aimed at my own check.**
+The first version quoted `run.sh`'s whole FAIL line, which carries a Swift
+precondition's backtrace, so the warning read *"motionblur-window.shapecheck —
+Backtrace took 0.00s"* — **a true alarm whose text points at nothing.** Found
+by reading what the check EMITTED on a mutant, not the format string that
+produced it. Third instance of that rule today, twice against my own work.
+
+**And a third instance of the same shape, found while wiring this:**
+`scripts/__pycache__/preflight.cpython-312.pyc` was committed to `main` and
+`preflight`'s manifest check named it on the first run — **the count-under-a-
+recomputing-check rule catching a `git add -A`, which is how two stray files
+got tracked today, one of them mine.** It is now in `.gitignore` rather than
+only caught: **a check that catches a mistake is worth less than a rule that
+prevents it, when the rule is free.** Same reasoning as putting a runner's
+verdict on stderr instead of writing a rule about pipes — stop rewarding the
+mistake rather than relying on the reader who remembers.
+
+### 4c-xvii. Removing today's instance of a class is a deferral
+
+`.shapecheck` was the right landing and it is not the fix. Both *"the
+instruments are not `.swift`"* and *"unscoped `.swift` is also 42"* are true of
+the tree today — **and that is the coincidence, not the repair.** Two
+definitions of "Swift file" stayed live: `tracked_swift()` (what
+`check_swift_parses` parses and `check_pbxproj_registration` requires) scopes
+to `SOURCE_ROOT`; `check_manifest_drift` counted every tracked `.swift`.
+
+Measured on the landed tree rather than argued: a probe at `ios/probe.swift`
+gives **42 scoped and 43 unscoped**, and the manifest check reported 43. So the
+two figures all four of us quote as one signal could still silently become
+different while both stayed correct — by the next real Swift file outside
+`SOURCE_ROOT`, not by an instrument.
+
+**A fix that removes today's instance while the class stays reachable by the
+next file is a deferral, and it reads exactly like a closure.** The manifest
+check now names its population, so both figures are the same 42 by
+construction; re-probed after the fix, 42. **"42 Swift sources" keeps its
+meaning and every past "42/42" still reads the same way** — which is the point,
+since the hazard was never a wrong count but a quoted signal quietly changing
+what it counts.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

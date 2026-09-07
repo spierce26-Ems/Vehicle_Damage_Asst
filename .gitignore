@@ -44,3 +44,11 @@ ios/**/*.ipa
 ios/**/*.dSYM.zip
 ios/**/*.dSYM
 ios/**/build/
+
+# Python bytecode. `scripts/__pycache__/preflight.cpython-312.pyc` reached
+# main in e685c06 and preflight named it immediately -- the manifest check
+# earning its keep against a `git add -A`, which is how two stray files got
+# tracked today. Ignored so the next one cannot: a check that catches a
+# mistake is worth less than a rule that prevents it, when the rule is free.
+__pycache__/
+*.py[cod]
