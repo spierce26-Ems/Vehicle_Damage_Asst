@@ -116,9 +116,9 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 830 |
+| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 883 |
 | `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 656 |
-| `docs/PROCESS.md` | 1860 |
+| `docs/PROCESS.md` | 1913 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1913 |

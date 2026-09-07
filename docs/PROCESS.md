@@ -1210,8 +1210,38 @@ The habits, both cheap:
   under test is removed, and as verifying a gate through the gate rather than
   through the thing it wraps: **a check that cannot fail is not a check.**
 
+**Run that second habit over a whole condition TABLE, not one sentence at a
+time — the third instance turned up that way and it is not a set problem.**
+`frameConfirmedClear` is `Bool?` so that *declined* is distinguishable from
+*never asked*, and the appendix's row two, the review badge and four documents
+all rest on that. **No code path assigns `false`.** Both Ready buttons record
+`true` on the second tap; there is no decline affordance, so an examiner who
+sees the ruler still in frame simply takes no photograph. The predicate has no
+reachable input at all.
+
+So the same question has now produced three different shapes in one day, and
+the difference is worth keeping because each hides somewhere else:
+
+1. **An unfailable predicate over a set that excludes the only member that can
+   fail** — the all-clear. Visible only by reading the traversal.
+2. **A predicate reading the wrong field**, correct in wording and correct
+   when written — row five's proxy. Visible only by re-deriving what the field
+   means after the population changed.
+3. **A predicate whose input no code path can produce** — the decline.
+   Visible only by asking, of each condition, *which write site sets this, and
+   can a user reach it?*
+
+**The unifying check is one question asked of a condition rather than of a
+sentence: what would have to be true for this to fire, and can anything in the
+app make it true?** Reviewing conditions one at a time answers whether each is
+correctly written, which all three were. **A design commitment the code does
+not honour is not a bug report against the design** — the tri-state is right
+and is what makes the missing case recordable in one line — **but it must be
+recorded where the reader of the condition looks, not at the field, or the
+next reader takes the three-state as shipped behaviour.**
+
 Storing one instance of a type outside the collection of that type is what
-makes this reachable, and it is worth flagging on sight. `scarPhoto` is
+makes shape 1 reachable, and it is worth flagging on sight. `scarPhoto` is
 correctly separate from `photos` — independent of protocol progress,
 overwritten on retake — so the answer is not to merge them but for every
 whole-case traversal to come from one helper that names both. **One traversal
@@ -1700,6 +1730,29 @@ not a build — no iOS SDK, no type-check of a SwiftUI `body` — but "no fronte
 found" is a fixable environment gap, not a property of the sandbox, and a check
 that reports itself unavailable is worth less than the twenty minutes it costs
 to make it run.
+
+**And an installed toolchain is not the same as a working one — `preflight`
+reported 0 advisories on a tree where nothing could be compiled at all.**
+`swift-frontend -parse` links no curses, so the parse check passed 42/42 while
+`check_doc_drift`'s guard-order probe — the one check here that actually
+*builds and runs* code — failed on a missing `libncurses.so.6`. Its advisory
+said so precisely ("a broken toolchain, not an absent one"), and it is a
+`warn`, so a reader skimming for `preflight: clear` sees a green tree. **The
+distinction the two checks disagree about is exactly the one that matters:
+parsing proves the syntax is legal, and only executing proves an ordering
+claim.** Fixed by the remedy the advisory already named — Ubuntu 24.04 ships
+only the wide build, so `libncurses.so.6` is a symlink to `libncursesw.so.6` —
+after which the probe reports `4 height bands executed` rather than `parsed`.
+**That one-word difference in its output is the whole claim**, and it is the
+only place either state is visible.
+
+The reusable half, which is this section's own subject turned on the tooling:
+**"the checks are clear" is a claim about the checks that RAN.** A `warn` that
+degrades a check to a weaker check is not the same as a check that passed, and
+a suite reporting a headline clear while one of its probes is silently
+downgraded is a green tick over an unfailable check. **Read what each check
+says it did, not the aggregate** — and prefer a check that fails loudly when it
+cannot run.
 
 With a toolchain present, Vector's reduced-shape method extends one step:
 **compile the shape AND run it, with `precondition`s for the behaviour the real

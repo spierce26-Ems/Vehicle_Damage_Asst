@@ -112,6 +112,58 @@ than a note about missing data.
 
 **The general rule: never infer a defect from a field's absence.**
 
+### 1.2 No code path can record a decline, so row two cannot fire
+
+**Found by running §2.3's new discrimination question over the condition table
+instead of over one sentence, and it is a separate defect from the retired
+proxy above.** `frameConfirmedClear` is `Bool?` precisely so that *declined*
+(`false`) is distinguishable from *never asked* (`nil`). §1.1's table, §2.2's
+row two, `PhotoReviewView`'s §1.4 badge and this document's central rule all
+rest on that three-state. **No code path in the app assigns `false` to it.**
+
+Both Ready buttons implement the ask as a two-tap sequence on one control: the
+first tap swaps the label to *"Tape measure out of frame?"*, the second sets
+`pendingFrameClear = true` and arms (`CaptureCameraView:375-385`,
+`ScarCaptureView:514-518`). **There is no decline affordance** — no second
+button, and no dismiss path that records an answer. An examiner who looks up,
+sees the tape measure still in frame, and therefore does not tap again
+produces no photograph at all; one who taps produces `true`. A whole-tree grep
+for an assignment of `false`, or a negation, into either `pendingFrameClear`
+or `frameConfirmedClear` returns nothing. **`false` is unreachable.**
+
+**So row two of §2.2 is Vector's unfailable predicate in its second instance,
+and the §1.4 review badge is a third.** Both are correct, locked, reviewed —
+and **no photograph the app can produce is capable of triggering either.** The
+all-clear over the scar-photo-less set asserted a clean case about a
+population containing nothing that could fail it; this asserts nothing at all,
+silently, about a decline the app cannot record. Same question, one artefact
+over: **ask which members can actually fail the predicate.** Row five's fix
+was a predicate reading the wrong field; this is a predicate with no reachable
+input, and neither is visible from reading the sentence.
+
+**The fix is a UI affordance, not copy, and it is the Designer's** — the
+question needs two answers where it currently has one and a walk-away. The
+locked wording of row two and of the badge is already correct for a recorded
+`false` and **must not be touched**; softening either to describe an
+unavailable answer would repeat the row-five mistake in copy, where it is
+hardest to find.
+
+**Until it lands, `frameConfirmedClear` is functionally two-state in the tree
+while four documents describe it as three-state.** That is a design commitment
+the code does not yet honour, not a shipped behaviour, and it is recorded here
+rather than at the field because this is where the reader of the condition
+table looks. Nothing about the tri-state design is wrong: `nil` and `true` are
+both reachable and both correct, and the type is what will make `false`
+recordable in one line when the affordance exists.
+
+**The test checklist item for it already exists and cannot pass on any build
+in the tree** (*"A photo where the examiner was asked and declined … does
+render the note"*). Struck below with its re-enable condition rather than
+deleted, per §4c: an unpassable item converts a tester's effort into false
+evidence. This one would have been walked, found no way to produce a decline,
+and read as a defect in the tester's method — the second item on this
+checklist to fail that way, and the first was caught the same way.
+
 ---
 
 ## 2. Exact wording
@@ -669,7 +721,8 @@ decision rather than an oversight.
 - [ ] An automated audit event shows actor `system`, not blank and not the case owner.
 - [ ] An audit event predating the actor field reads "not recorded".
 - [ ] No page prints a source-file hash.
-- [ ] A photo where the examiner was asked and declined (`frameConfirmedClear == false`) does render the note — confirming `nil` and `false` are not collapsed anywhere in the render path.
+- [ ] ~~A photo where the examiner was asked and declined (`frameConfirmedClear == false`) does render the note — confirming `nil` and `false` are not collapsed anywhere in the render path.~~ **NOT REACHABLE — do not walk this item, it cannot pass.** Per §1.2, no code path assigns `false`: both Ready buttons record `true` on the second tap and there is no decline affordance, so a tester cannot produce the input this item needs. **The render path is correct and untested by construction** — `PDFReportGenerator:331` tests `== false`, not `!= true`, so `nil` and `false` are provably not collapsed by reading it, which is the only evidence available today. Re-enable it in the same diff that adds the decline affordance; the requirement stands and the locked wording it checks is unchanged.
+- [ ] **A photo where the examiner attested (`frameConfirmedClear == true`) renders NO note for row two.** The reachable half of the item above, and worth walking now: tap Ready twice on an analysis shot, export, and confirm no *"examiner did not confirm"* line appears. This passes today and would also pass if the field were hardcoded `true` — **it is not evidence that the tri-state works**, only that the attested case is silent. Stated so the tick is not read as covering the item it sits under.
 - [ ] **A scar capture taken on the very first frame, before any measurement lands, renders row five and NOT rows three or four.** The negative case for `a9deebb`: enter the scar camera, tap the manual shutter immediately, export. One note — *"Sharpness was not measured for this photograph"* — with no *"The app measured…"* line beside it. **Two notes on that photo means the flags are reading gates again.** Walk it a second time with the lens hunting: `isFocused` is the conjunction of device focus and the sharpness measurement, so a hunting lens over a sharp frame is the other way a gate reads `false` with a good measurement in hand.
 - [ ] ~~A factor whose inputs include a flagged photo shows the §2.4 cross-reference, and its numeric score is unchanged from the same analysis run without the appendix.~~ **NOT IMPLEMENTED — do not walk this item, it cannot pass.** `408a247` built §1, §2.1, §2.2 and §2.3 in full and verbatim, and did not build §2.4: *"See Capture Conditions in the evidence appendix."* has zero references in Swift, and `drawFactorBreakdown` renders `f.notes` and nothing else. **A checklist line for a clause nobody built would have been walked, found no cross-reference to look at, and read as a pass — or as a defect in the tester's method.** That is this document's own subject one artefact over. Re-enable it in the same diff that implements §2.4; the requirement stands.
 - [ ] **A completed protocol with no scar photo renders NO "Sharpness was not measured" notes at all.** The negative case for the retired proxy: capture all four analysis shots on the protocol camera (attesting on the first Ready tap), export, and search the Capture Conditions page for *"Sharpness was not measured"* — **zero hits.** Those photographs have `frameConfirmedClear == true` and `sharpnessScore == nil`, exactly the pair the old `!= nil` guard fired on, so **four hits per vehicle means the guard is reading the attestation again.** The same case must still render the §2.3 all-clear, because nothing is wrong with those photographs.
