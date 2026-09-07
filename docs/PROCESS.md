@@ -705,6 +705,22 @@ Six for six, caught by four readers, and by none of `preflight`,
 placement, not only wording** — reviewing the sentence is not reviewing the
 surface, and gating is invisible in the artefact under review.
 
+**The same class with a git ref as the surface, and it is one entry rather
+than three.** Inside this round: an advisory measured against a working tree
+containing its author's own unlanded commit; a push reported for two days that
+had only ever been local, because the sandbox holds no write credential; a
+patch attached and described in detail that contained three unrelated landed
+commits. Three people, three artefacts, **one failure — the measured subject
+and the shared subject were not the same object.** A clone of your own
+checkout inherits only what you fetched, so it is not a clone of the remote;
+one of these produced `unable to read sha1` and a *blocking* preflight that
+was pure artefact. The cheap checks are `git for-each-ref refs/remotes`,
+`git cat-file -t <sha>`, and cloning the remote by URL — not re-reading your
+own diff. **And this is why the instrument worked on the other defects at all:
+they were caught because someone could fetch the artefact and re-run the
+claim.** The one nobody could have caught was the local push, whose subject
+was unreachable by construction.
+
 **Which makes "read it more carefully" the wrong remedy, and this is the
 operational form.** A reviewer looking at a mockup sees an element and a
 sentence about it and has no way to know one contradicts the other, because
