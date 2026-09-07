@@ -2405,6 +2405,60 @@ before formatting. **A collision the guard cannot see is one the humans avoided
 by hand, and that is the ordering rule again — the newest guard is the least
 likely member, and a convention nobody has automated is the most likely one.**
 
+### 4c-xxxv. The section counter's OTHER failure mode: a GAP, and `check_no_duplicate_sections` is silent on it by construction (Ledger)
+
+**The seven collisions today were all the same direction — two sections
+claiming one address — and the guard built for them cannot see the opposite.**
+`check_no_duplicate_sections` asserts a numeral appears at most once. **A
+numeral appearing ZERO times satisfies it exactly as well as appearing once.**
+
+**Measured on landed `a803c0b`:** rename `### 4c-xxxiv.` to `### 4c-xl.`,
+line-neutral, one heading changed. `preflight --all --strict` is **rc=0
+`clear` with zero warn/FAIL lines of any kind**, `run.sh` 9/9 — and the
+document now reserves `xxxv` through `xxxix` as five addresses it does not
+contain. **A gap is the absent-patch failure at the numbering level: the
+address is honestly absent, every check is honestly clear, and a reader
+following an inbound `§4c-xxxvi` lands on nothing.**
+
+**This is not hypothetical and it is not new — it is pre-existing and was
+never named.** `docs/PROCESS.md` at `a803c0b` carries gaps at **`viii`, `xiv`
+and `xv`**: present numerals are 7, 9-13, 16-34. Nothing cites them, nothing
+reports them, and `git log -S` finds no commit that ever added them, so they
+were most likely never written rather than deleted. **Three silent holes in
+the document this repository cites from commit messages, shape checks and
+remedies, in a file that acquired a blocking guard for the mirror-image
+defect this afternoon.**
+
+**Why it is milder than a duplicate, stated so it is not over-ranked:** a
+dangling reference REPORTS — a reader following `§4c-xxxvi` finds nothing and
+knows it — where an ambiguous one silently resolves to the wrong section and
+reads as correct. **So the two modes are asymmetric in severity AND in
+detectability, and the guard covers the one that is already loud at the point
+of use.** That is the right priority and the wrong stopping point: the reason
+to record this is §4c-xxii, one more time. **A stated limit is not a covered
+limit, and "at most once" was never the claim the convention makes — the claim
+is "exactly once, consecutively".**
+
+**And the near miss is the evidence, not a story.** This section's own §4c-xxxii
+and the Designer's §4c-xxxiii were formatted against `79ba1db` minutes apart.
+Both of us re-fetched and re-counted before formatting — the Designer said so
+explicitly — and both correctly avoided a taken number. **The sequence came
+out contiguous only because the Tech Lead resolved the resulting `git am`
+conflict as a UNION with the lower number first, by hand.** Had either of us
+skipped to the next free numeral instead, the gap would be in the tree and
+nothing would have reported it. **A hand-maintained monotonic name has no
+allocator: two authors reading the same tree are each right, and whether the
+sequence survives depends on how a third person resolves a conflict.**
+
+Owed, and small: extend the existing guard to assert the numerals are
+**consecutive**, warning rather than blocking, and grandfather `viii`, `xiv`
+and `xv` explicitly by listing them — **a grandfather list is a second copy
+of a fact and must be spelled out rather than derived**, so it goes stale
+loudly instead of silently widening. **Not built: this is the measurement and
+the ruling on where the fix goes, per the rule that the newest guard is the
+least likely member and a convention nobody has automated is the most likely
+one.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
