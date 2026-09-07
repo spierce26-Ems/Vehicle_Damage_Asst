@@ -127,8 +127,9 @@ correctly worded, correctly reviewed, and unreachable**, which is a third shape
 of the same question: *what would have to be true for this to fire, and can
 anything make it true?*
 
-Two new answer strings (`confirm.yes`, `confirm.no`) need lock entries; they
-are recorded in the Item 2 spec's §4 copy inventory pending that.
+The two answer strings (`confirm.yes`, `confirm.no`) are now **locked** —
+see §4.2.1 for their entries and for which words in them carry a constraint
+on the data behind them.
 
 **The general rule: never infer a defect from a field's absence.**
 
@@ -381,8 +382,21 @@ whole report already operates under (`MatchResult.disclaimerText`):
 
 ## 4. Copy lock
 
-§4 of the Item 2 UX spec (the 16-string copy inventory) and §2 of this document
-are **locked copy**. They are the strings a future edit is most likely to
+§4 of the Item 2 UX spec (its copy inventory) and §2 of this document are
+**locked copy** — **the whole table, whatever its current length.**
+
+**This sentence used to say "the 16-string copy inventory" and the table now
+has 17 rows**, because the decline affordance added `confirm.yes` and
+`confirm.no` and retired nothing. The number was correct when written and
+nothing in it moved when the inventory did. **A lock scoped by a count
+silently unlocks whatever was added after the count was written** — the same
+shape as row five's proxy, in the sentence that defines the lock's own scope,
+and the strings it had quietly stopped covering are the two this round added.
+So the scope is the table, and any figure a reader needs comes from the table:
+`awk '/^## 4. Copy inventory/,/^## 5/' docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md | grep -c '^| [a-z]'`.
+**Record the command, not the figure** (`docs/PROCESS.md` §4c) — a count of
+rows in a growing table is stale by construction, exactly like a count of
+commits on a moving branch. They are the strings a future edit is most likely to
 casually "improve" back into probabilistic phrasing, which is exactly the thing
 v1's scope forbids.
 
@@ -632,6 +646,9 @@ editor "restoring" wording that was deliberately changed.
 | Date | Key | Was | Now | Why |
 |---|---|---|---|---|
 | 2026-09-06 | `review.flag` | Analysis photo — frame not confirmed clear | Analysis photo — examiner did not confirm the frame was clear | The old wording described the photograph as deficient; the new one describes what a person did or did not do. Same principle as the `frameConfirmedClear` tri-state — a photo is not at fault for a question nobody asked. Changed in Item 2 spec v2, before this lock existed; recorded retroactively. |
+| 2026-09-07 | `confirm.arm` | Tape measure out of frame? *(single control; second tap = yes)* | Tape measure out of frame? *(text unchanged; now a question with two answers)* | **No text change — recorded because the string's MEANING changed without a diff.** As a single Ready control the question's only answer was a second tap, so it read as a prompt to proceed. It is now a genuine question, and its answers are `confirm.yes`/`confirm.no`. **A ledger whose trigger is "the characters changed" would not have caught this**, and the next editor comparing the two revisions sees nothing. |
+| 2026-09-07 | `confirm.yes` | *(new)* | Yes — clear | Added with the decline affordance. Names the FRAME's state, not the examiner's diligence, which is what keeps §2.2 row two an attestation rather than a claim about a person (§3). Symmetrical with `confirm.no` by requirement, not by style. |
+| 2026-09-07 | `confirm.no` | *(new)* | No — not clear | Added with the decline affordance; it is what makes row two and §1.4's badge reachable at all. Must not drift toward "skip"/"later"/"not sure" — each turns a recorded decline into a deferral, and deferral is `nil`'s meaning, which must stay unreachable from a button. Must not acquire a warning adjective or the word "anyway": §4.2's argument applies unchanged — an answer that reads as a confession is an answer nobody gives twice. |
 
 The current value of `review.flag` is therefore **"Analysis photo — examiner
 did not confirm the frame was clear"**, and the §2.2 note wording for
@@ -664,6 +681,71 @@ So the §2.2 `gateOverridden` wording is load-bearing. A future length-trim that
 reduces it to "captured with quality checks not met" breaks the decision it
 implements. If it ever needs to change, the gate design has to be revisited in
 the same breath — not the sentence alone.
+
+---
+
+### 4.2.1 The two attestation answers (`confirm.yes` / `confirm.no`)
+
+**Locked, as of the decline affordance.** Verified byte-identical across all
+four call sites and the spec inventory before locking
+(`CaptureCameraView:421`, `:432`; `ScarCaptureView:553`, `:559`;
+`ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` §4):
+
+| Key | String |
+|---|---|
+| `confirm.yes` | Yes — clear |
+| `confirm.no` | No — not clear |
+
+**What each word carries, in the form §4's lock requires — which words
+constrain the data behind them:**
+
+- **Both answers name the FRAME's state, not the examiner's diligence.**
+  "Clear" is a property of what is in shot. This is what makes §2.2 row two
+  reportable as an attestation rather than as a performance note: the appendix
+  says *"the examiner did not confirm that the frame was clear"*, a record of
+  an answer, and it is only truthful if the answer offered was about the
+  frame. **An answer phrased as "I checked" / "I didn't check" would make row
+  two a claim about the examiner**, and §3's attribution rule forbids the
+  report characterising a person.
+- **"No — not clear" must not be softened toward "skip", "later", or "not
+  sure".** Row two's note asserts a *recorded decline*, and each of those
+  words makes it a deferral instead — at which point the note claims more
+  than its input supports, which is this document's standing audit question.
+  **A deferral is `nil`'s meaning, and `nil` must stay unreachable from a
+  button**: silence is not a decline, and the tri-state depends on the two
+  being distinguishable at the source.
+- **The two must stay SYMMETRICAL in form and prominence.** Neither may
+  acquire a warning adjective, a colour-only distinction, or the word
+  "anyway". The moment declining reads as the deficient choice, examiners
+  stop declining — the identical failure direction as §4.2's override
+  wording, and for the identical reason: **the affordance's honesty is what
+  makes the recorded value worth anything.** `confirm.no` is not a
+  confession.
+- **Neither answer may imply the capture is blocked.** Both proceed. Wording
+  that suggests otherwise costs a photograph, and §4.2's argument applies
+  unchanged: a flagged photograph in the file beats a missing one.
+
+**Coupled to `confirm.arm`** (*"Tape measure out of frame?"*) — the question
+and its two answers are one unit, because the answers are only unambiguous
+against that exact question. An edit to any of the three must be checked
+against the others, the same coupling §2.2's rows three, four and five have.
+
+**Lifetime is part of the copy's meaning, not only of the implementation.**
+An affirmation persists for the session; a decline is cleared after its own
+capture. So `confirm.no` is answered about **one frame**, and its wording must
+never generalise — *"the working area is not clear"* would license persisting
+it. **A persisted decline would write row two's note onto later photographs
+nobody was asked about**: a note that fires always, one field upstream of
+where this document found that failure earlier the same day.
+
+The general form of that asymmetry is `docs/PROCESS.md` §4c's
+scoped-answer rule, **with the boundary recorded there**: the asymmetric
+lifetime is justified by what each answer CLAIMS, never by anything about
+testability. **What belongs here rather than there is the copy consequence:
+no wording review would have caught this, because both strings were already
+correct.** The constraint is on the lifetime of the value behind
+`confirm.no`, and the only way a copy lock can carry it is by forbidding
+wording that generalises past one frame.
 
 ---
 

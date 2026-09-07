@@ -326,9 +326,13 @@ def main(root="."):
 
     if not (fmt or anchor or drift):
         how = "executed" if executed is not None else "parsed"
+        with_what = ""
+        if executed is not None:
+            ver = executed.get("_swift_version") or "version unknown"
+            with_what = f" by {executed.get('_swiftc')} ({ver})"
         print(f"doc-drift: clear ({len(dw)} weights, {len(bands)} height bands "
-              f"{how}; numeric claims only -- see the limits in this script's "
-              f"docstring)")
+              f"{how}{with_what}; numeric claims only -- see the limits in "
+              f"this script's docstring)")
         return 0
     return 1
 
@@ -365,6 +369,24 @@ def _build_failure_reason(swiftc, build):
                   "build at all")
     return ("a Swift compiler was FOUND but the probe did not build: "
             + (err or "no diagnostic output"))
+
+
+def _swift_version(swiftc):
+    """First line of `swiftc --version`, or None.
+
+    Best-effort: the version is reported alongside the path, never used to
+    gate anything. A resolved path is not self-describing -- the probe
+    resolves through `~/toolchains/swift`, a convenience symlink pointing at
+    a version-specific directory, so two machines can print an identical
+    path while running different compilers. Measured, not hypothetical: this
+    team ran 5.10.1 and 6.0.3 behind that same path on the same day.
+    """
+    try:
+        r = subprocess.run([swiftc, "--version"], capture_output=True,
+                           text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return _first_line(r.stdout) or _first_line(r.stderr) or None
 
 
 def _score_bands_executed(root, bands):
@@ -470,6 +492,20 @@ def _score_bands_executed(root, bands):
             out[key if key.startswith("_") else float(key)] = int(num)
         if not out:
             return None, "the probe ran but printed nothing parseable"
+        # Which compiler produced this, recorded on the result rather than
+        # logged. An environment-dependent check reports a property of the
+        # (tree, environment) PAIR, and on 2026-09-07 four agents quoted the
+        # same clean headline meaning different things by it -- some probes
+        # had executed, one had been silently downgraded to `parsed`, and
+        # nothing in either output named the difference. Two of those
+        # environments also ran DIFFERENT compilers (5.10.1 and 6.0.3)
+        # through an identically-spelled path. A tool that verifies claims
+        # about a tree has to say which compiler it used, for the same
+        # reason this probe says "executed" rather than "parsed": the
+        # handover names the commit, and the commit does not determine the
+        # answer.
+        out["_swiftc"] = swiftc
+        out["_swift_version"] = _swift_version(swiftc)
         return out, None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

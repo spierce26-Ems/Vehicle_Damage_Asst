@@ -1826,6 +1826,32 @@ probe ran had no way to know another's had not, and neither figure was wrong.
 not only the commit and the numbers** — the tree is shared, the toolchain is
 not, and an environment-dependent check reports a property of the pair.
 
+**And that obligation belongs in the tool, not in the handover discipline —
+`check_doc_drift` now names the compiler it used.** Its clear line reads
+`4 height bands executed by <path> (<version>)`; the degraded line still says
+`parsed` with no compiler named at all. The reason is this section's own rule
+applied one level down: a rule about what to state before believing a result
+holds while it is fresh and lapses once it feels routine, so **the statement
+has to be produced by the thing that knows the answer.**
+
+**The path alone was not sufficient, and this thread proved it rather than
+supposed it.** The probe resolves through `~/toolchains/swift`, a convenience
+symlink pointing at a version-specific directory — and two agents here ran
+**5.10.1 and 6.0.3** behind that identically-spelled path on the same day, on
+the same tree. **A resolved path is not self-describing.** Same disguise as
+the two shot lists: a name that looks authoritative and is one indirection
+away from the fact.
+
+**Verified in both directions, per §5b, because a check that only ever prints
+green is the thing it was built to detect.** Forward: the clear line names
+`swiftc` and its version. Reverse, two ways — `SWIFT_C` pointed at a
+nonexistent path degrades to `parsed`, with the advisory naming the reason and
+no compiler quoted; and hoisting the tolerance guard above the rule-out in
+`heightAlignmentScore` still produces the `FAIL [doc-drift]` guard-order
+disagreement. **The added reporting did not weaken the check it reports on**,
+which is the claim worth making about a change to a check rather than to the
+code it guards.
+
 With a toolchain present, Vector's reduced-shape method extends one step:
 **compile the shape AND run it, with `precondition`s for the behaviour the real
 code must have.** A typecheck proves the shapes are legal; executing an
