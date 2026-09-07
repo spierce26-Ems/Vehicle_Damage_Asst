@@ -1289,6 +1289,16 @@ claims about different things: one about a state the examiner established, the
 other about a state they observed. **A single lifetime for both is the design
 that looks symmetrical and is not.**
 
+**One boundary on that rule, since a wrong diagnosis of a related test was
+briefly attached to it: the asymmetric lifetime is justified by what each
+answer CLAIMS, not by anything about testability.** The decline self-clears
+because persisting it would over-claim in evidence — that argument stands on
+its own and needs no assertion set. It happens that the self-clearing reset is
+also what can defuse a negative test written across it (§5b), but that is a
+*consequence* of the design, not a reason for it. **Keeping the two apart
+matters because the design rule is about honesty and the testing rule is about
+ordering, and neither one supports the other.**
+
 Storing one instance of a type outside the collection of that type is what
 makes shape 1 reachable, and it is worth flagging on sight. `scarPhoto` is
 correctly separate from `photos` — independent of protocol progress,
@@ -1996,6 +2006,21 @@ must be distinguishable in its output. Three distinct exit codes (`0` pass,
 not between good and bad news, it is between a result and the absence of
 one.**
 
+**Checked against the runner as shipped, and the prose is ahead of the tool —
+which is this section's own subject, so it is recorded rather than quietly
+reconciled.** The attached runner is byte-identical to the previous revision
+(same MD5), still resolves `swiftc` from the one fixed default path, prints no
+`--version`, and on an unusable `SWIFTC` still reports `BASELINE DOES NOT
+COMPILE` and exits `1` — exactly the misattributing diagnostic described above
+as fixed. The three-exit-code design and the compiler-naming requirement are
+right; **what exists so far is the specification of them.** No claim verified
+with this runner is affected — the mutation results reproduce and the canary
+fires — but **"the runner now names its compiler" and "the runner should name
+its compiler" are different claims, and only the second one is currently true.**
+Found by running it rather than reading the patch, which is the same
+discrimination the canary exists to enforce, applied to the tool that carries
+the canary.
+
 **A surviving mutant tells you an assertion set has a hole; it does not tell
 you where, and the obvious reading can be wrong.** The decline affordance's
 leak test survived its mutant, and the diagnosis recorded with it was that the
@@ -2059,12 +2084,12 @@ than through the thing it wraps.**
 Worth recording what it caught the first time it was pointed at new work.
 Running it over the decline-affordance shape killed three mutants and reported
 a fourth **surviving** — a mutation that wrote the live attestation onto a
-reference shot. The gap was real and specific: **my leak test used the decline
-path, which is cleared after its own capture, so there was nothing left to
-leak.** The affirmative persists for the session and is the only state that can
-leak, so the discriminating case was the one I had not written. **A negative
-test whose precondition is destroyed by the behaviour under test passes for the
-wrong reason** — and it took a mechanised runner, not a reviewer, to say so.
+reference shot. **The gap was real and the fix was right; the reason first
+recorded for it was wrong**, and the correction is above: the property is
+ordering, not which answer was used. **A fix can be right while the reason
+attached to it is wrong, and the reason is what gets generalised** — that
+wrong reason had already been carried into §4c as a rule about answer
+lifetimes before anyone constructed the case it predicted.
 
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
