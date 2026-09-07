@@ -1620,6 +1620,29 @@ into.
   its mechanism is trusted for coverage it does not have, and nobody looks
   again.**
 
+**And the mirror of that, which cost a correction in the `@Published` rule:
+a WARNING that overstates its defect is deleted by the first person who tests
+it.** The rule as first landed said the two computed properties "would not be
+invalidated" — false, because both are half-published, and a chip built on
+either would have refreshed on every transition anyone tried. **The reader who
+builds it, sees it work, and concludes the caveat was over-cautious then drops
+the whole warning, including the true part.** Overstating a real defect is not
+the safe direction: it makes the warning falsifiable by the cheapest possible
+experiment, and a falsified warning takes its correct half with it.
+
+**The specific failure was mine and it is worth naming, because it is not
+carelessness — it is a category of review I had no rule for. I generalised a
+teammate's finding into a rule without re-deriving the finding.** The
+observation that the inputs were unpublished was checked; the *consequence*
+claimed from it was carried over verbatim. **A finding and the conclusion drawn
+from it are two claims, and promoting the first to a rule does not verify the
+second.** The check that would have caught it took one grep — the same grep
+that produced the finding, pointed at the sibling operand instead of the one
+named. So: **when generalising someone else's finding, re-derive the
+consequence from the source, not from their statement of it** — especially
+when your commit makes it normative, because a rule is read by people who will
+never see the message it came from.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
