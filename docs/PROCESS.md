@@ -673,6 +673,38 @@ announce-before-building half never was, so the cost fell entirely on work
 already done. That is the asymmetry with a number attached: the half we keep
 is the cheaper one to run and the more expensive one to rely on.
 
+**The class this section has no instrument for: a true statement rendered on
+the wrong surface.** Every entry above is a claim that was false in the tree.
+Task #12's free-tier round produced six defects that were none of them false
+anywhere — each was correct about something and wrong about where it landed.
+`suspectExclusionReason` rendered only inside a section gated on `isUnlocked`,
+so the strongest finding the engine produces was the only gated output. Three
+engine strings ended by promising a factor breakdown the free tier gates, and
+a fourth kept one positional word after three clauses were removed. A fixed
+consequence line would have asserted *"can be ruled out"* above the one arm
+whose own string says the opposite — re-asserting by copy the ~27.8% LiDAR
+false positive task #14 removed from the engine, **through a layer that
+touches no engine code.** A red border and an accent-tinted label asserted
+urgency and interactivity that neither element had. A design audit checked
+every string against the copy deck and never checked which side of
+`isUnlocked` an element sat on.
+
+**No check we own reaches any of it, and a cheap one does not exist.** Every
+check in `preflight` reasons about the tree; these defects are properties of
+the *composition* of two individually correct artefacts — a sentence and the
+surface that renders it. A script would need a model of the paywall to tell a
+true sentence on the right surface from the same sentence on the wrong one,
+which is a second specification rather than a lint, and a lint that passed on
+both versions would be worse than an honest gap. **Recorded as uninstrumented,
+in the same form as the unexercised remedies above.**
+
+**The instrument that did work, stated so it is not mistaken for luck:** a
+named reader checking the string on the surface it will actually render on.
+Six for six, caught by four readers, and by none of `preflight`,
+`check_remedies.py`, or the parse gate. **The uninstrumented class includes
+placement, not only wording** — reviewing the sentence is not reviewing the
+surface, and gating is invisible in the artefact under review.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
