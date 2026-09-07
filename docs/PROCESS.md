@@ -2210,6 +2210,24 @@ hierarchy. And hold the symmetry **structurally** — one shared label builder,
 not two call sites that currently agree, for the same reason
 `captureNotes(for:)` is the single source of the note conditions.
 
+**Verified in the tree, and the argument does not stop where it was applied:
+there is one builder per SCREEN and their bodies are byte-identical across the
+two.** `attestationAnswerLabel` and `scarAnswerLabel` are the same six
+modifiers, so the symmetry is structural *within* a screen and maintained by
+coincidence *between* them — which is the position the two answers were in
+before the fix, one level up. Two screens agreeing today drift the moment
+someone restyles one, and the failure is the asymmetry re-entering on a single
+camera while the other stays correct: **harder to notice than the original,
+because the screen a reviewer opens looks right.**
+
+Not refactored here, deliberately — a shared component is a `Views/` change
+with its own diff, and the duplication is currently correct. **But it is
+recorded where a reader restyling either row will see it, because "held
+structurally" is true of each screen and false of the pair, and only the
+second claim is the one a future edit tests.** The general form:
+**deduplicating a claim inside one file leaves the same claim duplicated
+across files, and the second copy is invisible from the first.**
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
