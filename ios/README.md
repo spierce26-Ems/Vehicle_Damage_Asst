@@ -1678,6 +1678,112 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] Duplicate a case that has **no** examiner. The clone also has none, and nothing is
     fabricated.
 
+- **Free-tier results hierarchy: the exclusion, claim and confidence above the paywall (task #12).**
+  `cd21683`, `e52e9e5`, `0e438c1`. Sean's last open product decision, and the defect it closed was
+  not the one the change was requested for.
+
+  **Why.** `suspectExclusionReason` rendered in exactly one place — inside `scarDirectionSection`,
+  which sat inside `if viewModel.isUnlocked`. A user who had not purchased saw a composite score
+  and a correlation label and **was never told the engine had ruled the vehicle out.** The score
+  was always free; the strongest and most decision-relevant output the engine produces was the one
+  gated thing. Sean decided on 2026-09-07 that the exclusion, the claim and the confidence sit
+  above the paywall, and that the per-factor evidence, the recommendations and the PDF stay gated.
+
+  **What changed.** A free `exclusionBanner` renders above `verdictCard`, outside every
+  `isUnlocked` check — placement is the substance, since an exclusion that renders below the score
+  it contradicts is a footnote to a number it invalidates. The banner carries the heading
+  *"Rule-out assessment"*, the reason string, and a pointer to what remains gated shown only when
+  locked. `verdictCard` states the cause for `Insufficient Data` alone. `lockedSection`'s heading
+  became *"Report and Evidence Locked"* — the report is locked, the result is not — while its body
+  was deliberately left unchanged, because it already named the three gated things correctly. The
+  exclusion copy stays in `scarDirectionSection` as well as the banner: the banner is the free
+  headline, the in-section copy is where a paying reader sees it beside the check that produced it,
+  and **the paid view must never hold less information than the free one.**
+
+  **What the copy does not say, and why each absence is deliberate.** The heading is *"Rule-out
+  assessment"* rather than *"Exclusion indicated"* because one of the three paths
+  `evaluateExclusionRule` can return is *"Height Alignment inconclusive"* — the LiDAR
+  uncertainty case, which says explicitly that the vehicle **cannot** be ruled out on that
+  evidence. A fixed exclusion heading was written and rejected: it would have re-asserted an
+  exclusion on the exact path task #14 made inconclusive, **reintroducing through the view layer
+  the false-exclusion rate that task #14's engine change removed, in a commit that touches no
+  engine code.** The banner also carries **no consequence sentence**, because all three strings
+  already end with their own and they are graded — *should be ruled out*, *consider ruling out
+  pending further review*, *re-measure to resolve*. A summary above graded findings can only
+  restate or contradict them, and the draft consequence line did both. Styling is neutral on all
+  three paths for the same reason a fixed heading was rejected: a red card asserts the exclusion
+  one of the strings denies, so **prominence comes from position rather than hue.**
+
+  **Why per-path copy was not built.** It would need the view to know which of three arms
+  `evaluateExclusionRule` took, and `MatchResult.suspectExclusionReason` is a bare `String?` with
+  no kind. A mirror of `HeightSource.canSupportStandaloneRuleOut` was proposed and withdrawn after
+  three independent disagreements were measured against it: the damage-zone arm sets its
+  rule-out-capable flag to a literal `true` without consulting the predicate and runs only when
+  `effectiveHeight` is nil, where the mirror cannot classify at all; the combined-rule path never
+  consults the predicate, so a LiDAR case with a 2–6" mismatch and a scar conflict is labelled
+  inconclusive by the mirror while its string recommends a rule-out; and the predicate is
+  two-valued against three classes in any case. **A mirror of one predicate cannot identify which
+  branch ran** — the two sites never disagree on the predicate, they disagree on which arm
+  executed. Per-path copy waits for the calculator to record its own arm.
+
+  **The engine strings lost their placement clauses** (`cd21683`, `e52e9e5`). All three ended by
+  pointing at the factor breakdown — *"is still shown for reference"*, *"below is unaffected"*,
+  *"the rest of the factor breakdown below"* — and one added *"not a reason to hide the evidence"*.
+  Each was true where it was written, below an always-visible breakdown; rendering the same strings
+  above a paywall that gates the breakdown made every one of them false for the reader who cannot
+  see it. **A string that narrates its own placement cannot be relocated: the move falsifies it
+  while the diff shows no change to the string.** The bare word *"below"* in *"independently of
+  every other factor below"* went too, in a follow-up commit, because a rule discharged in three
+  places out of four leaves the fourth reading as a deliberate exception. Each string's own graded
+  consequence sentence was left intact.
+
+  **Not in this change, and filed rather than folded in.** `verdictCard` puts `.tint` on the
+  correlation label and renders the score at a hard-coded 56pt — a pre-existing violation of the
+  no-hard-coded-type-sizes constraint, and the reason prominence still jumps one row below the
+  neutral banner. It is one fix with the weighting question and it wants its own task; a restyle
+  must not share a diff with the commit carrying Sean's decision.
+
+  **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. `preflight --all`
+  clear at 0 advisories on a fresh clone of `0e438c1`, and the ordering property was checked
+  programmatically rather than read: `exclusionBanner` precedes `verdictCard` with no `isUnlocked`
+  gate before it. Parse is not compile.
+
+  **On-device checklist** (device required; nothing below has been performed):
+
+  - [ ] A case whose analysis fires the **combined** exclusion rule, **not unlocked**. The
+    rule-out card is the first thing on the screen, above the score, and its text names both
+    failing conditions. The score and disclaimer are still visible below it.
+  - [ ] The same case, **unlocked**. The exclusion text appears **twice** — once in the banner and
+    once inside the scar-direction section, beside the check that produced it. **If it appears
+    only once, the paid view has lost information the free view had.**
+  - [ ] A case on the **LiDAR-inconclusive** path (both heights from scans, difference over 6").
+    The card heading reads *"Rule-out assessment"*, the body says the difference **cannot** be
+    resolved from these photographs and to re-measure with a tape, and **nothing on the screen
+    says the vehicle can be ruled out.** This is the check that matters most: a card asserting an
+    exclusion here is task #14's false positive returning through the view layer.
+  - [ ] The **standalone height rule-out** path (manual measurements, difference over 6"). The
+    body says the vehicle *should* be ruled out on height evidence alone, and does **not** promise
+    a factor breakdown.
+  - [ ] The card's styling is **neutral on all three paths** — no red border, no red accent. Red
+    on the inconclusive path would contradict its own text.
+  - [ ] **Negative case**: a case with **no** exclusion. No card renders at all — not an empty one,
+    not a "no exclusion found" one. An absence must not assert anything.
+  - [ ] **Not unlocked**: the pointer line *"The per-factor evidence behind this finding is part of
+    the full report"* is present, and **no per-factor verdicts are visible anywhere on the free
+    screen.** If any per-factor result renders, the pointer line is false on its own screen.
+  - [ ] **Unlocked**: the pointer line is **absent**. It describes a lock that is no longer there.
+  - [ ] A case with **fewer than 3 usable factors**. The confidence line reads *"Insufficient Data
+    — fewer than 3 factors had usable data"*.
+  - [ ] A case with **3 or more** usable factors. The confidence line shows the level **alone**,
+    with no appended cause and no empty parenthetical.
+  - [ ] The locked state's heading reads *"Report and Evidence Locked"*, and its body still names
+    the breakdown, the recommendations and the PDF.
+  - [ ] **Dynamic Type at the largest accessibility size**: the card's heading, body and pointer
+    all remain readable and nothing truncates the reason string. The reason is the finding; a
+    clipped exclusion is a missing one.
+  - [ ] **VoiceOver**: the card is reached and read **before** the score, and the pointer line is
+    announced as part of the card rather than as a stray label.
+
 ## Reference Material
 See `ios/reference/` for the original project brief, technical specs, algorithm explainer, and
 the Python reference implementation the scoring engine was validated against.
