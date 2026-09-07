@@ -2102,6 +2102,23 @@ moment its members' causes differ, even when the remediation is identical** —
 and when a shared item is closed, say which member closed and why the other
 did not.
 
+**The item was mine and it survived a month of exactly the reviews that should
+have caught it, which is the part worth generalising.** Every re-derivation
+this round re-measured claims: reachability, populations, write sites,
+diagnoses. **Nobody re-derived the item's own STRUCTURE**, because a grouped
+item presents as one claim and gets checked as one — the shared symptom is
+what a reader verifies, and it was true. **A false clause inside a true item
+is invisible in a way a false item is not**, since the item as a whole passes
+every test applied to it.
+
+So the check is cheap and specific: **for any item naming two subjects, state
+each one's cause separately and see whether the sentence still holds.** Here
+"no gate measures them" splits into a truth and a falsehood the moment it is
+written twice. The same test catches the inverse error — items split apart
+that share a cause, where fixing one silently fixes the other and the second
+gets closed as done without a diff. **An item list is a set of claims, and a
+claim about two things is two claims wearing one bullet.**
+
 **A guard no reachable state can falsify is worth keeping, but say so
 explicitly.** The mutation runner reported `drop-measured-guard` as surviving
 on the motion-blur shape, and it was right: `peakRotationRate` is only ever
@@ -2115,7 +2132,18 @@ assertion of the **implication** over the state space, plus a case
 constructing the unreachable state directly, so a future edit that breaks it
 fails there rather than in an evidence appendix. **A redundant guard on a
 persisted claim costs one `&&`; the failure it prevents is a finding asserted
-about a device that measured nothing.** (Found on a run whose verdict I first
+about a device that measured nothing.** And it is a **third instance of the
+half-published class**, stronger than the two that produced that rule:
+`measuredMotionBlur` reads `motionMeasured` and `peakRotationRate` and
+**neither is `@Published`**, where the earlier pair each had one published
+operand and refreshed by co-assignment. So a `body` reading it would not
+refresh at all — harmless only because its single reader is the imperative
+call site in `performCapture`, and the fix when it is surfaced is the same:
+publish the whole input set. **Three instances in one file means the rule is
+about this service's shape, not about two properties** — every new
+`measured*` computed property here starts unobservable by default, so the
+check belongs at the point one is written rather than at the point one is
+displayed. (Found on a run whose verdict I first
 read through a pipe, and so first read as passing — the pipe-masking failure
 recorded above, hit in the course of using the rule that names it.)
 
