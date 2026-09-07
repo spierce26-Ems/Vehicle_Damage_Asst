@@ -1792,6 +1792,26 @@ summarising a range, and a table describing a schema are all representations,
 and this document has now been wrong three times in one day by trusting one
 where the executable definition was one line away.
 
+**A mutation that does not mutate passes, and reads exactly like coverage.**
+The discriminating step above has its own failure mode, and it landed on both
+of us independently while writing the row-five repair. Two shapes, two ways to
+get a free pass:
+
+- **The mutant is byte-identical to the original.** A `sed` whose pattern
+  silently matches nothing compiles the unmodified shape, which then passes.
+  Nothing distinguishes that from a mutation the assertions genuinely survived.
+  **Confirm the mutant differs from the original before trusting that it
+  passed** — a `diff` or a checksum of the source, not the exit status.
+- **Every assertion passes the field explicitly, so none exercises the
+  default.** Flipping a stored property's default then breaks nothing, because
+  no case in the set was constructed the way the decoder and every unmigrated
+  call site construct one: **by omission.** Any assertion set for a new field
+  with a default needs at least one case that omits it.
+
+Both are the same error as an all-clear over a set no member can fail, aimed at
+the check instead of the artefact: **a check that cannot fail is not a check,
+and neither is a mutation that cannot change anything.**
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
