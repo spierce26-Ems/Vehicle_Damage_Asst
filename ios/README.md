@@ -1757,9 +1757,11 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   must not share a diff with the commit carrying Sean's decision.
 
   **Compiled/run**: **NOT COMPILED** — no Xcode and no device on this team. `preflight --all`
-  clear at 0 advisories on a fresh clone of `0e438c1`, and the ordering property was checked
-  programmatically rather than read: `exclusionBanner` precedes `verdictCard` with no `isUnlocked`
-  gate before it. Parse is not compile.
+  clear at 0 advisories on a fresh clone of `0e438c1`, and clear again on `0109378` with the
+  interim's removal applied — **two measurements, because this entry describes two commits
+  and a clear run on one of them says nothing about the other.** The ordering property was checked
+  programmatically rather than read, in both trees: `exclusionBanner` precedes `verdictCard` with
+  no `isUnlocked` gate before it. Parse is not compile.
 
   **On-device checklist** (device required; nothing below has been performed):
 
