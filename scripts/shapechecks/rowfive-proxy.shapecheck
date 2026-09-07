@@ -1,0 +1,84 @@
+// Reduced shape of the appendix's fifth note condition, before and after
+// the proxy repair. No SwiftUI / no iOS SDK; the shape under test is the
+// guard's truth table across the four capture provenances that exist.
+
+struct Photo {
+    var isAnalysisShot: Bool
+    var frameConfirmedClear: Bool?
+    var sharpnessScore: Double?
+    var sharpnessMeasurementApplies: Bool = false
+    var label: String
+}
+
+// The guard as it shipped: the second clause is a PROXY for "postdates
+// the sharpness field".
+func unmeasuredNote_proxy(_ p: Photo) -> Bool {
+    p.sharpnessScore == nil && p.frameConfirmedClear != nil
+}
+
+// The repair: the fact recorded rather than inferred.
+func unmeasuredNote_fact(_ p: Photo) -> Bool {
+    p.sharpnessScore == nil && p.sharpnessMeasurementApplies
+}
+
+// The four provenances, exactly as the tree produces them.
+let historical = Photo(isAnalysisShot: true, frameConfirmedClear: nil,
+                       sharpnessScore: nil, sharpnessMeasurementApplies: false,
+                       label: "pre-Item-2 photo")
+let imported   = Photo(isAnalysisShot: true, frameConfirmedClear: nil,
+                       sharpnessScore: nil, sharpnessMeasurementApplies: false,
+                       label: "library import")
+// Scar screen: measures sharpness. Two cases -- a measured frame, and a
+// frame that was never analysed, which is the one the note is FOR.
+let scarMeasured = Photo(isAnalysisShot: true, frameConfirmedClear: true,
+                         sharpnessScore: 0.061, sharpnessMeasurementApplies: true,
+                         label: "scar photo, sharpness measured")
+let scarUnmeasured = Photo(isAnalysisShot: true, frameConfirmedClear: true,
+                           sharpnessScore: nil, sharpnessMeasurementApplies: true,
+                           label: "scar photo, frame never analysed")
+// 30-shot protocol camera after ca931c1: attestation present, no
+// sharpness statistic on the path at all, permanently.
+let protocolShot = Photo(isAnalysisShot: true, frameConfirmedClear: true,
+                         sharpnessScore: nil, sharpnessMeasurementApplies: false,
+                         label: ".closeupDamage via protocol camera")
+
+func check() {
+    // 1. The defect reproduces on the old guard -- otherwise there is
+    //    nothing to fix and this whole shape is decoration.
+    precondition(unmeasuredNote_proxy(protocolShot),
+                 "old guard must fire on the protocol shot (the defect)")
+    precondition(unmeasuredNote_proxy(scarUnmeasured),
+                 "old guard fired on the real case too")
+    // So the old guard could NOT distinguish them:
+    precondition(unmeasuredNote_proxy(protocolShot) == unmeasuredNote_proxy(scarUnmeasured),
+                 "old guard is indistinguishable across the two -- that IS the defect")
+
+    // 2. The repair distinguishes them. This is the pass condition.
+    precondition(unmeasuredNote_fact(protocolShot) == false,
+                 "protocol shot must get NO unmeasured note")
+    precondition(unmeasuredNote_fact(scarUnmeasured) == true,
+                 "a measured path with no value MUST still get the note")
+    precondition(unmeasuredNote_fact(protocolShot) != unmeasuredNote_fact(scarUnmeasured),
+                 "the repair must be able to tell the two apart")
+
+    // 3. Everything the proxy got right, the fact keeps -- for the real
+    //    reason rather than by coincidence.
+    for p in [historical, imported] {
+        precondition(unmeasuredNote_proxy(p) == false, "\(p.label): proxy was silent")
+        precondition(unmeasuredNote_fact(p) == false, "\(p.label): fact must stay silent")
+    }
+    precondition(unmeasuredNote_fact(scarMeasured) == false,
+                 "a measured value must not claim it was unmeasured")
+
+    // 4. A future surface that does not measure is silent by DEFAULT --
+    //    no edit to the guard, which is the point of recording the fact.
+    let futureSurface = Photo(isAnalysisShot: true, frameConfirmedClear: false,
+                              sharpnessScore: nil, label: "some later camera")
+    precondition(unmeasuredNote_fact(futureSurface) == false,
+                 "a new non-measuring surface must not falsify the guard by existing")
+    precondition(unmeasuredNote_proxy(futureSurface) == true,
+                 "the old guard would have broken again on it")
+
+    print("all shape assertions hold")
+}
+check()

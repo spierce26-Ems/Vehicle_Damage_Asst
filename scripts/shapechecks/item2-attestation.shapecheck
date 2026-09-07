@@ -1,0 +1,102 @@
+// Reduced shape of CaptureCameraView's new sec.1.2/sec.1.3 members:
+// the tri-state attestation state machine and the analysis-ness
+// derivation. No SwiftUI (no iOS SDK here) -- the shapes under test are
+// the optional-Bool transitions and the `Bool?` reaching an initialiser
+// parameter, which is where a mistake would be silent rather than loud.
+
+enum PhotoType {
+    case heightMeasurement, closeupDamage, wideAngle, contextShot,
+         paintTransfer, licenseDetail, lidarReference
+    var isAnalysisShot: Bool {
+        switch self {
+        case .closeupDamage, .paintTransfer: return true
+        case .heightMeasurement, .wideAngle, .contextShot,
+             .licenseDetail, .lidarReference: return false
+        }
+    }
+}
+
+struct CapturedPhoto {
+    var frameConfirmedClear: Bool?
+    var gateOverridden: Bool = false
+    init(frameConfirmedClear: Bool? = nil, gateOverridden: Bool = false) {
+        self.frameConfirmedClear = frameConfirmedClear
+        self.gateOverridden = gateOverridden
+    }
+}
+
+final class Service {
+    func capturePhoto(sequenceIndex: Int,
+                      frameConfirmedClear: Bool? = nil,
+                      gateOverridden: Bool = false) -> CapturedPhoto {
+        CapturedPhoto(frameConfirmedClear: frameConfirmedClear,
+                      gateOverridden: gateOverridden)
+    }
+}
+
+struct View1 {
+    var nextShotType: PhotoType?
+    var didAskFrameClear = false
+    var pendingFrameClear: Bool?
+
+    var currentShotIsAnalysis: Bool { nextShotType?.isAnalysisShot ?? false }
+    var isAskingFrameClear: Bool { didAskFrameClear && pendingFrameClear == nil }
+
+    mutating func tapReady() -> Bool {
+        if currentShotIsAnalysis && !didAskFrameClear {
+            didAskFrameClear = true
+            return false      // asked, not armed
+        }
+        if didAskFrameClear && pendingFrameClear == nil {
+            pendingFrameClear = true
+        }
+        return true           // armed
+    }
+
+    func capture(_ s: Service) -> CapturedPhoto? {
+        guard let t = nextShotType else { return nil }
+        let attestation: Bool? = t.isAnalysisShot ? pendingFrameClear : nil
+        return s.capturePhoto(sequenceIndex: 1, frameConfirmedClear: attestation)
+    }
+}
+
+// Behavioural assertions, so this is a check and not a compile.
+func check() {
+    let s = Service()
+
+    // Analysis shot: first tap asks and does NOT arm; second tap arms and
+    // records `true`.
+    var v = View1(nextShotType: .closeupDamage)
+    precondition(v.capture(s)?.frameConfirmedClear == nil, "unasked must be nil")
+    precondition(v.tapReady() == false, "first tap on analysis must ask, not arm")
+    precondition(v.isAskingFrameClear, "label must carry the question")
+    precondition(v.tapReady() == true, "second tap must arm")
+    precondition(v.capture(s)?.frameConfirmedClear == true, "answered must be true")
+
+    // Same session, later analysis shot: no re-ask (mash-through guard).
+    v.nextShotType = .paintTransfer
+    precondition(v.tapReady() == true, "later shot in session must not re-ask")
+
+    // Reference shot: arms on the FIRST tap and records nil, never false.
+    var r = View1(nextShotType: .heightMeasurement)
+    precondition(r.tapReady() == true, "reference shot must arm on first tap")
+    precondition(r.capture(s)?.frameConfirmedClear == nil,
+                 "reference shot must record nil, never false")
+
+    // Reference shot in a session where an analysis shot was attested:
+    // still nil, because the question was not about this photograph.
+    v.nextShotType = .wideAngle
+    precondition(v.capture(s)?.frameConfirmedClear == nil,
+                 "attestation must not leak onto a reference shot")
+
+    // gateOverridden is never written by this camera.
+    precondition(v.capture(s)?.gateOverridden == false)
+
+    // Protocol complete: nothing to describe, nothing recorded.
+    v.nextShotType = nil
+    precondition(v.currentShotIsAnalysis == false, "no shot is not an analysis shot")
+    precondition(v.capture(s) == nil)
+
+    print("all shape assertions hold")
+}
+check()

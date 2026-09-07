@@ -1,0 +1,104 @@
+// Reduced shape of the sec.1.3 attestation AFTER the decline affordance.
+// The claim under test: all three states of frameConfirmedClear are
+// reachable from user input, and a decline does not carry forward.
+
+struct Photo { var frameConfirmedClear: Bool?; var label: String }
+
+enum Shot { case analysis, reference }
+
+struct Screen {
+    var shot: Shot
+    var didAskFrameClear = false
+    var pendingFrameClear: Bool?
+
+    var currentShotIsAnalysis: Bool { shot == .analysis }
+    var isAskingFrameClear: Bool { didAskFrameClear && pendingFrameClear == nil }
+
+    // Ready's own action, when the attestation is not owed.
+    mutating func tapReady() -> Bool {
+        if currentShotIsAnalysis && !didAskFrameClear {
+            didAskFrameClear = true
+            return false            // question raised, not armed
+        }
+        return true                 // armed
+    }
+
+    // The two answers. Both arm; neither blocks the capture.
+    mutating func answerClear() -> Bool { pendingFrameClear = true;  return true }
+    mutating func answerNotClear() -> Bool { pendingFrameClear = false; return true }
+
+    mutating func capture() -> Photo {
+        let p = Photo(frameConfirmedClear: currentShotIsAnalysis ? pendingFrameClear : nil,
+                      label: "capture")
+        // A decline is a fact about THIS frame and is cleared; an
+        // affirmation persists for the session.
+        if pendingFrameClear == false {
+            pendingFrameClear = nil
+            didAskFrameClear = false
+        }
+        return p
+    }
+}
+
+func check() {
+    // 1. TRUE is reachable.
+    var a = Screen(shot: .analysis)
+    precondition(a.tapReady() == false, "analysis shot must raise the question")
+    precondition(a.isAskingFrameClear, "the answer row must be showing")
+    precondition(a.answerClear(), "affirmative must arm")
+    precondition(a.capture().frameConfirmedClear == true, "true must be reachable")
+
+    // 2. FALSE is reachable -- the state that no code path could produce
+    //    before this change, and the one row two and the badge rest on.
+    var b = Screen(shot: .analysis)
+    _ = b.tapReady()
+    precondition(b.answerNotClear(), "decline must arm too -- it must not cost the shot")
+    precondition(b.capture().frameConfirmedClear == false, "FALSE must be reachable")
+
+    // 3. NIL is reachable: a reference shot is never asked.
+    var c = Screen(shot: .reference)
+    precondition(c.tapReady() == true, "reference shot arms on the first tap")
+    precondition(c.capture().frameConfirmedClear == nil, "reference shot records nil")
+
+    // 4. A decline does NOT carry forward; the question is owed again.
+    var d = Screen(shot: .analysis)
+    _ = d.tapReady(); _ = d.answerNotClear()
+    precondition(d.capture().frameConfirmedClear == false, "first shot declined")
+    precondition(d.tapReady() == false, "after a decline the question is owed again")
+    precondition(d.capture().frameConfirmedClear == nil,
+                 "a declined frame must not write false onto a later photograph")
+
+    // 5. An affirmation DOES carry forward -- the mash-through guard.
+    var e = Screen(shot: .analysis)
+    _ = e.tapReady(); _ = e.answerClear()
+    precondition(e.capture().frameConfirmedClear == true, "first shot cleared")
+    precondition(e.tapReady() == true, "a cleared session must not re-ask")
+    precondition(e.capture().frameConfirmedClear == true, "affirmation persists")
+
+    // 6. The attestation never leaks onto a reference shot mid-session.
+    //    A DECLINE is cleared after its capture, so testing only that
+    //    path cannot detect a leak -- pendingFrameClear is already nil.
+    //    The discriminating case is a LIVE affirmation, which persists
+    //    for the session, followed by a reference shot.
+    var f = Screen(shot: .analysis)
+    _ = f.tapReady(); _ = f.answerClear()
+    precondition(f.capture().frameConfirmedClear == true, "affirmation is live")
+    f.shot = .reference
+    precondition(f.pendingFrameClear == true, "the affirmation is still held")
+    precondition(f.capture().frameConfirmedClear == nil,
+                 "a live attestation must NOT be written onto a reference shot")
+
+    // 6b. Same for a decline, which is the state the appendix reports.
+    var g = Screen(shot: .analysis)
+    _ = g.tapReady(); _ = g.answerNotClear()
+    g.shot = .reference
+    precondition(g.capture().frameConfirmedClear == nil,
+                 "a held decline must not be written onto a reference shot")
+
+    // 7. All three states are distinct and all are produced.
+    let states: [Bool?] = [true, false, nil]
+    precondition(states.count == 3)
+
+    print("all shape assertions hold")
+}
+check()

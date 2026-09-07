@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 75 tracked files, of which 42 Swift sources (21817 lines).
+Totals: 83 tracked files, of which 42 Swift sources (21817 lines). The seven `scripts/shapechecks/` files are deliberately NOT `.swift`: the Swift count is a signal quoted in review, and a reduced model that says nothing about the app must not move it.
 
 ## iOS app — Xcode project
 
@@ -131,7 +131,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 189 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 197 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -160,6 +160,14 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/regen_manifest.py` | 110 |
 | `scripts/check_remedies.py` | 311 |
 | `scripts/set_dev_team.sh` | 44 |
+| `scripts/shapechecks/README.md` | 76 |
+| `scripts/shapechecks/decline-affordance.shapecheck` | 104 |
+| `scripts/shapechecks/filtered-headline.shapecheck` | 168 |
+| `scripts/shapechecks/item2-attestation.shapecheck` | 102 |
+| `scripts/shapechecks/motionblur-window.shapecheck` | 105 |
+| `scripts/shapechecks/motionmeasurable.shapecheck` | 116 |
+| `scripts/shapechecks/rowfive-proxy.shapecheck` | 84 |
+| `scripts/shapechecks/run.sh` | 33 |
 
 ## Repo root
 

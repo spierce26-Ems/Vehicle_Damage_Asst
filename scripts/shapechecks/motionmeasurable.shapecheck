@@ -1,0 +1,116 @@
+// Reduced shape: does a persisted motionMeasurable let the report tell
+// "measured and steady" from "never measured"? The point of the field is
+// that hasMotionBlur == false is two different facts without it.
+
+struct Photo {
+    var hasMotionBlur = false
+    var motionMeasurable = false          // default: nothing measured
+    var label = ""
+}
+
+struct Service {
+    let thr = 0.12
+    let window = 0.65
+    var gyroPresent: Bool
+    var samples: [(age: Double, magnitude: Double)] = []
+
+    mutating func reading(age: Double, _ m: Double) {
+        guard gyroPresent else { return }
+        samples.append((age, m))
+    }
+    var inWindow: [Double] { samples.filter { s in s.age <= window }.map { s in s.magnitude } }
+    var motionMeasurable: Bool { gyroPresent && !inWindow.isEmpty }
+    var measuredMotionBlur: Bool {
+        guard let peak = inWindow.max() else { return false }
+        return peak >= thr
+    }
+    func capture(_ label: String) -> Photo {
+        Photo(hasMotionBlur: measuredMotionBlur, motionMeasurable: motionMeasurable, label: label)
+    }
+}
+
+// What the report may conclude. THIS is the claim under test.
+func reportSaysSteady(_ p: Photo) -> Bool { p.motionMeasurable && !p.hasMotionBlur }
+func reportSaysMoved(_ p: Photo) -> Bool { p.hasMotionBlur }
+func reportSaysUnmeasured(_ p: Photo) -> Bool { !p.motionMeasurable }
+
+func check() {
+    // 1. Gyro present, steady in window -> steady, and it IS a finding.
+    var a = Service(gyroPresent: true); a.reading(age: 0.1, 0.02)
+    let pa = a.capture("steady")
+    precondition(reportSaysSteady(pa), "measured+steady must be assertable")
+    precondition(!reportSaysUnmeasured(pa))
+
+    // 2. Gyro present, spike in window -> moved.
+    var b = Service(gyroPresent: true); b.reading(age: 0.1, 0.9)
+    let pb = b.capture("moved")
+    precondition(reportSaysMoved(pb), "measured+moved must be reported")
+
+    // 3. NO GYRO. hasMotionBlur is false -- same byte as case 1 -- but the
+    //    report must NOT be able to say steady. This is the whole reason
+    //    the field is persisted rather than computed at read time.
+    let pc = Service(gyroPresent: false).capture("no gyro")
+    precondition(pc.hasMotionBlur == false, "flag is false, exactly as in case 1")
+    precondition(!reportSaysSteady(pc), "must NOT read as steady")
+    precondition(reportSaysUnmeasured(pc), "must read as unmeasured")
+
+    // 4. STALE readings: gyro exists, nothing landed inside the window.
+    //    Silence is not steadiness.
+    var d = Service(gyroPresent: true); d.reading(age: 5.0, 0.02)
+    let pd = d.capture("stale")
+    precondition(pd.hasMotionBlur == false)
+    precondition(!reportSaysSteady(pd), "stale must not read as steady")
+    precondition(reportSaysUnmeasured(pd), "stale must read as unmeasured")
+
+    // 5. A stale HIGH reading must not be reported as blur either --
+    //    deliberately high, so the assertion fails if the window filter
+    //    is dropped. (Vector's point: an under-threshold sample would
+    //    pass with or without the filter.)
+    var e = Service(gyroPresent: true); e.reading(age: 5.0, 0.9)
+    let pe = e.capture("stale high")
+    precondition(!reportSaysMoved(pe), "a stale spike is not a fact about this frame")
+    precondition(reportSaysUnmeasured(pe), "and it is not a measurement either")
+
+    // 6. The three report states are mutually exclusive and total, on
+    //    every photograph above -- no photo falls through to silence.
+    for p in [pa, pb, pc, pd, pe] {
+        let n = [reportSaysSteady(p), reportSaysMoved(p), reportSaysUnmeasured(p)].filter { $0 }.count
+        precondition(n == 1, "\(p.label): exactly one report state, got \(n)")
+    }
+
+    // 6b. The `gyroPresent` clause in `motionMeasurable` is currently
+    //     UNFALSIFIABLE through `reading()`, which refuses to append
+    //     when the gyro is absent -- so `!inWindow.isEmpty` already
+    //     implies it in every state reachable that way. The runner
+    //     reported the mutant dropping it as SURVIVING, and it is right.
+    //
+    //     Kept and asserted rather than deleted, same call as the
+    //     `motionMeasured` guard one field over: it becomes load-bearing
+    //     the moment any path seeds a sample without a live gyro -- a
+    //     replayed buffer, a restored draft, a fixture. Assert the
+    //     implication over the state space, then construct the
+    //     unreachable state DIRECTLY, so a future edit that breaks it
+    //     fails here rather than in an evidence appendix.
+    for age in [0.1, 5.0] {
+        for mag in [0.02, 0.9] {
+            var g = Service(gyroPresent: true); g.reading(age: age, mag)
+            precondition(g.inWindow.isEmpty || g.gyroPresent,
+                         "a sample in the window must imply a live gyro")
+        }
+    }
+    var seeded = Service(gyroPresent: false)
+    seeded.samples = [(age: 0.1, magnitude: 0.9)]     // no path produces this today
+    precondition(seeded.motionMeasurable == false,
+                 "a seeded sample with no gyro must NOT count as measured")
+    precondition(!reportSaysSteady(seeded.capture("seeded")),
+                 "and must not read as steady")
+
+    // 7. The DEFAULT, which is what every unmigrated call site and the
+    //    decoder produce: constructed by omission, not by argument.
+    let old = Photo(label: "pre-field photo")
+    precondition(!reportSaysSteady(old), "an old photo must not read as verified steady")
+    precondition(reportSaysUnmeasured(old), "it reads as unmeasured, which is true of it")
+
+    print("all shape assertions hold")
+}
+check()

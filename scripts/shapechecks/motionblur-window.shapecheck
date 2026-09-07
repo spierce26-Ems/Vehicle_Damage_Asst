@@ -1,0 +1,105 @@
+// Reduced shape of hasMotionBlur's new input: peak-over-window vs the
+// live gate. The claim under test is that the flag reports a MEASUREMENT
+// over the exposure window, and is silent when nothing was measured.
+
+struct Service {
+    let rotationRateThreshold: Double = 0.12
+    var isSteady = false
+    var motionMeasured = false
+    var peakRotationRate: Double = 0
+
+    // Gyro callback.
+    mutating func reading(_ magnitude: Double) {
+        isSteady = magnitude < rotationRateThreshold
+        motionMeasured = true
+        peakRotationRate = max(peakRotationRate, magnitude)
+    }
+    // No gyro on this device: the GATE opens so capture is not blocked on
+    // an unreadable signal. Nothing is measured.
+    mutating func noGyroAvailable() { isSteady = true }
+
+    mutating func arm() { peakRotationRate = 0 }   // window opens
+
+    var measuredMotionBlur: Bool { motionMeasured && peakRotationRate >= rotationRateThreshold }
+}
+
+func check() {
+    // 1. Steady throughout: no blur reported.
+    var a = Service(); a.arm()
+    a.reading(0.02); a.reading(0.03)
+    precondition(a.isSteady, "gate open")
+    precondition(a.measuredMotionBlur == false, "steady window must report no blur")
+
+    // 2. THE CASE THE LIVE GATE MISSES: a spike during the window, steady
+    //    again at the instant of capture. isSteady says fine; the flag
+    //    must not.
+    var b = Service(); b.arm()
+    b.reading(0.02); b.reading(0.9); b.reading(0.02)
+    precondition(b.isSteady, "the gate reads steady at capture time")
+    precondition(b.measuredMotionBlur == true,
+                 "a spike inside the window MUST be reported -- this is the whole point")
+
+    // 3. No gyro: the gate opens, but nothing was measured, so the flag
+    //    must stay silent rather than assert 'no motion blur'.
+    //    Asserted LAST, with no step after it that could reset the state
+    //    under test -- Vector's ordering rule.
+    var c = Service(); c.arm(); c.noGyroAvailable()
+    precondition(c.isSteady, "gate opens so capture is not blocked")
+    precondition(c.motionMeasured == false, "nothing was measured")
+    precondition(c.measuredMotionBlur == false, "unmeasured must not claim a finding")
+    // 3b. And the guard must hold even if a peak arrives WITHOUT a
+    //     reading -- the state that makes the `motionMeasured` clause
+    //     load-bearing rather than redundant. Set directly, because no
+    //     current code path produces it; that is exactly why the clause
+    //     is worth its `&&`.
+    var c2 = Service(); c2.arm(); c2.noGyroAvailable()
+    c2.peakRotationRate = 0.9
+    precondition(c2.motionMeasured == false, "still nothing measured")
+    precondition(c2.measuredMotionBlur == false,
+                 "a seeded peak with no measurement must NOT report motion blur")
+
+    // 4. Arming RESETS the window: a spike from before the shot is not a
+    //    fact about this photograph. Assertion is made with no reset
+    //    step after it -- the precondition survives to the assertion.
+    var d = Service()
+    d.reading(0.9)                      // walking up to the vehicle
+    precondition(d.measuredMotionBlur == true, "spike is live before arming")
+    d.arm()
+    precondition(d.measuredMotionBlur == false, "arming must reset the window")
+    precondition(d.motionMeasured == true, "but 'the gyro reports' is NOT reset")
+
+    // 5. Exactly at the threshold counts as blur, matching the gate's own
+    //    boundary: isSteady is `<`, so `>=` is its exact complement. A
+    //    photo the gate would refuse must not read as clean.
+    var e = Service(); e.arm(); e.reading(0.12)
+    precondition(e.isSteady == false, "gate refuses at the threshold")
+    precondition(e.measuredMotionBlur == true, "flag must agree with the gate at the boundary")
+
+    // 6. THE GUARD IS CURRENTLY REDUNDANT, and saying so is the point.
+    //    `peakRotationRate` is only ever raised in the gyro callback,
+    //    which sets `motionMeasured` on the same line -- so
+    //    `peak >= threshold` already implies `motionMeasured`, and no
+    //    reachable state falsifies the first clause. The mutation runner
+    //    found this by reporting `drop-measured-guard` as SURVIVING, and
+    //    it is right: a guard no reachable state can falsify is not
+    //    doing work today.
+    //
+    //    It is kept, deliberately, and this assertion records WHY rather
+    //    than pretending coverage: the clause becomes load-bearing the
+    //    moment any path seeds a peak without a reading -- a replayed
+    //    buffer, a restored draft, a test fixture. Its cost is one `&&`;
+    //    the cost of omitting it is `hasMotionBlur` asserting a finding
+    //    on a device that measured nothing.
+    //
+    //    So: assert the implication explicitly, so a future edit that
+    //    breaks it fails HERE rather than in an evidence appendix.
+    for magnitude in [0.0, 0.05, 0.12, 0.9] {
+        var s = Service(); s.arm()
+        if magnitude > 0 { s.reading(magnitude) }
+        precondition(!(s.peakRotationRate >= s.rotationRateThreshold) || s.motionMeasured,
+                     "a nonzero peak must imply a measurement -- if this ever fails, the guard is what saves the report")
+    }
+
+    print("all shape assertions hold")
+}
+check()
