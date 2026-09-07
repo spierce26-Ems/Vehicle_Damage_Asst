@@ -88,6 +88,28 @@ Two things to know if you produce patches:
   self-referential row then describes the pre-write file.** Regeneration must
   iterate to a fixed point; a hand-resolution has to be re-run until `--all`
   is quiet twice in a row.
+- **The verify recipe: read the advisory LINE, never the exit code — and name
+  your clone's flags.** `preflight`'s plain `rc` answers *did it refuse to
+  proceed*, never *did it find anything*, so `preflight --all >/dev/null 2>&1;
+  echo $?` reports a number that cannot see its own findings. Three of us
+  traded clean headlines off that command in one round, one of them over a
+  tracked `.pyc` sitting in output nobody was reading. Use:
+
+  ```
+  python3 scripts/preflight.py --all --strict    # rc: 0 clean, 4 advisories, 1 blocking
+  ```
+
+  and **quote the summary line itself**, not a derived word. Two riders, both
+  learned the same day: `--strict` is opt-in *because the pre-commit hook must
+  keep passing on advisories* — an advisory that refuses a commit is a blocking
+  failure under another name — and **"fresh clone" must name its flags the way
+  a shape check names its compiler**, since a `--single-branch` clone honestly
+  reports one more advisory than a full one on the identical tree
+  (`check_script_currency` reads `origin/main`, and a single-branch refspec
+  makes its own input untrustworthy). **A verification figure travels with its
+  extractor, its flags, and its channel, or it is not a figure anyone else can
+  use.** Do not grep the literal `clear (0 advisory)`: the clean-tree summary
+  no longer carries the parenthetical.
 - **The one manifest number nothing validates is the Swift line total in the
   header sentence.** `check_manifest_line_counts` checks the per-file rows and
   `check_manifest_drift` checks the file and Swift *counts*, but the
@@ -1545,6 +1567,63 @@ arithmetic error, which is the wrong-object family aimed at a teammate's
 number** — and the entry immediately above is about exactly that. Quote the
 **extractor** with the count; the check's own number is the only one that
 governs its assertion.
+
+### 4c-xix. An anchor binds the SELECTOR to the tree; it does not bind the OUTPUT to the selector
+
+**The anchors close the renderer-selector gap and there is one step left past
+them, measured on the fully stacked tree rather than argued.** Mutating the
+real selector at `PDFReportGenerator` now returns `1 blocking` — verified, and
+that is the gap closed. But the anchored line is the *condition*, and the
+condition feeds a ternary:
+
+```swift
+let motionUnmeasured = photos.contains {
+    $0.motionMeasurementAttempted && !$0.motionMeasurable   // <- anchored
+}
+let allClear = motionUnmeasured                             // <- NOT anchored
+    ? "…checks that could be run… Camera movement was not measured for every photograph."
+    : "…met the app's capture-quality checks at the time of capture."
+```
+
+**Negate the ternary's test and leave the anchored line untouched.** Measured:
+`preflight --all --strict` → `clear`, **rc=0**, and `run.sh` → **8/8, rc=0**.
+Every instrument in the tree passes a renderer that emits **the wrong variant
+on every report**.
+
+**And the failure direction is the bad one.** Inverted, a report whose motion
+*was* fully measured prints *"Camera movement was not measured for every
+photograph"* — a false qualification, recoverable. But a report containing a
+photograph that **attempted and failed** to measure prints the **unqualified**
+all-clear: *"All analysis photographs met the app's capture-quality checks."*
+**That is the over-claim §2.3 exists to prevent, on the page an examiner
+signs**, and it is exactly the sentence the whole variant mechanism was built
+to stop. The selector is correct, the strings are locked and byte-exact, both
+variants are present and reachable — **and they are wired to the wrong arms.**
+
+**The general form, and it is why this is a section and not a bug report:**
+mutation-testing the shape check proves the check discriminates; the anchor
+proves the modelled line still exists in the tree. **Neither asks whether the
+line's VALUE reaches the reader unnegated.** A grep-strength anchor binds a
+substring's *presence*, so any defect expressible **between** the anchored
+condition and the drawn string is outside every instrument we have —
+`!`, a swapped ternary, a shadowed local, an early `return`. **An anchor makes
+a reduced model stop being silent about whether the tree still CONTAINS what it
+models; it says nothing about whether the tree still MEANS it.**
+
+This is Vector's third defect kind arriving one layer in from where he named
+it: *a row with no branch is detectable; a branch with the wrong condition is
+what the anchors close; **a correct condition wired to the wrong output** is
+invisible to all fourteen anchors and all eight checks.* Same family as §6.1's
+verdict travelling by hue — **a channel the instrument does not read**, except
+here the channel is the boolean's sign rather than a colour.
+
+**Not built, and I am not proposing a check for it, because the honest answer
+is one this document already owns: the assertion that catches this is one that
+renders the block and reads the emitted string** — §4's compile-and-run debt,
+not another grep. Recorded as the standing limit of the anchor mechanism so
+that a clean `preflight --strict` is not read as covering it. **The reason it
+goes in writing now is that the anchors are the strongest instrument layer we
+have ever had, and that is precisely when a limit stops being obvious.**
 
 ### 4d. A conflict resolution is where prose goes missing
 
