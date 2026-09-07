@@ -650,9 +650,33 @@ struct ScarCaptureView: View {
                 // convention already in this file), and it wants its own
                 // diff rather than riding in with the gate wiring.
                 qualityScore: gatesGood ? 1.0 : 0.5,
+                // NOTE(AI Developer), 2026-09-07 (task #4 follow-up).
+                // These read the MEASURED terms, not the gates. The gates
+                // (`isFocused`, `isCloseEnough`) are conservative by
+                // design: both start `false` and `isFocused` also folds in
+                // the device's focus state, so before the first analysable
+                // frame -- or on a frame where the lens is still hunting --
+                // `!camera.isFocused` and `!camera.isCloseEnough` are both
+                // `true` with nothing measured.
+                //
+                // That is correct for blocking auto-capture and wrong to
+                // persist, because the report appendix renders these two
+                // flags as "The app measured this photograph as not sharp"
+                // and "The app measured the damage area as not filling the
+                // guide frame". Written from the gates, an UNMEASURED
+                // capture prints both sentences -- and prints them
+                // alongside "Sharpness was not measured for this
+                // photograph", which is guarded on `sharpnessScore == nil`
+                // and therefore fires on exactly the same photo. Two notes
+                // in one bullet list, one saying not measured and one
+                // claiming the measurement's result.
+                //
+                // A gate may say "not yet"; a recorded finding may only
+                // say what was measured. Same rule as `frameConfirmedClear`
+                // being tri-state one field below.
                 qualityFlags: QualityFlags(
-                    isBlurry: !camera.isFocused,
-                    isTooFar: !camera.isCloseEnough
+                    isBlurry: camera.measuredNotSharp,
+                    isTooFar: camera.measuredNotCloseEnough
                 ),
                 annotationNotes: auto ? "Scar photo (auto-captured)" : "Scar photo (manual capture)",
                 // This screen is unconditionally an analysis surface, so

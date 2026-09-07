@@ -1141,6 +1141,37 @@ choice between two texts, it is the construction of a third**, and nothing about
 either input authorises the result.
 
 
+**A gate and a recorded finding are not the same boolean, and wiring the second
+from the first is a distinct way to make an absence assert something.** task
+#4's first wiring wrote `qualityFlags.isBlurry` from `!camera.isFocused` and
+`isTooFar` from `!camera.isCloseEnough`. Both gates are deliberately
+conservative — they default `false` so auto-capture cannot fire on an
+unmeasured frame, and `isFocused` is additionally the *conjunction* of the
+device's focus state with the sharpness measurement. Correct as a gate. But
+those two flags are persisted into evidence and the report appendix renders
+them as **"The app measured this photograph as not sharp"** and **"The app
+measured the damage area as not filling the guide frame"** — sentences whose
+subject is a measurement. Written from the gates, a capture where nothing was
+ever measured prints both.
+
+**The proof it is wrong is inside the same bullet list.** The fifth note
+condition, *"Sharpness was not measured for this photograph"*, is guarded on
+`sharpnessScore == nil` — which is true on exactly the photo the gate-derived
+flags just described as measured-and-failing. One photograph, two notes, one
+saying the measurement did not happen and one reporting its result. The
+appendix is careful about `nil` for `frameConfirmedClear` three conditions
+earlier and the same care did not reach the flags, because the tri-state was
+visible in the type and this distinction is not: `Bool` cannot hold
+"unmeasured", so it has to be held at the source.
+
+The rule, stated so it applies past this instance: **a gate may say "not yet";
+a recorded finding may only say what was measured.** When a `Bool` is persisted
+into evidence, ask what its `false` means and what its `true` means *when no
+measurement ran* — and if the answer is a claim, derive it from a
+`measured && failed` term rather than from the gate. §5's tri-state is the same
+rule where the type can express it.
+
+
 ## 5. House rule: never let an absence assert something
 
 A missing value means "we do not know." It must never be rendered, decoded, or

@@ -259,9 +259,35 @@ sometimes the light is what it is. But when tapped with gates failing:
 > and flagged in the report.
 > [ Capture anyway ]  [ Cancel ]
 
-Set `QualityFlags.isBlurry` / `.isTooFar` from the live gate state at capture
-time — those flags already exist and already surface in `PhotoReviewView` and
-`issueDescriptions`; they're currently never set on this path. Wire them.
+Set `QualityFlags.isBlurry` / `.isTooFar` at capture time — those flags already
+exist and already surface in `PhotoReviewView` and `issueDescriptions`; they're
+currently never set on this path. Wire them.
+
+**Corrected 2026-09-07, and the correction is the load-bearing part: from the
+MEASURED terms, not from the gate booleans.** This clause originally said "from
+the live gate state", the first implementation followed it literally, and that
+is wrong for a reason the gates cannot express. `isFocused` and `isCloseEnough`
+default `false` and stay `false` until a frame has been analysed — correct for
+a gate, because auto-capture must not fire on an unmeasured frame — and
+`isFocused` is additionally the *conjunction* of the device's focus state with
+the sharpness measurement, so it reads `false` on a hunting lens over a frame
+that measured perfectly sharp. Meanwhile these two flags are persisted into
+evidence and §1's appendix renders them as **"The app measured this photograph
+as not sharp"** and **"The app measured the damage area as not filling the
+guide frame"**.
+
+The contradiction is inside one bullet list: the fifth note condition,
+*"Sharpness was not measured for this photograph"*, is guarded on
+`sharpnessScore == nil` — true on exactly the photo the gate-derived flags
+just described as measured-and-failing. Wire them from
+`ScarCaptureCameraService.measuredNotSharp` (`sharpnessScore != nil &&
+!sharpnessSatisfied`) and `.measuredNotCloseEnough` (`framingMeasured &&
+!isCloseEnough`) instead.
+
+**General form, for any future clause of this shape: a gate may say "not yet";
+a recorded finding may only say what was measured.** §3's tri-state is the same
+rule where the type can express it; `Bool` cannot hold "unmeasured", so it has
+to be held at the source.
 
 ---
 
@@ -499,8 +525,10 @@ is §1.2 unbuilt on the surface §1.2 was written for.**
    change. **§1.1 remains unbuilt and this table is the record of that**, not a
    silence to be read as done.
 5. **`QualityFlags.isTooClose` / `hasMotionBlur` remain unassigned.**
-   `isBlurry` and `isTooFar` are now set from live gate state at capture time
-   (§2.4). The other two have no signal behind them yet: this screen measures
+   `isBlurry` and `isTooFar` are now set at capture time from the MEASURED
+   sharpness and fill terms rather than the gate booleans (§2.4, and see the
+   correction recorded there — the gate-derived version made an unmeasured
+   capture print two notes claiming a measurement). The other two have no signal behind them yet: this screen measures
    sharpness and fill, not distance-too-near or motion specifically. They are
    left declared and annotated rather than assigned from a proxy, because a
    flag set from something it does not measure is worse than one that is

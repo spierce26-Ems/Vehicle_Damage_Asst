@@ -146,6 +146,38 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
         isFocused = deviceFocusSettled && sharpnessSatisfied
     }
 
+    /// True only when sharpness WAS measured and the measurement failed
+    /// the threshold. Distinct from `!isFocused` in the two cases that
+    /// matter, and both of them are cases where `!isFocused` claims a
+    /// measurement that never happened:
+    ///
+    /// - Before the first analysable frame, `sharpnessScore` is `nil` and
+    ///   `sharpnessSatisfied` is `false`, so `!isFocused` is `true` with
+    ///   nothing measured at all.
+    /// - `isFocused` is the CONJUNCTION of the device's focus state and
+    ///   the measurement, so a hunting lens makes `!isFocused` true on a
+    ///   frame that measured perfectly sharp.
+    ///
+    /// This exists because `CapturedPhoto.qualityFlags.isBlurry` is
+    /// persisted into evidence and the report appendix renders it as
+    /// *"The app measured this photograph as not sharp"*. That sentence is
+    /// a claim about a measurement, so its input has to be one. The gate
+    /// that blocks auto-capture may stay conservative; the recorded
+    /// finding may not.
+    var measuredNotSharp: Bool { sharpnessScore != nil && !sharpnessSatisfied }
+
+    /// True only when the fill ratio WAS computed on some frame. The
+    /// framing gate needs both an in-guide and a whole-frame edge-energy
+    /// reading, so it stays unmeasured on a degenerate rect -- and
+    /// `isCloseEnough` defaults to `false`, which is right for a GATE
+    /// (do not auto-capture on an unmeasured frame) and wrong for a
+    /// RECORDED FINDING (`isTooFar` renders as *"The app measured the
+    /// damage area as not filling the guide frame"*).
+    private(set) var framingMeasured: Bool = false
+
+    /// True only when framing was measured and the measurement failed.
+    var measuredNotCloseEnough: Bool { framingMeasured && !isCloseEnough }
+
     // MARK: Private AVFoundation state
 
     // NOTE(AI Developer): same `nonisolated(unsafe)` rationale as
@@ -519,6 +551,7 @@ extension ScarCaptureCameraService: AVCaptureVideoDataOutputSampleBufferDelegate
                     let outsideArea = max(frameArea - guideArea, 1)
                     let outside = max((wholeFrame * frameArea - inGuide * guideArea) / outsideArea, 0.0001)
                     let ratio = inGuide / outside
+                    self.framingMeasured = true
                     if ratio >= self.fillRatioThreshold {
                         self.isCloseEnough = true
                         self.framingMessage = "Framing looks good"

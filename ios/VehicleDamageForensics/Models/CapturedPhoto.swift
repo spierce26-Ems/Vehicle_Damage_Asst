@@ -548,10 +548,18 @@ struct QualityFlags: Codable, Equatable {
     //
     // Verifying a spec against the tree means checking each condition is
     // ASSIGNED, not that its identifier resolves.
-    var isBlurry: Bool = false            // set on the scar path (task #4); NOT on the 30-shot path
+    // NOTE(AI Developer), 2026-09-07. These two carry the word MEASURED in
+    // the report appendix ("The app measured this photograph as not sharp",
+    // "The app measured the damage area as not filling the guide frame"), so
+    // they may only be written from a measurement that happened -- not from
+    // the auto-capture gates, which are conservative and read `false` before
+    // anything has been measured. The scar path writes them from
+    // `ScarCaptureCameraService.measuredNotSharp` / `.measuredNotCloseEnough`
+    // for that reason; see the note at the call site in `ScarCaptureView`.
+    var isBlurry: Bool = false            // set on the scar path (task #4), from the MEASURED term; NOT on the 30-shot path
     var isUnderexposed: Bool = false      // set by buildQualityFlags
     var isOverexposed: Bool = false       // set by buildQualityFlags
-    var isTooFar: Bool = false            // set on the scar path (task #4); NOT on the 30-shot path
+    var isTooFar: Bool = false            // set on the scar path (task #4), from the MEASURED term; NOT on the 30-shot path
     // `isTooClose` and `hasMotionBlur` are still WRITTEN NOWHERE: their only
     // occurrences are the two `issueDescriptions` reads below. A sweep that
     // models every write form -- assignment, compound assignment, initialiser

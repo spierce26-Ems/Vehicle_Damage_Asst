@@ -49,7 +49,7 @@ when any of:
 |---|---|
 | `gateOverridden == true` | captured with the sharpness/framing gate failing, via the manual shutter |
 | `frameConfirmedClear == false` | the examiner was asked and did not attest the frame was free of a ruler or foreign object |
-| `qualityFlags.isBlurry` or `.isTooFar` | set from live gate state at capture time |
+| `qualityFlags.isBlurry` or `.isTooFar` | set at capture time from the MEASURED sharpness and fill terms — not from the gate booleans; see the spec's §2.4 correction, and §1.1 below for why the distinction is this table's problem too |
 | `sharpnessScore == nil && frameConfirmedClear != nil` | sharpness was not measured for this photo (see §1.1 for why the second clause) |
 
 Reference/measurement shots get **no** note for any of these. A tape measure in
