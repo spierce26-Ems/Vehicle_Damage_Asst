@@ -12,27 +12,25 @@ The split of authority: this document is the authority on **wording**, the
 spec on **behaviour** — the tri-state semantics, the per-shot rule and the gate
 composition. §1.1's table restates those and is not their source.
 
-> **Provenance warning, added 2026-09-07.** This document cites *the Item 2 UX
-> spec* six times as the authority for its field semantics — §1's note
-> conditions, §1.1's `frameConfirmedClear` tri-state, §2.2's wording, §4's
-> 16-string copy inventory. **That spec is not in this repository.**
-> `git ls-files '*.md'` returns twelve files and none of them is it; no commit
-> has ever added it. It is task #4's design artefact, held outside the tree.
+> **How that citation came to be unfollowable, kept as the history — the
+> current state is the header above, and this block is not it.** This document
+> cited *the Item 2 UX spec* six times as the authority for its field semantics
+> while that spec was **not in the tree**: `git ls-files '*.md'` returned twelve
+> files and none of them was it. The chain was **spec → spec → decision tick,
+> with the tree at neither end**, and it survived two months because the
+> documents agreed with each other. **A citation that cannot be followed is
+> indistinguishable from one that can until someone tries.**
 >
-> So this document is normative about fields that do not exist, on the
-> authority of a document a reader of this repository cannot open. §1.1's
-> tri-state table is the only in-tree statement of that semantics, and it
-> presents itself as a *restatement* of an upstream source. **A citation that
-> cannot be followed is indistinguishable from one that can until someone
-> tries** — and nobody tried for two months, because the documents that could
-> have caught it agree with each other.
+> Resolved in two steps, and the second was not implied by the first: the spec
+> landed at `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md`, and then the citations
+> here were made to name it. **Landing a destination and pointing at it are
+> different commits.**
 >
-> Nothing here is withdrawn: the semantics are right and were reviewed. What is
-> recorded is that the chain is **spec → spec → decision tick, with the tree at
-> neither end**, and that §1.1's table is therefore load-bearing rather than
-> illustrative. Task #4's implementation should treat it as the source and
-> reconcile it against the design artefact explicitly, not assume it matches —
-> and whoever lands that work should land the spec in `docs/` with it.
+> I had proposed the alternative — promote this document to the authority,
+> since the implementation landed first. **Withdrawn: this document is locked
+> *copy*, and promoting a restatement to the source would leave the original
+> claims uncheckable and make it answer for decisions it never made.** The
+> split in the header is the settled form.
 
 Principle: **a flagged photo in the file beats a missing one.** Nothing is
 silently dropped, nothing is silently promoted. The report records what the
@@ -135,8 +133,17 @@ saying the measurement did not happen and one reporting its result**, rendered
 into the same bullet list. So **row five is the negative case for rows three
 and four, and an edit to any of the three must be checked against the others.**
 
-Row two got this right from the start because `frameConfirmedClear` is `Bool?`
-and "never asked" is visible in the type. `Bool` cannot hold "unmeasured", so
+**Rows one and two are gate-driven and correctly so — the difference is what
+their sentences claim.** Row one is written from `!allGatesGood` at the moment
+of capture, and says *"the app's sharpness and framing checks were not met"*:
+a statement about **checks**, which is exactly what a gate can support. Row
+two is an examiner attestation. **Neither says "measured", and that is why
+neither has rows three and four's problem** — the audit is not "is this driven
+by a gate?" but "does the sentence claim more than its input can support?"
+Read the trigger column and the note column as one unit.
+
+Row two additionally got the `nil` case right from the start because
+`frameConfirmedClear` is `Bool?` and "never asked" is visible in the type. `Bool` cannot hold "unmeasured", so
 for these two the distinction has to be held at the source — which is why four
 careful readers passed over it. **If a future edit softens "measured" out of
 row three or four, the constraint on their inputs disappears with it**: the
@@ -200,7 +207,16 @@ whole report already operates under (`MatchResult.disclaimerText`):
   A capture note describes a photograph, never a conclusion about a vehicle.
 - **No quality adjectives standing alone.** "Poor photograph" is a judgement;
   "the app measured this photograph as not sharp at the point of capture" is a
-  record. Use the record.
+  record. Use the record. **`CapturedPhoto.issueDescriptions` is the in-tree
+  counter-example and it is not report copy — it yields bare adjectives
+  ("Out of focus", "Too far away", "Motion blur detected") from the same
+  flags §2.2 renders as records.** It has zero readers today, which is the
+  only reason it is a latent problem rather than a live one. **If anything
+  ever surfaces it to a user or a report, it needs §2.2's wording, not its
+  own** — and note the second defect in it: an empty result reads as "no
+  problems found" when it can equally mean "not measured", because
+  `isTooClose` and `hasMotionBlur` are written on no path. **A list of
+  problems cannot express "unmeasured" by being short.**
 - **Attribute every claim.** Either the app measured it or the examiner
   attested it. Never leave the reader guessing which.
 - **Never imply the examiner did something wrong.** `gateOverridden` documents a
