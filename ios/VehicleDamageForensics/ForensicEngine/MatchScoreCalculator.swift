@@ -527,7 +527,7 @@ struct MatchScoreCalculator {
                 "Height Alignment rule-out: %@ differ by %.1f\", more than the %.0f\" maximum at which "
                 + "two damage points can physically have contacted each other. "
                 + "On height evidence alone this suspect vehicle should be ruled out, independently of every "
-                + "other factor below.",
+                + "other factor.",
                 heights.note, diff, MeasurementHelpers.heightRuleOutInches)
         }
 
