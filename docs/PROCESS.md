@@ -2776,17 +2776,20 @@ one level out** — one had been counting unscoped all day and would have
 reported 43/43 where the check reported 42/42. **Name the population, not just
 the number.**
 
-**AND ONE FOUND BY RUNNING THE RUNNER BARE, WHICH IS OWED RATHER THAN FIXED
-HERE: `run.sh` returns rc=2 for TWO different conditions** — "no shape checks
+**AND ONE FOUND BY RUNNING THE RUNNER BARE, FIXED IN THE SAME COMMIT THAT
+RECORDED IT: `run.sh` RETURNED rc=2 for TWO different conditions** — "no shape checks
 found" and "no `swiftc` on PATH". The printed lines distinguish them correctly;
 the **exit code does not**, and an exit code is what a caller reads. **A missing
 toolchain and an empty directory are opposite problems** — one means the
 instruments could not be run, the other means there are none to run — and
 reporting them identically makes "the checks did not execute" indistinguishable
-from "there is nothing to execute". **Give the absent-toolchain case its own
-code**, so a wrapper cannot treat an unrun suite as an empty one. Third
-instance of the shape the runner was built to prevent, in the runner: **the
-diagnostic is right and the channel a caller reads is not.**
+from "there is nothing to execute". **The absent-toolchain case now has its own
+code** (rc=3), so a wrapper cannot treat an unrun suite as an empty one; the
+four codes are 0 pass / 1 ran-and-failed / 2 nothing-to-execute / 3
+could-not-execute, and they are documented in the runner and its README because
+a caller reads the code, not the prose. Verified bare, one condition at a time.
+Third instance of the shape the runner was built to prevent, in the runner:
+**the diagnostic is right and the channel a caller reads is not.**
 
 **MEASURING THE WRONG OBJECT PRODUCES A CONFIDENT NUMBER, AND THE ROUND
 PRODUCED THREE OF THEM.** Mutating a **pattern** that matches two guards

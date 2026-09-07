@@ -118,7 +118,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 1608 |
 | `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 753 |
-| `docs/PROCESS.md` | 2896 |
+| `docs/PROCESS.md` | 2899 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1913 |
@@ -160,7 +160,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/regen_manifest.py` | 110 |
 | `scripts/check_remedies.py` | 311 |
 | `scripts/set_dev_team.sh` | 44 |
-| `scripts/shapechecks/README.md` | 76 |
+| `scripts/shapechecks/README.md` | 90 |
 | `scripts/shapechecks/decline-affordance.shapecheck` | 104 |
 | `scripts/shapechecks/filtered-headline.shapecheck` | 168 |
 | `scripts/shapechecks/filtered-headline-v1.shapecheck` | 137 |
@@ -168,7 +168,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/shapechecks/motionblur-window.shapecheck` | 105 |
 | `scripts/shapechecks/motionmeasurable.shapecheck` | 116 |
 | `scripts/shapechecks/rowfive-proxy.shapecheck` | 84 |
-| `scripts/shapechecks/run.sh` | 33 |
+| `scripts/shapechecks/run.sh` | 45 |
 
 ## Repo root
 

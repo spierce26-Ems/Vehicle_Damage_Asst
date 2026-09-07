@@ -2,10 +2,22 @@
 # Compile and run every shape check. Exit non-zero if any fails or any
 # fails to compile -- a check that no longer compiles is not a passing check,
 # which is the absence-asserting-the-clean-case failure aimed at this script.
+#
+# EXIT CODES, distinct per condition because an exit code is what a caller
+# reads (Ledger, 2026-09-07):
+#   0  every check compiled, ran and passed
+#   1  a check failed or failed to compile -- the instruments RAN
+#   2  no shape checks found -- there is nothing to execute
+#   3  no Swift compiler on PATH -- the instruments COULD NOT BE RUN
+# 2 and 3 are opposite problems and both returned 2 until now, so a caller
+# could not tell "nothing to execute" from "did not execute". That is this
+# script's own subject one level out: the printed lines distinguished them
+# correctly and the channel a caller reads did not. Found by running the
+# script BARE -- reading its status through a pipe reports the pipe.
 set -uo pipefail
 cd "$(dirname "$0")"
 SWIFTC="${SWIFTC:-swiftc}"
-command -v "$SWIFTC" >/dev/null || { echo "no $SWIFTC on PATH"; exit 2; }
+command -v "$SWIFTC" >/dev/null || { echo "no $SWIFTC on PATH -- the shape checks did NOT run (this is not a pass)"; exit 3; }
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 # nullglob, so an empty directory yields an EMPTY LOOP rather than the literal
 # pattern. Without it the glob falls through as a filename, the loop runs once,

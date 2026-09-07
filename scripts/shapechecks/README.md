@@ -30,7 +30,21 @@ cp scripts/shapechecks/filtered-headline.shapecheck /tmp/c.swift
 swiftc -O /tmp/c.swift -o /tmp/c && /tmp/c
 ```
 
-`run.sh` does all of them.
+`run.sh` does all of them, and its exit code distinguishes every outcome a
+caller has to tell apart -- because an exit code is what a caller reads:
+
+| rc | meaning |
+|----|---------|
+| 0 | every check compiled, ran and passed |
+| 1 | a check failed or failed to compile -- the instruments RAN |
+| 2 | no shape checks found -- there is nothing to execute |
+| 3 | no Swift compiler on PATH -- the instruments COULD NOT BE RUN |
+
+**2 and 3 both returned 2 until 2026-09-07** (Ledger), so a caller could not
+tell "nothing to execute" from "did not execute" -- opposite problems reported
+identically. The printed lines had always distinguished them; the channel a
+caller reads had not. **Read the runner's status BARE: `bash run.sh; echo $?`.
+Through a pipe you are reading the pipe** -- that slip is what surfaced this.
 
 ## Writing one
 
