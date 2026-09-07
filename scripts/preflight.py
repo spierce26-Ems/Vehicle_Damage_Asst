@@ -2774,7 +2774,7 @@ def main():
     # nothing at all, wearing the same face as a clean run over everything.
     # That is the day's recurring shape one level up from the checks: an
     # unknown ref already fails loudly here, so an unknown FLAG must too.
-    known = {"--all", "--since", "--install-hook"}
+    known = {"--all", "--since", "--install-hook", "--strict"}
     unknown = [a for i, a in enumerate(args)
                if a.startswith("-") and a not in known
                and not (i > 0 and args[i - 1] == "--since")]
@@ -2845,6 +2845,33 @@ def main():
     print(f"\npreflight: clear ({len(warnings)} advisory) -- {scope}.")
     print("This means 'worth compiling'. It does not mean it compiles -- "
           "PROCESS.md sec.4 clauses 4-6 still need Xcode and a device.")
+    # `--strict`: exit 4 when advisories are present but nothing is blocking.
+    #
+    # NOTE(Vector), 2026-09-07, from the Tech Lead's finding. Our verification
+    # commands read `preflight`'s EXIT CODE, and rc=0 means "did not refuse to
+    # proceed" -- it has never meant "found nothing". A round of `>/dev/null
+    # 2>&1; echo PF=$?` therefore reported "0 advisories" out of a channel
+    # where the advisory count is not present at all: re-read, those clones
+    # held 1, 1 and 3 advisories, and the third was the run that declared the
+    # tree clean while a `.pyc` was sitting in the text.
+    #
+    # The remedy is a rule ("read the advisory line, never the exit code") and
+    # a rule that could be a check should not be a habit -- the same argument
+    # that put `.pyc` in `.gitignore` instead of a note, and it applies harder
+    # here because the habit already failed under pressure for three of us.
+    # `--strict` lets a verifier ASK for advisory-clean and get an answer its
+    # `$?` can actually carry.
+    #
+    # 4, not 1: a blocking failure and an advisory are different claims and a
+    # caller that collapses them undoes the split. Same discipline as run.sh's
+    # rc=3 for NOT RUN. Opt-in, because the pre-commit hook must keep passing
+    # on advisories -- an advisory that refuses a commit is a failure by
+    # another name, and this file argues against exactly that everywhere else.
+    if "--strict" in args and warnings:
+        print(f"preflight --strict: {len(warnings)} advisory present, "
+              f"nothing blocking (rc=4). rc=0 answers 'did it refuse to "
+              f"proceed', never 'did it find anything'.")
+        return 4
     return 0
 
 
