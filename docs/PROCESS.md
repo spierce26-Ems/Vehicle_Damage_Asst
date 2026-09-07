@@ -1243,8 +1243,22 @@ one's `gateOverridden` is reachable — `ScarCaptureView:610` computes
 `!auto && !gatesGood`, which a manual tap over a failing gate produces. Rows
 three and four are reachable through the `measured && failed` terms. Row five
 is reachable at the one site that passes `sharpnessMeasurable: true`. **Row two
-is the only unreachable one, and its input has no write site of `false`
-anywhere in the tree.** A sweep that stops at the first finding leaves the
+was the only unreachable one; it is now reachable too, and the sweep result
+above is a statement about a tree that no longer exists.** `pendingFrameClear
+= false` is written at `CaptureCameraView:429` and `ScarCaptureView:556` by the
+decline affordance, so all five conditions in the table now have reachable
+inputs and `frameConfirmedClear` is genuinely three-state in the code as well
+as in the four documents.
+
+**Recording that transition rather than editing the result away is the point.**
+A sweep is a measurement of a tree at a commit, and this one went stale in
+under an hour — by being acted on, which is the good case. **The same property
+that makes a sweep worth recording makes it perishable: it is a claim about
+write sites, and a patch that adds one invalidates it silently.** So a sweep
+result needs the commit it was taken at, and re-running it is part of landing
+any patch that adds a write site to a condition's input — the same check the
+interaction rule already asks for, applied to reachability instead of to
+population. A sweep that stops at the first finding leaves the
 reader unable to tell a checked condition from an unexamined one, so: **when a
 class of defect is found in one member of a table, the deliverable is the
 table, not the member** — and say which members were cleared, because "we fixed
@@ -1255,6 +1269,25 @@ not honour is not a bug report against the design** — the tri-state is right
 and is what makes the missing case recordable in one line — **but it must be
 recorded where the reader of the condition looks, not at the field, or the
 next reader takes the three-state as shipped behaviour.**
+
+**The two answers to one question can need different lifetimes, and giving
+them the same one is how a fix reintroduces the defect it closed.** The
+attestation is asked once per session — the right scope for an affirmation,
+since an examiner who cleared their working area cleared it for the session.
+**A decline is a fact about one frame.** Persisting it would write "the
+examiner did not confirm the frame was clear" onto every later analysis shot of
+that session, including ones nobody was asked about: a note that fires always,
+one field upstream of where that failure was found this morning. So the decline
+self-clears after its capture and the question is owed again, while the
+affirmation persists.
+
+Worth stating past this field because the asymmetry is not about attestations:
+**when a stored answer is scoped for convenience — asked once, remembered — ask
+that question separately for each value the answer can take.** The scope that
+makes a "yes" humane makes a "no" an over-claim, because the two answers are
+claims about different things: one about a state the examiner established, the
+other about a state they observed. **A single lifetime for both is the design
+that looks symmetrical and is not.**
 
 Storing one instance of a type outside the collection of that type is what
 makes shape 1 reachable, and it is worth flagging on sight. `scarPhoto` is
