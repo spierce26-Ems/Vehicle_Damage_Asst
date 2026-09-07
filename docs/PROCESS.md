@@ -2966,6 +2966,82 @@ signal 4**, rc=1 (**previous runner: `Backtrace took 0.00s`**); a check printing
 noise after its verdict → `ok` with the **verdict**, not the noise; the nine real
 checks → 9/9 unchanged; clean tree → rc=0 `clear`.
 
+### 4c-xliv. `N failing assertion(s).` counts FAILURES, not assertions — so a disabled instrument prints the clean case
+
+**Numbered xliii, and the renumbering is itself the record: my first cut was
+`xlii`, formatted against `9804a8b` while the Designer's §4c-xl, Ledger's
+§4c-xli and the Tech Lead's §4c-xlii were in flight. Thirteenth collision, and
+`git rebase` produced a real two-side conflict in this very file — resolved
+sentence by sentence, never by taking a side. Placed before §4d so the new
+`check_section_order` holds on arrival rather than after a follow-up.**
+
+§4c-xxxviii closed the empty verdict: a check whose body was `func nothing()
+{}` printed `ok  <file> -- ` and counted in `9/9`. **The arm was right and the
+population was the shape of the failure I had in front of me.** The real
+population is *verdicts that are not verdicts about the assertions*, and it has
+at least three members. Measured on pushed `9804a8b`:
+
+```
+say nothing        `func nothing() {}`            ok, 9/9      (closed xxxviii)
+say the wrong      compiles then TRAPS ->
+  thing            `FAIL -- Backtrace took 0.00s`  refuses, verdict meaningless (Ledger, xli)
+say the clean      every `expect(` commented out,
+  case             LINE-NEUTRAL -> `ok -- 0
+                   failing assertion(s).`, 9/9     rc=0, ZERO findings
+```
+
+**The third is the one that puts a false clean line on the record.** Every
+`expect(...)` in `decoder-roundtrip.shapecheck` commented out, line-neutral:
+the check compiles, runs, prints `0 failing assertion(s).`, the runner prints
+`ok`, and **`9/9` includes the instrument that proves the round-trip mechanism
+while it asserts nothing.** `N failing assertion(s).` is a count of FAILURES,
+so zero assertions and zero failures render identically — **the verdict channel
+cannot tell a DISABLED check from a passing one**, which is my own note-rows
+defect (§4c-xxvi's round) arriving one layer up, in the artefact that decides
+what `9/9` means. Disabling is still the reversible-looking edit reviewers wave
+through.
+
+Built, and the ordering matters because a trap produces no verdict at all:
+
+1. **The last line must be verdict-SHAPED** — every check here ends in
+   `N failing assertion(s).` or `all shape assertions hold`, so anything else
+   is the absence of a verdict. `rc >= 128` is reported as a **trap by name**,
+   per Ledger's §4c-xli: "it crashed" and "it failed an assertion" are
+   different findings, and the backtracer's stopwatch is neither.
+2. **Reported assertions must reach the live site count**, derived from the
+   check's own source rather than declared, so adding an assertion re-derives
+   the floor instead of needing a number kept in agreement.
+3. **A commented assertion site is itself the finding.** This clause exists
+   because clause 2 alone does not hold: **both sides of a live-versus-reported
+   comparison fall together under the mutation.** Disabling half the
+   assertions reported `4 of 4` and passed. There is no legitimate reason for
+   a commented `expect(` or `precondition(` in an instrument, so the whole-file
+   count minus the live count is the signal — the commented copy is evidence,
+   not noise.
+
+**Two errors of my own inside this patch, and the second is the one to carry.**
+The first version counted `^expect(` in the raw file, so **the FLOOR fell with
+the mutation** — the extractor read the mutated text as its own
+specification, and commenting everything out left `sites=0` and passed. The
+second reported `9 commented sites` for eight, because `func expect(` was
+excluded from one side of the subtraction and not the other: **a correct
+finding with a wrong number, which is the shape this document spent the day
+on.** Both were caught by grading each mutant against its own named row rather
+than the exit code.
+
+**Precondition-style checks are covered differently and the asymmetry is worth
+recording:** they print nothing when they pass, so clause 1 carries them, and
+commenting a `precondition` out usually leaves its subject unused and **fails
+the compile** under §4c-xxxviii's `-warnings-as-errors` — the two halves of
+that flag composing rather than overlapping. Clause 3 catches it regardless.
+
+**Boundary, stated because a clean run under three new arms will otherwise
+read as coverage:** an assertion whose *predicate* is weakened
+(`if got == got`) still runs, still reports, and still passes — **line-neutral,
+rc=0, zero findings, and nothing here reaches it.** That is §4c-xxv's shape in
+the instruments: a check that cannot fail is not a check, and only a mutant of
+the subject can tell.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

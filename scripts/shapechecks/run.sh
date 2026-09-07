@@ -52,6 +52,108 @@ for f in *.shapecheck; do
   fi
   out=$("$tmp/c" 2>&1); rc=$?
   last=$(printf '%s\n' "$out" | tail -1)
+
+  # THE VERDICT MUST BE VERDICT-SHAPED, and this arm replaces the
+  # empty-output arm below rather than sitting beside it (sec.4c-xli).
+  #
+  # Ledger measured the case next to the empty one: a check that COMPILES and
+  # then TRAPS prints a multi-page Swift backtrace whose final line is the
+  # BACKTRACER'S STOPWATCH, so the runner printed
+  # `FAIL <file> -- Backtrace took 0.00s`. The refusal is correct and the one
+  # line a reader takes away is meaningless -- and `-warnings-as-errors`
+  # cannot reach it (the file compiles) while the empty-output arm cannot
+  # either (the output is enormous). Reproduced here on pushed 9804a8b with
+  # an out-of-range subscript: rc=132, Signal 4.
+  #
+  # Every check in this directory ends in `N failing assertion(s).` or
+  # `all shape assertions hold`, so the SHAPE of the last line is available
+  # as a signal, and both the empty case and the trap case are the absence
+  # of it. rc >= 128 is reported as a trap by name, because "it crashed" and
+  # "it failed an assertion" are different findings.
+  # DESIGNER'S DELTA, ported onto Vector's base rather than either taken
+  # whole: her arm PREFERS the check's own last VERDICT-SHAPED line to the
+  # literal last line, so a check that prints diagnostics AFTER its verdict
+  # reports the verdict rather than the noise. Vector's `case` below tests
+  # the shape of `$last` and refuses anything that is not verdict-shaped --
+  # which catches the trap and the empty case, but would ALSO refuse a check
+  # whose verdict is real and merely not last. Her rescue runs first; his
+  # shape test then judges what she recovered, so both hold.
+  verdict=$(printf '%s\n' "$out" \
+            | grep -E 'failing assertion|all shape assertions hold' \
+            | tail -1)
+  [ -n "$verdict" ] && [ "$rc" -lt 128 ] && last="$verdict"
+
+  case "$last" in
+    *"failing assertion(s)."|*"all shape assertions hold") ;;
+    *)
+      if [ "$rc" -ge 128 ]; then
+        echo "FAIL          $f -- TRAPPED (signal $((rc-128))); no verdict line -- the backtrace is not a result"
+      elif [ -z "$last" ]; then
+        echo "FAIL          $f -- produced NO output; an empty verdict is not a pass"
+      else
+        echo "FAIL          $f -- last line is not a verdict: ${last:0:60}"
+      fi
+      fail=$((fail+1)); continue
+      ;;
+  esac
+
+  # AND THE ASSERTIONS MUST HAVE RUN, which the verdict does not say.
+  # `N failing assertion(s).` counts FAILURES, not assertions: comment out
+  # every `expect(` line-neutrally and the check prints `0 failing
+  # assertion(s).`, the runner prints `ok`, and `9/9` counts it. Measured on
+  # pushed 9804a8b against decoder-roundtrip: rc=0, zero findings, and the
+  # instrument that proves the round-trip mechanism asserted nothing.
+  #
+  # It tells a FAILING check from a passing one and cannot tell a DISABLED
+  # one from either -- the same asymmetry my note-rows check had at the Swift
+  # layer, now in the verdict channel, and disabling is the reversible-looking
+  # edit reviewers wave through. Derived from the check's OWN source (count
+  # the `expect(` statements) rather than declared, so adding an assertion
+  # re-derives the floor instead of needing a number kept in agreement.
+  # Precondition-style checks print nothing when they pass, so they are
+  # covered by the verdict shape above plus the fact that commenting a
+  # `precondition` out leaves its subject unused and fails the compile.
+  # Comment-blind, and that arm is the one my first version got wrong:
+  # counting `^expect(` in the file makes the FLOOR fall with the mutation,
+  # so commenting every assertion out left sites=0 and the check passed. The
+  # extractor was reading the mutated text as its own specification. Counting
+  # only NON-comment lines fixes the floor's blindness; the case where the
+  # count legitimately reaches zero is handled as its own finding below,
+  # because a check that asserts nothing is the defect either way.
+  code=$(sed -e 's://.*::' "$f")
+  sites=$(printf '%s\n' "$code" | grep -c 'expect(' || true)
+  precs=$(printf '%s\n' "$code" | grep -c 'precondition(' || true)
+  ran=$(printf '%s\n' "$out" | grep -c '^  \(ok  \|FAIL\)' || true)
+  # `func expect(` is the definition, not a site.
+  sites=$((sites > 0 ? sites - 1 : 0))
+
+  # A COMMENTED-OUT ASSERTION IS THE DISABLED CASE, and it is the one the
+  # live/reported comparison cannot see: disable HALF the assertions
+  # line-neutrally and both sides of that comparison fall together, so the
+  # check reports `4 of 4` and passes. Measured. There is no legitimate
+  # reason for a commented `expect(` or `precondition(` in an instrument, so
+  # the whole-file count minus the live count IS the finding -- the same
+  # code-only-versus-declared split as my note-rows check, with the
+  # commented copy here being evidence rather than noise.
+  # `func expect(` is excluded from BOTH sides, so the difference is sites and
+  # never the definition. My first version added it back only when a live
+  # site remained, so disabling all eight reported nine -- a correct finding
+  # with a wrong number, which is the shape this file spent the day on.
+  allsites=$(grep -v 'func expect(' "$f" | grep -c 'expect(\|precondition(' || true)
+  live=$((sites + precs))
+  if [ "$allsites" -gt "$live" ]; then
+    echo "FAIL          $f -- $((allsites - live)) assertion site(s) COMMENTED OUT; a disabled assertion still reports 0 failing"
+    fail=$((fail+1)); continue
+  fi
+
+  if [ "$sites" -eq 0 ] && [ "$precs" -eq 0 ]; then
+    echo "FAIL          $f -- asserts NOTHING: no live expect()/precondition() site in non-comment source"
+    fail=$((fail+1)); continue
+  fi
+  if [ "$sites" -gt 0 ] && [ "$ran" -lt "$sites" ]; then
+    echo "FAIL          $f -- $ran of $sites assertion(s) reported; a check that does not RUN its assertions still prints 0 failing"
+    fail=$((fail+1)); continue
+  fi
   # An EMPTY verdict is not a passing verdict, and this loop used to print
   # `ok  <file> -- ` for it: rc=0, no `FAIL` in the output, nothing asserted.
   # Measured on a file whose whole body was `func nothing() {}` -- reported
@@ -60,44 +162,6 @@ for f in *.shapecheck; do
   # available as a signal and was being read as the clean case. Same shape
   # as sec.4c-xxii: this runner is the artefact that decides what `9/9` means,
   # and `9/9` counted a check that said nothing.
-  if [ -z "$last" ]; then
-    echo "FAIL          $f -- produced NO output; an empty verdict is not a pass"
-    fail=$((fail+1)); continue
-  fi
-  # sec.4c-xliii (Designer), Ledger's owed `rc >= 128` arm. A check that
-  # COMPILES and then TRAPS prints a Swift runtime backtrace whose final
-  # line is the BACKTRACER'S STOPWATCH, so `tail -1` reported
-  # `FAIL  zz-crash.shapecheck -- Backtrace took 0.00s`. Reproduced here
-  # with an out-of-range subscript: rc=132, signal 4. The refusal is
-  # correct -- `fail` increments, rc=1, nothing is laundered -- and the one
-  # line a reader takes away is meaningless. NEITHER existing arm reaches
-  # it: `-warnings-as-errors` cannot, because the file compiles, and the
-  # empty-verdict arm cannot, because the output is enormous. Third
-  # instance of "the diagnostic is right and the channel a caller reads is
-  # not", inside the artefact that decides what `9/9` means.
-  #
-  # Two channels in this order, because a trap and a failed assertion are
-  # different findings and one verdict line must not flatten them:
-  #   rc >= 128  died on a SIGNAL. `128 + N` is the shell's own encoding,
-  #              so this is not a heuristic. Report the trap AS a trap and
-  #              name the signal; never quote a line from the dump.
-  #   otherwise  prefer the check's own last VERDICT-SHAPED line to the
-  #              literal last line, so a check that prints diagnostics
-  #              after its verdict still reports the verdict.
-  # Ledger's ranking kept: between "said nothing" and "said the wrong
-  # thing", the empty arm caught the first and this catches the second.
-  if [ "$rc" -ge 128 ]; then
-    echo "TRAP          $f -- died on signal $((rc - 128)) (rc=$rc) after" \
-         "compiling; a backtrace's last line is the backtracer's own" \
-         "timing, not a verdict"
-    printf '%s\n' "$out" | grep -E 'Fatal error|error:|Crash' | head -3 \
-      | sed 's/^/    /'
-    fail=$((fail+1)); continue
-  fi
-  verdict=$(printf '%s\n' "$out" \
-            | grep -E 'failing assertion|all shape assertions hold|FAIL' \
-            | tail -1)
-  [ -n "$verdict" ] && last="$verdict"
   if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q 'FAIL'; then
     echo "FAIL          $f -- $last"; fail=$((fail+1))
   else
