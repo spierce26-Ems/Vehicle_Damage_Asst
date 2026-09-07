@@ -833,10 +833,45 @@ rather than for weakening the wording. A well-written absence state is a better
 disguise than a badly written one, and the answer is to verify the absence, not
 to write it worse.
 
-The check that catches it (`decoder-completeness`, `2d56a5d`) is a
-**staged-mode** check, so `--all` cannot see it -- it needs `--since` or a real
-commit. Anyone reviewing a merge that touches a hand-written decoder and
-reading a clean `--all` has confirmed nothing about this hazard.
+The check that catches it (`decoder-completeness`, `2d56a5d`) **was** a
+staged-mode check when this section was written. **It is tree-wide under
+`--all` now (`21e18cf`), and this paragraph told reviewers the opposite for
+every round in between** — verified by mutation on the current stack: a
+disabled decode returns `1 blocking` under `--all` and *"nothing changed since
+HEAD"* under `--since`, which is the reverse of what was written here.
+
+**A stale caveat is worse than a stale claim, because it discounts a real
+signal.** A wrong claim gets checked; a wrong limit tells the reviewer not to
+bother, so a clean `--all` — which does now cover this hazard — read as
+covering nothing. Same failure direction as §4c-xxi's superseded condition:
+the document a reviewer consults when they doubt the code, wrong in the
+direction of agreement. **A limit recorded in prose has to be re-measured on
+the tree it is being read against, exactly like a count.**
+
+**And the round trip makes this worse than an absence, which is the part
+§4.0.3 did not reach.** Vector compiled and RAN the Codable pair: a disabled
+decode leaves the field **written correctly to disk** and reverts it to the
+default only on **load**. `CapturedPhoto` has a hand-written `init(from:)` and
+no `encode(to:)` or `CodingKeys`, so the encoder stays synthesized — the same
+property cited hours earlier as making the capability-field patch safe, here
+working against us. **A synthesized encoder means the model is not the artefact
+that notices.**
+
+So for §2.3 the consequence is not an absence at all: the all-clear is
+**QUALIFIED** in the report generated before the save and **UNQUALIFIED** in
+every report opened from storage afterwards. Same case file, same photographs,
+two different claims about what was measured — **and the over-claim is the one
+that survives the round trip.** An examiner comparing an exported report with
+one regenerated later sees the qualification vanish with no diff anywhere.
+
+**Nothing in this document required two reports of one case to agree, and that
+is the gap.** Every locked string, every absence state and every note row is
+specified per-render; none of them says a render is REPRODUCIBLE. So the
+requirement is stated here rather than left implied: **two reports generated
+from one case file must make the same claims about what was measured, and a
+difference between them is a defect in persistence, never a difference in the
+evidence.** The photographs did not change; only what the app could read back
+about them did.
 
 Standing consequence for copy review: when a persisted field is added or a
 decoder is hand-written, an absence state appearing on screen is no longer

@@ -863,36 +863,51 @@ def check_locked_variant_conditions():
         # as the trigger, rather than as the form that was replaced.
         if key != "allclear.partial":
             continue
-        # sec.4c-xxvii (Ledger's finding; remedy mine). The window used to be
-        # located by searching for the literal `emit this instead` -- four
-        # words of ORDINARY EDITORIAL PROSE. Reword them for readability and
-        # the guard stops looking, silently: measured line-count neutral,
-        # condition regressed to v1 with `emit this instead` changed to `use
-        # the following wording`, `--strict` was rc=0 with zero warn/FAIL
-        # lines. sec.4.1 locks the variants and the condition; nothing locked
-        # the sentence that INTRODUCES them, so this was GUARDED CONTENT
-        # BEHIND AN UNGUARDED ADDRESS -- and a rewrite for readability, the
-        # most ordinary edit a document takes, is indistinguishable from an
-        # attack on the guard.
+        # sec.4c-xxvii (Ledger): this guard used to FIND its subject by
+        # searching for the literal `emit this instead`. Reword four words --
+        # the most ordinary edit a document takes -- and the guard stops
+        # looking, silently: line-neutral, condition regressed to v1,
+        # `clear` at rc=0 with zero findings. Reproduced on this tree before
+        # fixing.
         #
-        # Anchor on the `<!-- CONDITION: -->` DECLARATION instead: it is the
-        # machine-readable line, sec.4.1 owns it, and editing it is already a
-        # deliberate act rather than a copy edit. The declaration must be
-        # BOTH the anchor and excluded from the judged window -- it carries
-        # the correct expression, and it previously immunised this very check
-        # against the defect it declares. Missing entirely is REPORTED by the
-        # `variant_count and not declared` arm above, so this loop cannot
-        # silently find nothing.
-        #
-        # The general form, and it covers every hardening today -- presence,
+        # sec.4.1 locks the variants and now the condition; nothing locked
+        # the SENTENCE THAT INTRODUCES THEM. A LOCKED STRING WITH AN UNLOCKED
+        # LOCATOR IS GUARDED CONTENT BEHIND AN UNGUARDED ADDRESS, and a
+        # rewrite for readability is indistinguishable from an attack on the
+        # guard. His general form covers every hardening today -- presence,
         # comment-blindness, adjacency, ordering, consumer, multiplicity,
-        # population, module namespace: EVERY ONE HARDENED WHAT A GUARD
-        # READS OR WHERE IT LIVES; NONE ASKED HOW IT FINDS WHAT IT READS. A
-        # LOCATOR IS PART OF A GUARD'S CONTRACT AND HAS TO BE AS LOCKED AS
-        # THE CONTENT IT LOCATES.
-        for i, l in enumerate(lines):
-            if not re.search(r"<!--\s*CONDITION:\s*" + re.escape(key), l):
-                continue
+        # module namespace: each hardened what a guard READS or WHERE IT
+        # LIVES, and none asked how it FINDS what it reads.
+        #
+        # So the locator is the `<!-- CONDITION: -->` declaration, which is
+        # already required, already checked above, and cannot be reworded for
+        # readability because it is not prose. Its own trap is that it
+        # previously IMMUNISED this check by landing inside the judged
+        # window, so it anchors the window WITHOUT being part of it: the
+        # declaration line is the address, and the prose judged is the lines
+        # AFTER it up to the first blockquote.
+        #
+        # Fallback kept deliberately: if no declaration is found the check
+        # reports rather than passing, because a locator that silently finds
+        # nothing is the absence asserting a pass -- the defect being fixed.
+        decl_idx = [i for i, l in enumerate(lines)
+                    if re.search(r"<!--\s*CONDITION:\s*" + re.escape(key),
+                                 l)]
+        if not decl_idx:
+            # remedy: fixes
+            warn("variant-condition",
+                 f"`{key}`'s declaration is not present as a locator line, "
+                 "so the prose that introduces the variant cannot be found",
+                 "keep the `<!-- CONDITION: <key> = <expr> -->` line "
+                 "immediately above the variant it introduces: it is this "
+                 "check's ADDRESS as well as its reference. A locked string "
+                 "with an unlocked locator is guarded content behind an "
+                 "unguarded address")
+            continue
+        for i in decl_idx:
+            # LOCATOR: the declaration line itself, never the prose. The
+            # window is what FOLLOWS it, up to the variant's blockquote, and
+            # the declaration is excluded from the judged text below.
             # The DECLARATION must be stripped from the window before the
             # prose is judged. Caught by mutation, not by reading: with the
             # comment left in, regressing the prose to v1 shortened it by a
@@ -911,12 +926,15 @@ def check_locked_variant_conditions():
             # expression, so it vouched for a v1 instruction on the same
             # line. Strip the comment CONTENT: a declaration must never be
             # able to vouch for the prose beside it, wherever it sits.
-            # Forward from the declaration, which now anchors rather than
-            # trails the window; `<!-- ... -->` content is still stripped so
-            # the anchor cannot vouch for the prose it introduces.
+            end = i + 1
+            while end < len(lines) and not lines[end].startswith("> "):
+                end += 1
+            # HTML comments stripped from the CONTENT, not comment LINES
+            # dropped: a trailing `<!-- ... -->` on the prose is a prose line
+            # carrying the correct expression, and it vouched for a v1
+            # instruction on the same line once already.
             window = re.sub(r"<!--.*?-->", " ",
-                            " ".join(lines[i:i + 8]),
-                            flags=re.S)
+                            " ".join(lines[i + 1:end]), flags=re.S)
             if "motionMeasurable == false" in window and want not in window:
                 # remedy: fixes
                 warn("variant-condition",
@@ -1037,6 +1055,13 @@ def check_variant_output_binding():
              "is the absence asserting a pass")
         return
     qualified = " ".join(variants[1].split())
+    # Fields taken FROM the selector expression rather than listed here: a
+    # hand-written list is a second copy of the predicate that must agree,
+    # and this file has been bitten by that at every layer today.
+    sel = re.search(r"let motionUnmeasured = photos\.contains \{(.+?)\}",
+                    flat)
+    selector_fields = set(re.findall(r"\$0\.(\w+)", sel.group(1))) if sel \
+        else set()
     ternary = re.search(r"let allClear = (!?)(\w+)\s*\?\s*\"(.*?)\"\s*:",
                         flat)
     if not ternary:
@@ -1067,6 +1092,57 @@ def check_variant_output_binding():
     # This closes duplication only. An early `return` before the draw --
     # member (b) -- has every asserted token present and none of it running,
     # and no counting reaches that: it needs sec.4's renderer.
+    # sec.4.0.3, extended: every field the SELECTOR reads must survive a
+    # round trip, or the two variants are not stable across a save/load.
+    #
+    # Vector compiled and RAN the Codable pair: a disabled decode leaves the
+    # field WRITTEN correctly and reverts it to the default only on LOAD,
+    # because `CapturedPhoto` has a hand-written `init(from:)` and a
+    # SYNTHESIZED encoder. So sec.2.3's all-clear is QUALIFIED in the report
+    # generated before the save and UNQUALIFIED in every report opened from
+    # storage afterwards -- same case file, same photographs, two different
+    # claims about what was measured, and THE OVER-CLAIM IS THE ONE THAT
+    # SURVIVES THE ROUND TRIP.
+    #
+    # `decoder-completeness` already refuses a field with no decode at all.
+    # This is narrower and aimed at the report's claim rather than the type's
+    # completeness: it names the fields THIS SECTION's selector depends on,
+    # so the failure reads as "sec.2.3 is not reproducible" rather than as a
+    # decoder audit. A reader who sees the general check fire has to derive
+    # that consequence; this one states it.
+    #
+    # And the general check is not a superset in the direction that matters:
+    # it is satisfied by ANY decode of the field, including one that drops
+    # the value (`= try c.decodeIfPresent(...) ?? true` inverts the default
+    # for every pre-feature payload while decoding perfectly). Nothing here
+    # reaches that either -- it is the same "computed correctly and
+    # discarded" shape as sec.4c-xxv member (b), one layer down in the
+    # persistence path, and it needs a round-trip that RUNS.
+    model = os.path.join(REPO, "ios", "VehicleDamageForensics", "Models",
+                         "CapturedPhoto.swift")
+    if os.path.exists(model) and selector_fields:
+        msrc = open(model, encoding="utf-8").read()
+        if re.search(r"init\s*\(\s*from\s+\w*\s*:\s*Decoder", msrc):
+            code = swift_code_only(msrc)
+            undecoded = [f for f in sorted(selector_fields)
+                         if not re.search(r"^\s*" + re.escape(f)
+                                          + r"\s*=\s*try\b", code, re.M)]
+            if undecoded:
+                # remedy: fixes
+                fail("variant-roundtrip",
+                     "sec.2.3's variant selector reads "
+                     f"{', '.join('`' + f + '`' for f in undecoded)}, which "
+                     "the hand-written `init(from:)` never decodes -- the "
+                     "all-clear is not reproducible across a save and load",
+                     "decode the field additively. `encode(to:)` is "
+                     "SYNTHESIZED, so the value is still WRITTEN and only "
+                     "reverts on load: the report generated before the save "
+                     "carries the qualification and every report opened from "
+                     "storage drops it, with the OVER-CLAIM surviving the "
+                     "round trip. Two reports from one case file must make "
+                     "the same claims about what was measured")
+                return
+
     # sec.4c-xxvii (Tech Lead). Count over the TREE, not over one file.
     # The clause above reads `flat`, which is PDFReportGenerator only -- the
     # file the section's renderer lives in today. Measured line-count

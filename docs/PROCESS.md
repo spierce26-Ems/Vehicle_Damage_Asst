@@ -2119,6 +2119,17 @@ an attack on the guard.**
 
 **Anchored on the `<!-- CONDITION: -->` declaration instead**, which is the
 machine-readable line, is owned by §4.1, and cannot be touched by a copy edit.
+**The Designer and I built this fix independently within the same minutes and
+HERS IS THE ONE IN THE TREE**: mine judged a fixed eight-line window forward
+from the declaration, hers bounds the window at the variant's own blockquote
+and adds a `warn` arm for a declaration that is absent as a LOCATOR — a window
+that cannot run past its subject, and a locator that reports rather than
+finding nothing. **Recorded rather than quietly resolved, because this is
+§4c-xxvi's shape without the namespace: two correct fixes for one finding, and
+taking either whole would have dropped the other's correction invisibly.** The
+resolution method this document already owns applied: her superset as the base,
+my tree-wide count ported in, then BOTH markers asserted present and both
+superseded clauses asserted GONE.
 The declaration is now **both the anchor and excluded from the judged window** —
 it carries the correct expression and previously immunised this very check
 against the defect it declares, so the two roles have to be kept apart
@@ -2139,6 +2150,29 @@ multiplicity, population, module namespace, locator: EVERY ONE HARDENED WHAT A
 GUARD READS OR WHERE IT LIVES; NONE ASKED HOW IT FINDS WHAT IT READS. A LOCATOR
 IS PART OF A GUARD'S CONTRACT AND HAS TO BE AS LOCKED AS THE CONTENT IT
 LOCATES.**
+
+### 4c-xxx. A stale LIMIT is worse than a stale claim, and it was in the appendix
+
+**The Designer's second round-trip finding is the one I would put to Sean with
+hers: §4.0.3 said `decoder-completeness` is staged-mode only, that `--all`
+cannot see it, and that a clean `--all` "has confirmed nothing about this
+hazard." It went tree-wide in `21e18cf`.** Verified on unmodified `d7ddd3b`
+with none of the day's patches: a disabled decode gives **`1 blocking` under
+`--all`** and "nothing changed since HEAD" under `--since` — **the reverse of
+the text.**
+
+**A STALE CLAIM GETS CHECKED; A STALE LIMIT TELLS THE REVIEWER NOT TO BOTHER.**
+That asymmetry makes it worse than §4c-xxi's ratifying condition: that document
+made a wrong regression look correct, this one made a *right* signal look
+worthless. **A limit recorded in prose has to be re-measured against the tree it
+is read against, exactly like a count** — and this is the third distinct way a
+document has been the defect today, after the ratified condition and the
+unlocked locator.
+
+**It also closes the loop on §4c-xxii from the other end.** That said a stated
+limit is not a covered limit; this says a stated limit is not even a CURRENT
+limit. **Both are the same property: a limit is a claim, and nothing in this
+repository re-derives a claim written as prose.**
 
 ### 4d. A conflict resolution is where prose goes missing
 
