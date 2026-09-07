@@ -1172,6 +1172,24 @@ that checked whether the claim was *true* and never whether the pointer still
 the only class today found by following pointers rather than by reading or
 running anything.
 
+**And the reason to cite by symbol is not only that it survives edits — it is
+that a symbol citation is CHECKABLE and a line number is not.** That is the
+same property that makes a count under a recomputing check safe: `git grep` can
+confirm a named type, member or function still exists, and nothing can confirm
+a line still holds what it held. **So the rule earns a check rather than
+discipline**, which is where every other rule in this section ended up:
+extract the symbols cited in `*.md` and confirm each resolves in the tree.
+Swept by hand after landing this — every remaining `File:NNN` in the tree sits
+inside §4.2.2's evidence table, where the wrong numbers are the record and must
+not be repaired.
+
+**The one it does not catch is the one that caught us: a symbol that resolves
+while the claim about it has gone stale.** Grep proves the address is live, not
+that the sentence is still true — so symbol citations move the failure from
+*silent and undetectable* to *silent and detectable*, which is the whole gain
+and is worth being precise about. **A checkable pointer is not a verified
+claim**, and the citation audit is a smaller thing than a review.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
