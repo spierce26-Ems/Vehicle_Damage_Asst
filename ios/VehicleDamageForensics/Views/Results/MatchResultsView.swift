@@ -519,17 +519,29 @@ struct MatchResultsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Scar-Direction Consistency").font(.headline)
 
+            // NOTE(AI Developer), 2026-09-07 (task #12 follow-up): this is
+            // the SECOND render of `suspectExclusionReason` -- the same
+            // string `exclusionBanner` shows above the paywall. It must
+            // carry the same claim, and until this commit it did not: red
+            // fill + red tint + red background asserted an exclusion on
+            // the ONE path whose string explicitly denies it ("Height
+            // Alignment inconclusive ... re-measure both heights with a
+            // tape measure", `MatchScoreCalculator` L544, the task #14
+            // LiDAR path). That is task #14's false exclusion returning
+            // through styling instead of through a heading. Styling is a
+            // claim, not decoration; the treatment now matches the
+            // banner's, and prominence comes from position.
             if let reason = viewModel.suspectExclusionReason {
                 Label {
                     Text(reason)
                         .font(.subheadline.bold())
                 } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: "exclamationmark.triangle")
                 }
-                .foregroundStyle(.red)
+                .foregroundStyle(.secondary)
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.red.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
             }
 
             if let check = viewModel.scarDirectionCheck {
