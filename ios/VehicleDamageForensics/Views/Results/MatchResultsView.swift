@@ -315,15 +315,38 @@ struct MatchResultsView: View {
 
     private var verdictCard: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // NOTE(AI Developer), 2026-09-07 (task #12 follow-up, one
+            // change not three): the label was `.foregroundStyle(.tint)`.
+            // In this app blue means "interactive" -- 18 `.borderedProminent`
+            // sites carry that meaning -- so tinting a non-interactive
+            // status string both invites a tap that does nothing and
+            // spends the one action colour on a label. Weight already
+            // carries it.
             Text(viewModel.correlationLabel.uppercased())
                 .font(.title3.bold())
-                .foregroundStyle(.tint)
-            Text(String(format: "%.1f / 100", viewModel.compositeScore))
-                .font(.system(size: 56, weight: .bold, design: .rounded))
-                .monospacedDigit()
-            Text("Score range: \(viewModel.scoreRangeLabel)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.primary)
+            // The score was `.system(size: 56, ...)`, the only hard-coded
+            // type size in this file and a violation of the
+            // no-hard-coded-sizes constraint (it does not scale with
+            // Dynamic Type). `.largeTitle` is the semantic equivalent and
+            // scales. It also resolves the prominence inversion: at 56pt
+            // the score outweighed the deliberately neutral rule-out
+            // banner one row above it, which is a hue-free way of
+            // re-asserting the score over a finding that bears on it.
+            // Score and band now sit on one baseline, because a figure
+            // never travels without what makes it readable -- at a 6:1
+            // size ratio the band was present but not co-read.
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(String(format: "%.1f / 100", viewModel.compositeScore))
+                    .font(.largeTitle.weight(.bold))
+                    .monospacedDigit()
+                // Keep the "Score range:" lead-in: the raw value is a bare
+                // band like "87-93", which beside a score reads as a
+                // second figure rather than as that score's range.
+                Text("Score range: \(viewModel.scoreRangeLabel)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
             if let conf = viewModel.forensicCase.matchResult?.confidence {
                 Label(correlationStrengthLabel(conf), systemImage: conf.systemImageName)
                     .font(.subheadline)
