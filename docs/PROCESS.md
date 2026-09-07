@@ -1434,6 +1434,118 @@ meaning and every past "42/42" still reads the same way** — which is the point
 since the hazard was never a wrong count but a quoted signal quietly changing
 what it counts.
 
+### 4c-xviii. Wiring a check decides *whether* it runs; its severity decides whether anything happens when it fires
+
+**`check_shapechecks_run` is wired, correct, and advisory — so a shape check
+that FAILS does not stop a commit.** Measured on `17b8ed3` rather than argued,
+with the hook installed by `--install-hook` and one assertion inverted **by
+line number** in `rowfive-proxy.shapecheck`:
+
+```
+warn  [shapechecks] scripts/shapechecks/run.sh reports failures: rowfive-proxy.shapecheck
+preflight: clear (1 advisory) -- staged changes.
+```
+
+`git commit` **succeeded**, exit 0, and the commit was in the log. The warning
+named the right file, with no backtrace noise, exactly as designed. Compare the
+same tree with one tracked Swift file made unparseable: `3 blocking, 2
+advisory -- whole tree. Commit refused.`
+
+**This is the round's own finding one layer out.** "Nothing ran the runner" was
+right and closing it was the finding of the round — **but a check nobody DOES
+re-run and a check that runs, reports, and is ignored differ only in where the
+signal stops.** A decoration prints nothing; **an advisory prints into a line
+whose last word is `clear`.** The three states are *cannot re-run* (a claim),
+*does not re-run* (a decoration), and **runs and changes nothing** — and the
+third is the one that looks most like coverage, because there is real output
+naming the real file.
+
+**And the aggregate line is where it lands.** `preflight: clear (1 advisory)`
+is the string every report in this thread quotes as a verification signal,
+including mine. This document already requires that *"clear" and "not looking"
+be visibly different strings* — this is the third case that requirement did not
+anticipate: **`clear` while a tracked instrument's own assertion is failing.**
+The word is doing what §4's severity doctrine intends and reading as something
+stronger than it says.
+
+**I am NOT ruling this up to blocking, and the reason is this document's own
+rule.** A blocking check must be scoped more carefully than an advisory one,
+because its failure mode is somebody reaching for `--no-verify`, which silences
+every check at once. Two facts here argue against blocking:
+
+1. **Environment-dependent.** rc=3 already warns when no toolchain is found.
+   A blocking severity on rc=1 puts a commit's fate on whether a compiler is
+   installed — and this repository has spent the day establishing that
+   **an environment-dependent check reports a property of the pair, never of
+   the commit.**
+2. **The instruments are reduced models.** A failing shape check means *either
+   the model is wrong or the behaviour it models changed* — the check's own
+   remedy text says exactly this. A defect whose diagnosis is genuinely
+   ambiguous must not refuse a commit; it must be read.
+
+**The ruling is on the WORD, not the severity: the aggregate line must not say
+`clear` while any instrument reported a failure.** Advisory is right for the
+exit code and wrong for the summary noun. A shape-check failure is a *finding
+that has not been triaged*, which is neither `clear` nor `blocking`, and this
+document has no third noun. **Owed: a distinct aggregate wording when
+`warnings` contains a `shapechecks` failure** — the severity stays advisory,
+the summary stops asserting the clean case. Not built here; recorded as owed
+with the measurement attached, because this section's own subject is a finding
+that was reported and then absorbed.
+
+**The general form, and it is the fifth member of the wrong-object family:**
+mutating a pattern measures a double revert; mutating the fixture moves what
+"correct" means; a status through `| tail` reports `tail`; a count without its
+population compares two sets; **and a check's WIRING answers "does it run",
+which is not the question "does its finding reach anyone".** All five return a
+plausible integer with no error anywhere. **Verifying that a check fires is not
+verifying that firing costs anything** — and the second is the property that
+made anyone want the first.
+
+**And the two halves compose into something neither of us reported alone.**
+The Tech Lead's verify command was `preflight --all >/dev/null 2>&1; echo
+PF=$?` — and **`preflight`'s rc is 0 with advisories present**, by design: rc
+answers *did it refuse to proceed*, not *did it find anything*. Combine that
+with the entry above and the failure is total: **a failing shape check produces
+an advisory, the advisory does not change the exit code, the exit code is what
+was read, and the summary noun is `clear` anyway.** Measured on a
+`--single-branch` clone of `17b8ed3` with one assertion inverted:
+
+```
+warn  [shapechecks] scripts/shapechecks/run.sh reports failures: rowfive-proxy.shapecheck
+preflight: clear (2 advisory) -- whole tree.
+rc = 0
+```
+
+**Three independent channels and the finding survives none of them.** This is
+not two mistakes stacking; it is **one property — the finding lives only in the
+text — arriving at three readers who each read a different non-text channel.**
+The severity was right, the wiring was right, the emitted text was right, and
+nothing reached anyone. **An instrument's output is only a signal at the layer
+someone actually reads, and every layer here was correct about its own
+question.**
+
+**So the owed item above is upgraded, not merely confirmed.** A distinct
+aggregate wording is necessary and **not sufficient** while the exit code is
+the thing people script against. Owed, in this order: (a) the aggregate line
+must not say `clear` while any instrument reported a failure; (b) **the
+documented verify recipe must read the advisory LINE, never the exit code** —
+and this document should say so where the recipe lives, because *"read the
+advisory line, never the exit code"* is the Tech Lead's sentence and it is the
+correction to a habit every one of us practised all round.
+
+**One retraction of my own, inside this section, because it is the same
+mistake:** an earlier draft of this entry recorded `check_remedies` 52/21 as a
+*miscount*. It is not. **52/21 and 52/20 are two extractors over one file and
+both are right about their own population** — `check_fns()` is an AST walk over
+**top-level** `def check_*` and yields 20; a textual `def check_` yields 21,
+because `check_script_currency` contains a local helper `def check_names`.
+Verified both ways here. **I was about to record a population divergence as an
+arithmetic error, which is the wrong-object family aimed at a teammate's
+number** — and the entry immediately above is about exactly that. Quote the
+**extractor** with the count; the check's own number is the only one that
+governs its assertion.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
