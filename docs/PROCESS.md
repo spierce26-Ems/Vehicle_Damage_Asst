@@ -2540,6 +2540,56 @@ qualification a reader sees every time is one they stop reading. The variant is
 emitted only where the tree can show the condition, so **the plain form keeps
 its strength and the qualified form keeps its meaning.**
 
+**A PROHIBITION STATED ABOUT WORDING DOES NOT BIND THE PREDICATE THAT SELECTS
+IT.** §2.3 forbade a permanently-qualified all-clear in four paragraphs, and
+the owed selector — `contains { !$0.motionMeasurable }` — made the qualified
+form the only reachable variant: the eight protocol analysis shots across two
+vehicles (`PhotoType.requiredCaptureProtocol`, 2 `closeupDamage` + 2
+`paintTransfer` each) carry the struct default because one capture path writes
+the field. **My first version of this paragraph said "twelve", read off the
+30-step `CaptureProtocolStep.fullProtocol` COACHING table whose own doc
+comment warns against that reading — corrected by Vector, who had made the
+identical error hours earlier. Twice in one day by two people is a trap, not a
+slip: a count taken from a coaching artefact is a count of INSTRUCTIONS, not
+of photographs, and it survived because the number was never load-bearing for
+the conclusion.** **The forbidden
+outcome arrived through the SELECTOR while every word of the prohibition held.**
+So: **state a prohibition over the OUTCOME — what the report may print — not
+over the mechanism expected to cause it.** A variant count of two under a
+predicate that can only pick one is a one-variant section that reads as two,
+and both of the row-counting checks pass it because they match the string and
+never the predicate.
+
+**Before a default-valued field becomes a predicate, count how much of the
+population carries the default** (the Designer's, and the sharpest rule of the
+round). "`motionMeasurable` defaults `false` everywhere else" was written as
+reassurance that the trigger reads the persisted model rather than a gate —
+true — and **the same words state that the trigger is satisfied for almost
+every photograph in the app. Same sentence, opposite conclusion, and the
+reassuring reading is the one a reviewer reaches for.** A field that
+distinguishes correctly at its one writing site distinguishes nothing across a
+set most of whose members never reach that site: **persisting a distinction
+and predicating on it are two different completions.**
+
+**A ROW WITH NO BRANCH AND A BRANCH WITH THE WRONG CONDITION ARE NOT THE SAME
+CLASS, AND ONLY THE FIRST IS NOW DETECTABLE.** Counting locked rows against
+renderer branches closes "specified but never rendered". It cannot see a
+branch that exists and guards wrongly — §6.1's filtered verdict is exactly
+that, and it is the most damaging item on the board: the code path is present,
+reads the unfiltered p-value, and prints a verdict the section marks
+**Required** to suppress. **A mechanised count is not a rendered report, and
+the widened population must be marked for specced-not-built rows or its
+immediate advisories normalise the clear run it exists to protect** (the Tech
+Lead's caution, adopted).
+
+**A locked TEMPLATE and a locked SENTENCE are different artefacts, so
+"every locked string wherever written" cannot be a verbatim match.** Widening
+a check's population by the class rather than by the found instance is right in
+direction, and a template carrying `NN%` or `M of N` produces a false absence
+under exact comparison. **Name and scope a check by its population, never by
+the artefact the defect turned up in** — which is §4.1's lock scope, widened
+three times for that reason, arriving at a check.
+
 **The paired constraint, and it is the one that decides the shape: a
 per-artefact qualification and a per-item note are not interchangeable.** The
 same true fact stated once per report costs a clause; stated once per

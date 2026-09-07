@@ -430,10 +430,21 @@ is not.
 
 `motionMeasurable` is written on exactly ONE capture path —
 `ScarCaptureView.performCapture` — and `false` is the struct default
-everywhere else. `CameraService` captures **twelve** `closeupDamage` /
-`paintTransfer` protocol steps, every one of them an analysis shot by
-`PhotoType.isAnalysisShot`, and its `CapturedPhoto` initialiser passes no
-`motionMeasurable` at all. **So every protocol analysis shot is permanently
+everywhere else. The capture population is `PhotoType.requiredCaptureProtocol`
+— **2 `closeupDamage` + 2 `paintTransfer` per vehicle, so FOUR analysis shots
+each and EIGHT across two vehicles** — every one of them an analysis shot by
+`PhotoType.isAnalysisShot`, and `CameraService`'s single `CapturedPhoto`
+initialiser passes no `motionMeasurable` at all.
+
+**Count corrected 2026-09-07 (Vector): this paragraph and my §6.1 patch both
+said "twelve", read off `CaptureProtocolStep.fullProtocol` — the 30-step
+COACHING table, whose own doc comment warns against reading it as the capture
+population.** The conclusion is unchanged and the number was never
+load-bearing, which is exactly why it survived two readers. **That table has
+now been misread as the population twice in one day by two different people,
+so it is a recurring trap rather than a slip: the authoritative population is
+`requiredCaptureProtocol`, and a count taken from a coaching artefact is a
+count of instructions, not of photographs.** **So every protocol analysis shot is permanently
 `!motionMeasurable`, is in `captureConditionPhotos(in:)`, and satisfies the
 selector.**
 
@@ -903,6 +914,7 @@ editor "restoring" wording that was deliberately changed.
 | 2026-09-07 | `confirm.yes` | *(new)* | Yes — clear | Added with the decline affordance. Names the FRAME's state, not the examiner's diligence, which is what keeps §2.2 row two an attestation rather than a claim about a person (§3). Symmetrical with `confirm.no` by requirement, not by style. |
 | 2026-09-07 | `confirm.no` | *(new)* | No — not clear | Added with the decline affordance; it is what makes row two and §1.4's badge reachable at all. Must not drift toward "skip"/"later"/"not sure" — each turns a recorded decline into a deferral, and deferral is `nil`'s meaning, which must stay unreachable from a button. Must not acquire a warning adjective or the word "anyway": §4.2's argument applies unchanged — an answer that reads as a confession is an answer nobody gives twice. |
 | 2026-09-07 | `confirm.no` | *(text unchanged)* | *(text unchanged; presentation corrected)* | **No text change — recorded because the string's PRESENTATION violated its own lock entry.** It shipped with an `exclamationmark.circle` and a dimmed capsule against `confirm.yes` on a blue primary one, passing this lock byte-for-byte while breaking the symmetry constraint above. **A warning glyph is a warning adjective the lock cannot see.** Corrected to identical styling with no icon on either, held by one shared label builder per screen. Recorded here because a ledger triggered only by changed characters would not have caught it — the same gap as `confirm.arm`'s row, pointed at presentation instead of meaning. |
+| 2026-09-07 | `attest.body` | I generated this report from the case data described above. I make no claim of forensic identification. | The person named below documented this case using this application and attested to the capture conditions recorded in it. This report makes no claim of forensic identification. | **Ruled after the Tech Lead found the lock in LIVE CONFLICT with `drawAttestationBlock`** — the tree was third-person and about capture conditions, the lock first-person and about generating the report, and the code had dropped the identification limit. **The code's SUBJECT is adopted and its OMISSION rejected.** Attesting to capture conditions is the narrower, recorded act (the examiner answers `confirm.yes`/`confirm.no` per frame); **first person was my defect** — the app generates the report and then put that sentence in a person's mouth, which is §4.0.1 broken by the attestation itself. The identification limit returns with **the report** as its subject, not the person, which is what lets it survive the move out of first person. Neither side adopted whole. |
 | 2026-09-07 | `allclear.partial` | *(new)* | All analysis photographs met the app's capture-quality checks that could be run at the time of capture. Camera movement was not measured for every photograph. | **A second variant of §2.3's all-clear, not a replacement for it.** Added because `motionMeasurable` makes "a check did not run" visible in the persisted model for the first time, and the unqualified sentence covered such a photograph as though its steadiness had been verified. Emitted only when some analysis photograph has `motionMeasurable == false`, so the qualification distinguishes something rather than appearing on every report. **Must not be merged into one softened sentence** — a permanent "checks that could be run" is the always-firing note in the section whose purpose is the quiet case. **Must not become a per-photograph note**: §1's motion row has no "not measured" line deliberately, and this is the per-set form of the same fact. Must not drift to "may not have been fully checked" (a recorded fact read as a hedge), "motion blur could not be ruled out" (a conclusion this report does not draw, §4.0.1), or the second clause alone (blames the photograph rather than the instrument). |
 
 The current value of `review.flag` is therefore **"Analysis photo — examiner
@@ -1124,6 +1136,50 @@ about a person; an absent block reads as a feature that is not there. Same rule
 as the cover's examiner line, and the same house rule as everywhere else: an
 absence must not assert something (`docs/PROCESS.md` §5).
 
+**RULING, 2026-09-07 — this entry was in LIVE CONFLICT with the tree on two
+counts, and on the first the DOCUMENT is wrong.** `drawAttestationBlock`
+renders *"The person named below documented this case using this application
+and attested to the capture conditions recorded in it."* The lock above is
+first-person and attests to **generating the report**; the code is
+third-person and attests to **the capture conditions**. Different subject,
+different claim, and the code drops the forensic-identification limit — the
+one sentence this section calls "not boilerplate hedging".
+
+**The code's SUBJECT is right and its OMISSION is wrong, so neither side is
+adopted whole.** The examiner attests to capture conditions in the app by
+answering `confirm.yes`/`confirm.no` per frame — a recorded act, and the
+narrower, better-supported claim. **First person is the defect I own:** the
+report is generated by the app from case data, so "I generated this report" is
+a sentence the app writes and then puts in a person's mouth, which is §4.0.1's
+rule (findings attributed to evidence, never to a person) broken by the
+attestation itself. **But the forensic-identification limit must return** —
+dropping it is the over-claim the whole section exists to prevent, and it is
+the only place the limit appears in the first person.
+
+So the locked wording becomes:
+
+> The person named below documented this case using this application and
+> attested to the capture conditions recorded in it. This report makes no
+> claim of forensic identification.
+
+Second sentence's subject is the **report**, not the person, which is why it
+survives the move out of first person. `confirm.arm`'s ledger row is the
+precedent for recording this at all: **the string changed meaning, so the
+change is the entry, not the diff.**
+
+**On the unsigned branch the DOCUMENT is right and the code's citation of my
+own rule is a misreading, so that half stands.** The `else` branch prints *"No
+examiner identity was recorded… cannot be attributed to a named person"*,
+citing the specify-omission rule. **The hazard this section names is a blank
+signature LINE, and a printed sentence is not a blank line** — but the rule
+above is not about blankness, it is about a heading that asserts a feature.
+The block still draws its **"Attestation"** heading, so the page carries an
+attestation section whose content is that there is no attestation. **That is
+the absence asserting something with a title on it.** Omit the block entire,
+heading included, exactly as written. The sentence is good copy in the wrong
+place: if the omission is worth stating, it belongs in the audit record, not
+under a heading that promises a signature.
+
 #### 4.3.2 The actor column
 
 Each audit event carries the actor that performed it. Two constraints on how it
@@ -1209,6 +1265,37 @@ view with the lowest p-value. A verdict computed against 0.05 in that state is a
 number the report cannot defend, printed in the one place a reader trusts most.
 This is the same case as the missing null baseline in the version-stamp work: the
 figure stays, the claim about the figure goes.
+
+**SPECIFIED AND NOT BUILT, verified from the tree 2026-09-07 — and this is the
+one escape on the board that puts a wrong forensic verdict on a page.** Both
+`ScarFingerprintMatch.headlineDisplay` and `ToolMarkComparison.headlineDisplay`
+read the **unfiltered** `permutationPValue` and print "above chance" / "NOT
+distinguishable from chance" with **no filtered branch at all**, at four render
+sites across `MatchResultsView` and `PDFReportGenerator`. `filteredSummary`
+suppresses the verdict correctly and at length, directly underneath.
+**So on a filtered case the loud headline contradicts the careful summary below
+it, and the suppression Prism's 15.6× measurement bought is defeated by the one
+line a reader trusts most.** The requirement above is not aspirational — it
+reads **Required** — so this section has been describing a report the app does
+not generate.
+
+**Why neither of today's checks can see it, and why that is the point:** the
+branch **exists** and its guard is **wrong by omission**. A row with no branch
+is silent-and-detectable; **a branch with the wrong condition is neither.**
+This is the third widening of §4.1's lock scope arriving as a real escape
+rather than as a rule — the string is locked, the renderer has a code path for
+it, and nothing compares the two.
+
+**The repair is implementable today and needs no new model field**, which is
+why it is stated here as a specification rather than deferred: `exclusions` and
+`filteredOutcome` are both already on `ToolMarkComparison`, so
+`headlineDisplay` returns the locked filtered wording above whenever
+`filteredOutcome != nil`, and the unfiltered branch is otherwise unchanged.
+**The figure stays, the claim about the figure goes** — the same shape as the
+missing null baseline. **Do not fix it by recomputing the p-value on the
+filtered subset**, which is the defect §6.1 exists to forbid, and do not fix it
+in the four call sites: a verdict suppressed at the renderer is a verdict four
+places must remember to suppress.
 
 A calibrated critical value may later replace suppression with a real verdict.
 Until a fitted lookup table is in the tree and referenced by the code, the
