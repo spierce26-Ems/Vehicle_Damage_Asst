@@ -1679,8 +1679,9 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     fabricated.
 
 - **Free-tier results hierarchy: the exclusion, claim and confidence above the paywall (task #12).**
-  `cd21683`, `e52e9e5`, `0e438c1`. Sean's last open product decision, and the defect it closed was
-  not the one the change was requested for.
+  `cd21683`, `e52e9e5`, `0e438c1`, `0109378`.
+  Sean's last open product decision, and the defect it closed was not the one the change was
+  requested for.
 
   **Why.** `suspectExclusionReason` rendered in exactly one place — inside `scarDirectionSection`,
   which sat inside `if viewModel.isUnlocked`. A user who had not purchased saw a composite score
@@ -1736,6 +1737,18 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   every other factor below"* went too, in a follow-up commit, because a rule discharged in three
   places out of four leaves the fourth reading as a deliberate exception. Each string's own graded
   consequence sentence was left intact.
+
+  **The interim that carried its own removal condition.** Commit 1 landed before the engine
+  strings did, so the banner would have rendered a placement clause above the very paywall that
+  falsified it. The view stripped the clause through an interim
+  `exclusionReasonWithoutPlacementClause`, which is prose-dependent — the thing a per-path heading
+  was rejected for. **The distinction is the failure direction: a reworded engine string makes the
+  stripper drop nothing, which is a stale clause and the status quo, whereas it would make a prose
+  classifier assert the wrong finding.** Where prose-dependence is unavoidable, the direction whose
+  failure is a missing claim is the one to take. The property was marked interim **at the property
+  itself, carrying the condition for its own deletion** — once the engine strings lost their
+  clauses there was nothing to strip — and it was deleted on that condition rather than on anyone
+  remembering it. Nothing in the view predicates on the wording of an engine string now.
 
   **Not in this change, and filed rather than folded in.** `verdictCard` puts `.tint` on the
   correlation label and renders the score at a hard-coded 56pt — a pre-existing violation of the
