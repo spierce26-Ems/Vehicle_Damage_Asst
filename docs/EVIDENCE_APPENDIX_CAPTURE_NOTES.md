@@ -169,8 +169,9 @@ stay unreachable from a button.
 **And a lock-mechanics finding from that repair, recorded because it is this
 lock's own weak point rather than that screen's: all three attestation strings
 are duplicated across the two cameras as six separate literals** —
-`confirm.arm` at `CaptureCameraView:413` and `ScarCaptureView:545`, and each
-answer twice more. **There is no single source for any of them, so the lock
+`confirm.arm` in `CaptureCameraView.attestationAnswerRow` and
+`ScarCaptureView.scarAttestationAnswerRow`, and each answer twice more in the
+same two members. **There is no single source for any of them, so the lock
 protects three strings and the tree contains six copies.** Nothing is wrong
 today; they agree byte-for-byte, verified. **But "the locked string is correct"
 is a claim about six places and a reviewer opens one**, and a future edit that
@@ -204,8 +205,8 @@ rest on that three-state. **No code path in the app assigns `false` to it.**
 
 Both Ready buttons implement the ask as a two-tap sequence on one control: the
 first tap swaps the label to *"Tape measure out of frame?"*, the second sets
-`pendingFrameClear = true` and arms (`CaptureCameraView:375-385`,
-`ScarCaptureView:514-518`). **There is no decline affordance** — no second
+`pendingFrameClear = true` and arms (the single-`Button` form of each
+screen's Ready control, before the affordance replaced it). **There is no decline affordance** — no second
 button, and no dismiss path that records an answer. An examiner who looks up,
 sees the tape measure still in frame, and therefore does not tap again
 produces no photograph at all; one who taps produces `true`. A whole-tree grep
@@ -775,8 +776,11 @@ the same breath — not the sentence alone.
 
 **Locked, as of the decline affordance.** Verified byte-identical across all
 four call sites and the spec inventory before locking
-(`CaptureCameraView:421`, `:432`; `ScarCaptureView:553`, `:559`;
-`ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` §4):
+— cited by SYMBOL, not by line, for the reason recorded in §4.2.2: the two
+answer literals in `CaptureCameraView.attestationAnswerRow` and
+`ScarCaptureView.scarAttestationAnswerRow`, plus the inventory in
+`ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` §4. Re-count with the audit below rather
+than trusting any figure written here:
 
 | Key | String |
 |---|---|
@@ -859,6 +863,64 @@ no wording review would have caught this, because both strings were already
 correct.** The constraint is on the lifetime of the value behind
 `confirm.no`, and the only way a copy lock can carry it is by forbidding
 wording that generalises past one frame.
+
+---
+
+### 4.2.2 A line number is a citation that rots without a diff
+
+**Swept every `File:NNN` citation in this document and `PROCESS.md` at
+`64adfb2`. Seven of nine were wrong — and two of the seven were written by
+`d13b7a1` and `64adfb2`, the patches that found the six-literal census and
+repaired the orphaned field citations.** Measured by reading each cited line
+against the tree, not inferred:
+
+| Citation | Claimed | Actually at that line |
+|---|---|---|
+| §2.2 `CaptureCameraView:413`, `ScarCaptureView:545` | `confirm.arm` literals | **correct** — the only two that resolved |
+| §2.2 `CaptureCameraView:375-385`, `ScarCaptureView:514-518` | the two-tap Ready sequence | comment prose; the range is now the answer-row branch that replaced it |
+| §4.2.1 `CaptureCameraView:421`, `:432` | the two answer literals | comment prose in both |
+| §4.2.1 `ScarCaptureView:553`, `:559` | the two answer literals | comment prose; `pendingFrameClear = true` |
+| `PROCESS.md` §5 `ScarCaptureView:610` | `!auto && !gatesGood` | `.rotationEffect(.degrees(-90))` |
+| `PROCESS.md` §5 `CaptureCameraView:429`, `ScarCaptureView:556` | the `pendingFrameClear = false` writes | comment prose in both |
+
+**This is not staleness by neglect, and that is the whole finding. A patch that
+adds explanatory comments above the code it cites pushes that code down, so
+the act of documenting a site is what breaks the citation to it.** The glyph
+fix added 41 net Swift lines across exactly the two files every one of these
+citations points into. Each number was accurate when its author checked it and
+wrong by the time the same commit landed.
+
+**The sharpest instance: two of these were introduced by the citation-repair
+round itself.** `d13b7a1` recorded that a lock protecting three strings cannot
+see six copies, and cited the copies by line; `64adfb2` swept `*.md` for a
+deleted identifier and repaired every orphan, while the pointers it wrote were
+already resolving to comment prose. **A sweep for dead identifiers does not
+catch live identifiers at dead addresses** — the identifier is checkable and
+the address is not, so the two failures need two different audits.
+
+**A line number is a claim about a file's layout and nothing in the tree
+recomputes it.** That is the difference from a count under a check: the
+manifest's figures are also numbers about the tree, but `preflight` recomputes
+them and fails loudly, which is why §4c concludes a count under a recomputing
+check is safe. A line number is wrong *silently* while looking like precision,
+so it is **strictly worse than no citation** — a reader who follows it lands
+on unrelated code and concludes the claim is confused rather than the pointer.
+
+**Rule: cite by SYMBOL — type, member, or function — never by line.** A symbol
+moves with the code it names and a rename is a diff someone reviews. Where a
+range matters, name the enclosing member and let the reader search inside it.
+Audit a locked literal by grepping the string, never by jumping to a number:
+the count is recomputable and the line is not.
+
+The wrong numbers survive in one place only — the table above, where they are
+the record of what was wrong rather than pointers anyone should follow.
+
+**This is the presentation-channel class one level further out.** `confirm.no`
+passed a lock that inspected only characters; these citations passed reviews
+that inspected only whether the claim was **true**, never whether the pointer
+still **resolved**. A reference is a channel too, and it is the one no check in
+this repository covers — the only class today found by following pointers
+rather than by reading or running anything.
 
 ---
 

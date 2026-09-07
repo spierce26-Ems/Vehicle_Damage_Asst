@@ -1132,6 +1132,46 @@ Two smaller findings from the same repair, both worth keeping:
   Choose assertion inputs that can only pass because of the thing under test —
   the set-membership form of §5's never-let-an-absence-assert rule.
 
+### 4c-ix. A line number is a citation that rots without a diff
+
+Swept every `File:NNN` citation in the docs at `64adfb2`. **Seven of nine were
+wrong, and two of the seven were written by the two patches that were
+themselves repairing citations.** Full table in
+`EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §4.2.2; the mechanism belongs here.
+
+**A patch that adds explanatory comments above the code it cites pushes that
+code down, so the act of documenting a site is what breaks the citation to
+it.** The glyph fix added 41 net Swift lines across exactly the two files every
+one of those citations pointed into. Each number was correct when its author
+checked it and wrong when the same commit landed — the §4c shape with no
+elapsed time at all.
+
+**And a sweep for dead identifiers does not catch live identifiers at dead
+addresses.** `64adfb2` correctly `git grep`-ed every `*.md` for a deleted field
+name; the line numbers it wrote in the same patch already resolved to comment
+prose. The identifier is checkable by grep and the address is not, so the two
+failures need two different audits — and passing the first reads as having
+audited the citations.
+
+**A line number is a claim about a file's layout that nothing recomputes.**
+Contrast the manifest counts: also numbers about the tree, but `preflight`
+recomputes them and fails loudly, which is exactly why §4c concludes a count
+under a recomputing check is safe. A line number is wrong silently while
+*looking* like precision — **strictly worse than no citation**, because a
+reader who follows it lands on unrelated code and concludes the claim is
+confused rather than the pointer.
+
+**Rule: cite by SYMBOL — type, member, or function — never by line.** Where a
+range matters, name the enclosing member. Audit a locked literal by grepping
+the string, never by jumping to a number.
+
+**This is the presentation-channel class one level further out.** `confirm.no`
+passed a lock that inspected only characters; these citations passed reviews
+that checked whether the claim was *true* and never whether the pointer still
+*resolved*. A reference is a channel too — the one no check here covers, and
+the only class today found by following pointers rather than by reading or
+running anything.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
@@ -1300,14 +1340,15 @@ app make it true?**
 
 **That check has now been run over all five conditions in the table, so the
 result is worth recording as a completed sweep rather than as a method.** Row
-one's `gateOverridden` is reachable — `ScarCaptureView:610` computes
-`!auto && !gatesGood`, which a manual tap over a failing gate produces. Rows
+one's `gateOverridden` is reachable — `ScarCaptureView.performCapture(auto:)`
+computes `!auto && !gatesGood`, which a manual tap over a failing gate
+produces. Rows
 three and four are reachable through the `measured && failed` terms. Row five
 is reachable at the one site that passes `sharpnessMeasurable: true`. **Row two
 was the only unreachable one; it is now reachable too, and the sweep result
 above is a statement about a tree that no longer exists.** `pendingFrameClear
-= false` is written at `CaptureCameraView:429` and `ScarCaptureView:556` by the
-decline affordance, so all five conditions in the table now have reachable
+= false` is written by the decline answer in each screen's
+`attestationAnswerRow` / `scarAttestationAnswerRow`, so all five conditions in the table now have reachable
 inputs and `frameConfirmedClear` is genuinely three-state in the code as well
 as in the four documents.
 
