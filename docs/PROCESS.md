@@ -2594,6 +2594,51 @@ is not the figure at hand, name the subject of the figure you DO have** — neve
 drop the qualifier, never keep a bare number. A reader cannot see that a
 quantity was computed somewhere other than the sentence it sits in.
 
+**WHEN A FIX HAS TWO HALVES, MUTATE EACH HALF SEPARATELY AND REQUIRE EACH TO
+FAIL ASSERTIONS THE OTHER DOES NOT** (the Designer's rule, after the Tech Lead
+found her shape check measuring one defect twice). Reverting both guards failed
+7; reverting the **headline guard alone also failed 7**, because every colour
+failure was a subset of it through one shared totalising assertion. **So the
+colour assertions never discriminated, and the check would have passed a tree
+with only the colour guard removed — the exact state the hue defect lived in
+through three sign-offs.** Vector's "an assertion that cannot fail without the
+thing under test is not testing it", aimed at a PAIR of guards rather than one.
+
+**The dangerous part is that the mutation run was REAL and the discrimination
+was not.** Mutations ran, a number came back, and two figures agreeing was read
+as coverage — **"mutation-verified" published off a matching pair of counts.**
+That is convergence-hides-failure inside the instrument: **a matching pair of
+test counts is a number that matches, not a number that agrees**, the same
+correction as three agents reconciling `Totals:` across different trees. **A
+defect in the instrument is the worst place to have one**, because everything
+downstream of it reports clear. Isolate a channel by holding the other channel
+CORRECT and asserting only the first — then the assertion can fail on one path
+and no other.
+
+**Independence verified by running it, not by accepting the claim** (`swiftc`
+is available here too, so a teammate's reduced shape check is a claim to
+falsify rather than a result to take): the colour guard alone now fires **4**
+colour-exclusive assertions, the headline guard alone fires **5**
+headline-exclusive ones, overlapping only on the shared total. **Two mutations
+whose failure sets differ is the evidence; two mutations whose counts match is
+the warning.**
+
+**And a cross-channel relation is the assertion a string-only check cannot
+express:** *the loudest signal must not disagree with the words beside it.* Its
+absence is what let a green headline through a review that read every word —
+the `confirm.no` glyph class, one channel out. **A check scoped to one channel
+cannot see a contradiction between channels**, so the relation has to be
+asserted directly rather than implied by both halves passing.
+
+**A fix that removes an over-claim can create a LEGIBILITY hazard, and only
+one of the two is visible from inside the tree.** Labelling §6.1's headline
+score replaced one mislabelled figure with two correctly labelled ones on the
+same page. **The repair for that, if a device shows it, is the labels'
+prominence and never the numbers** — dropping a figure loses information and
+re-merging them recreates the bare number. **Record the new exposure with the
+fix; a defect closed silently at the cost of a new one is a trade nobody
+reviewed.**
+
 **AND A COUNT OF CALL SITES IS NOT A COUNT OF EXPOSED CALL SITES.** I recorded
 §6.1 as wrong at four render sites; two of them read `ScarFingerprintMatch`,
 which has no `exclusions` and no `filteredOutcome` — no filtered state to

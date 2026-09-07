@@ -1373,6 +1373,25 @@ labelled today. **Where a surface DOES carry the filtered figure, the original
 template above is the wording and is unchanged** — `filteredSummary` is that
 surface, and it already states it.
 
+**NEW EXPOSURE THIS RULING CREATED, recorded because it is mine and it is not
+closed.** Labelling the headline's score fixed a figure that claimed the wrong
+thing; it also put **two labelled percentages on one page** — the headline's
+"Unfiltered comparison — NN% … across all cross-sections" and
+`filteredOutcomeBlock`'s filtered figure a few lines below. Before, a reader
+had one mislabelled number; now they have two correctly labelled ones that
+differ. **Whether they are distinguishable at a glance is a judgement about
+rendered pixels that no check in this repository can make**, and it is the
+kind of question a locked sentence cannot answer about itself.
+
+**Stated as a constraint rather than a worry, so it is checkable on a device:**
+the two figures must not be able to be read as one quantity restated. If they
+are, the repair is the LABELS' prominence and never the numbers — dropping
+either figure loses information a filtered comparison needs, and re-merging
+them recreates the bare number this section just ruled out. **The
+Designer's point stands: a fix that removes an over-claim can create a
+legibility hazard, and only one of those two is visible from inside the
+tree.** First thing to look at when task #4's export is read on paper.
+
 **Both forms say "is not established for a filtered subset" rather than naming
 which subset was tested, deliberately:** the exclusion record is the place a
 reader learns what was excluded, and a headline that summarises the exclusions
