@@ -209,6 +209,76 @@ for f in *.shapecheck; do
     fi
   fi
 
+  # AND THE PRECONDITION-STYLE CHECKS, which the arm above does not look at.
+  # sec.4c-lii, closing the boundary I stated under sec.4c-xlvi rather than
+  # leaving it as the majority of the tree's assertions. Ledger measured the
+  # population -- 74 `precondition` assertions against 59 `expect(`
+  # occurrences by its own extractor -- so the uncovered shape was never the
+  # residue.
+  #
+  # Ledger and the Tech Lead each built the CONDITION-negation arm and each
+  # retracted it with the same soundness proof, which I verified before
+  # building anything else:
+  #
+  #   precondition(!(x))        sound assertion, negated -> rc=132, traps
+  #   precondition(!(x == x))   tautology,       negated -> rc=132, traps
+  #
+  # Both trap, so that mutation cannot distinguish the case it exists for.
+  # His statement of why is the specification for this arm: THE MUTATION HAD
+  # A FIXED REFERENCE AND THE WRONG ONE -- the runtime answers "did this
+  # trap", and the question is "could the ORIGINAL have trapped". The
+  # Designer's form of the same rule: a fixed reference must be fixed with
+  # respect to the PROPERTY being tested, not merely external to the mutated
+  # text.
+  #
+  # So mutate the SUBJECT and leave every assertion untouched. Each of these
+  # models declares its own subject's initial state as a Bool literal;
+  # inverting those literals changes what the model DOES while asking the
+  # assertions exactly what they already ask. A suite whose assertions can
+  # fail must then TRAP. Measured at 0752e21, every literal inverted per
+  # file: all five precondition-style checks rc=132, and -- the
+  # discrimination that matters -- with every `precondition` first rewritten
+  # to `precondition(true, ...)` and the same literals inverted,
+  # motionblur-window returns rc=0. So the arm answers a question about the
+  # ASSERTIONS and not about the mutation.
+  #
+  # It is deliberately silent when there is nothing to invert (`flipped=0`),
+  # which is honest rather than convenient: four checks declare no Bool
+  # literal subject and are covered by the comparator arm above instead. A
+  # check with NEITHER is reported, because that is a check no arm here can
+  # establish is falsifiable at all.
+  if ! grep -q 'func expect(' "$f"; then
+    # WRITE the mutant, THEN compare -- never `tee | diff`. My first version
+    # piped the sed output through `tee` into `diff -q`, and `diff -q` exits
+    # on the first difference, closing the pipe: `tee` was killed by SIGPIPE
+    # part-way and left a TRUNCATED mutant on disk, which then failed to
+    # compile and was reported as `mutant does not COMPILE` against a check
+    # that was fine. A false finding manufactured by the verification step
+    # itself, which is Ledger's sec.4c-li defect reached by a different
+    # route -- and it is why the mutant is a FILE before it is a comparison.
+    sed -E 's/\b(var|let)([[:space:]]+[A-Za-z_][A-Za-z0-9_]*([[:space:]]*:[[:space:]]*Bool)?[[:space:]]*=[[:space:]]*)true\b/\1\2FALSE_/g;
+            s/\b(var|let)([[:space:]]+[A-Za-z_][A-Za-z0-9_]*([[:space:]]*:[[:space:]]*Bool)?[[:space:]]*=[[:space:]]*)false\b/\1\2TRUE_/g;
+            s/FALSE_/false/g; s/TRUE_/true/g' "$f" > "$tmp/s.swift"
+    if cmp -s "$tmp/s.swift" "$f"; then
+      echo "FAIL          $f -- no expect() helper and no Bool-literal subject to invert; NO arm here can establish this check is falsifiable"
+      fail=$((fail+1)); continue
+    fi
+    # A mutant must be APPLIED before its result means anything -- Ledger's
+    # sec.4c-li defect, where an unmutated binary produced a FALSE finding
+    # against a correct check. The `cmp -s` above is that verification, not
+    # a formality, and it is also the line-neutrality guarantee: an inverted
+    # literal is the same number of lines by construction.
+    if ! "$SWIFTC" -O "$tmp/s.swift" -o "$tmp/s" >"$tmp/serr" 2>&1; then
+      echo "FAIL          $f -- subject mutant does not COMPILE; a mutant that fails to compile grades the parser, not the check"
+      fail=$((fail+1)); continue
+    fi
+    "$tmp/s" >/dev/null 2>&1; src=$?
+    if [ "$src" -lt 128 ]; then
+      echo "FAIL          $f -- assertions do NOT discriminate: every declared Bool subject inverted and the suite still exits $src without trapping"
+      fail=$((fail+1)); continue
+    fi
+  fi
+
   if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q 'FAIL'; then
     echo "FAIL          $f -- $last"; fail=$((fail+1))
   else

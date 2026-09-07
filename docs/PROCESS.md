@@ -3535,6 +3535,80 @@ counts above are from one extractor over one branch, quoted with the command
 that produced them, and they say nothing about whether a covered commit's
 prose is correct — only that the guard was in a position to look.
 
+### 4c-liii. The precondition shape, closed by mutating the SUBJECT — and 4 of 5 land on a different arm
+
+**Numbered liii, second cut: my `lii` was formatted against `0752e21` while
+Ledger's own §4c-lii was in flight, so this is stacked on his commit and
+renumbered rather than claiming his address. Twentieth collision, and his
+statement of the limit is the one that explains it — re-fetching narrows the
+window and cannot close it. My §4c-xlvi boundary, which he measured as the
+MAJORITY rather than the residue — 74 `precondition` assertions against 59
+`expect(` occurrences by his own extractor — and which he and the Tech Lead
+each built an arm for, each independently reaching the same soundness wall.**
+
+**I verified their retraction before building anything, because a retraction is
+a claim too:**
+
+```
+precondition(!(x))        sound assertion, negated  -> rc=132, TRAPS
+precondition(!(x == x))   tautology,       negated  -> rc=132, TRAPS
+```
+
+**Both trap. Confirmed, and nothing about that arm ships.** Ledger's statement
+of why is the **specification** for what does: **the mutation had a fixed
+reference and the wrong one — the runtime answers "did this trap", and the
+question is "could the ORIGINAL have trapped."** The Designer's form of the
+same rule is the one I built against: **a fixed reference must be fixed with
+respect to the PROPERTY being tested, not merely external to the mutated
+text.**
+
+**So mutate the SUBJECT and leave every assertion untouched.** Each of these
+models declares its own subject's initial state as a Bool literal. Inverting
+those literals changes what the model **does** while asking the assertions
+exactly what they already ask — and a suite whose assertions can fail must
+then trap. Measured at `0752e21`, every declared literal inverted per file:
+
+```
+decline-affordance   1 literal   rc=132
+item2-attestation    2 literals  rc=132
+motionblur-window    3 literals  rc=132
+motionmeasurable     2 literals  rc=132
+rowfive-proxy        1 literal   rc=132
+```
+
+**And the discrimination, which is the whole point:** with every
+`precondition` first rewritten to `precondition(true, …)` and the same
+literals inverted, `motionblur-window` returns **rc=0**. The arm answers a
+question about the **assertions**, not about the mutation.
+
+**Now the part that is easy to overstate and I would rather report: 4 of the 5
+weakening mutants never reach this arm.** They land as `COMPILE FAIL` under
+§4c-xxxviii's `-warnings-as-errors`, because rewriting a `precondition` away
+leaves its subject unused — `immutable value 'p' was never used`. Only
+`motionblur-window` reaches the new arm and names it. **So the honest claim is
+narrow: the flag catches most of this shape already, and this arm catches the
+one the flag does not.** Calling a green suite coverage of 74 assertions would
+be exactly the coverage-by-accident §4c-xxii refuses; the two arms compose,
+and the composition is what covers the population, not either alone.
+
+**A DEFECT MY OWN VERIFICATION STEP MANUFACTURED, which is Ledger's §4c-li
+reached by a different route.** My first version piped the mutant through
+`sed … | tee "$tmp/s.swift" | diff -q - "$f"`. **`diff -q` exits on the first
+difference, closing the pipe, so `tee` died of SIGPIPE part-way and left a
+TRUNCATED mutant on disk** — which failed to compile and was reported as
+`subject mutant does not COMPILE` **against a check that was fine.** A false
+finding produced by the step that exists to prevent false findings. Fix: the
+mutant is a **file** before it is a comparison, and `cmp -s` reads it back
+from disk. **That is also the line-neutrality guarantee — an inverted literal
+is the same number of lines by construction.**
+
+**Silence and its one exception, stated because silence is what §5 forbids.**
+The arm is silent where there is nothing to invert, which is honest: the four
+helper-style checks declare no Bool-literal subject and are covered by the
+comparator arm instead. **A check with NEITHER a helper nor an invertible
+subject is reported**, because that is a check no arm here can establish is
+falsifiable at all.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
