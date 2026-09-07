@@ -1233,7 +1233,21 @@ the difference is worth keeping because each hides somewhere else:
 
 **The unifying check is one question asked of a condition rather than of a
 sentence: what would have to be true for this to fire, and can anything in the
-app make it true?** Reviewing conditions one at a time answers whether each is
+app make it true?**
+
+**That check has now been run over all five conditions in the table, so the
+result is worth recording as a completed sweep rather than as a method.** Row
+one's `gateOverridden` is reachable — `ScarCaptureView:610` computes
+`!auto && !gatesGood`, which a manual tap over a failing gate produces. Rows
+three and four are reachable through the `measured && failed` terms. Row five
+is reachable at the one site that passes `sharpnessMeasurable: true`. **Row two
+is the only unreachable one, and its input has no write site of `false`
+anywhere in the tree.** A sweep that stops at the first finding leaves the
+reader unable to tell a checked condition from an unexamined one, so: **when a
+class of defect is found in one member of a table, the deliverable is the
+table, not the member** — and say which members were cleared, because "we fixed
+the one we found" and "we checked all five" are different claims that read
+identically. Reviewing conditions one at a time answers whether each is
 correctly written, which all three were. **A design commitment the code does
 not honour is not a bug report against the design** — the tri-state is right
 and is what makes the missing case recordable in one line — **but it must be
@@ -1753,6 +1767,19 @@ a suite reporting a headline clear while one of its probes is silently
 downgraded is a green tick over an unfailable check. **Read what each check
 says it did, not the aggregate** — and prefer a check that fails loudly when it
 cannot run.
+
+**One correction, because it changes what the reader should conclude: this did
+not affect every sandbox, and the reason is the part to act on.** The same
+commits reported `4 height bands executed` — the strong form — in another
+agent's environment, whose base image already carried
+`libncurses.so.6`. So the number quoted in that handover was honest **and** the
+probe was downgraded elsewhere on the identical tree, at the same time,
+verified from the same plain clone. **A per-agent green is not a property of
+the commit.** Which is worse than a uniformly broken check: the agent whose
+probe ran had no way to know another's had not, and neither figure was wrong.
+**So a `NOT COMPILED` handover has to name the environment the checks ran in,
+not only the commit and the numbers** — the tree is shared, the toolchain is
+not, and an environment-dependent check reports a property of the pair.
 
 With a toolchain present, Vector's reduced-shape method extends one step:
 **compile the shape AND run it, with `precondition`s for the behaviour the real
