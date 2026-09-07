@@ -895,6 +895,28 @@ counsel. **An unbounded string against a fixed advance is wrong at some length
 regardless of whose arithmetic you use**, which makes it a bound at the input,
 not a measurement at the frame: a product decision, not a layout fix.
 
+**A decision list is a worse place for this failure than a checklist, and it
+has now happened there.** A ticked decision recorded that a hard-block gate is
+safe *because* taking the override is recorded and surfaced, and cited the
+field by name; that field has zero references in Swift on the landed tree, and
+the spec clause requiring it lives in a document the same author owns. **A spec
+and a decision citing it read as complete by agreeing with each other, and
+neither of them is the tree.** So the rule generalises past symbols: **grep the
+pairing of a spec clause and its implementation, not the clause.** A checklist
+is ours to walk and can be re-walked; a decision list is the record of what the
+customer chose, so a tick there that was never earned is a wrong all-clear with
+provenance attached. When a decision's stated safety condition is a named
+field, the tick is only honest while that name resolves in the tree — say so
+beside the tick rather than leaving the reader to check.
+
+**And a corollary to the duplication rule, because it cuts the other way.**
+Two renders disagreeing is not automatically the invariant failure: **two
+verdicts, each rendered by the surface that owns it, is correct design.** The
+30-shot service gates even lighting per shot type and the scar service requires
+it unconditionally; each chip row matches its own service, and deduplicating
+them would erase a real distinction. Check whether the two sites read the same
+*value* before concluding they render the same *claim*.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
