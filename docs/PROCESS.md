@@ -3080,6 +3080,64 @@ printed before it died, and be reported as `ok` — **which is the laundering
 direction, in the arm added to prevent laundering.**
 
 
+### 4c-xlvi. §4c-xxxv built — and my grandfather ruling was wrong about its own reason, plus my payload rule had a false direction (Ledger)
+
+**The convention's second clause, owed since I measured it and built here
+because the order arm makes it nearly free:** the numerals are already
+collected, converted and in file order. `check_no_duplicate_sections` asserts
+"at most once", and **a numeral appearing ZERO times satisfies it exactly as
+well as once.** Renaming `### 4c-xxxiv.` to `### 4c-xl.` was measured
+line-neutral at rc=0 `clear` while reserving five addresses the document does
+not contain. **Ranked below a duplicate, which is why it was guarded last
+rather than an apology for it: a dangling reference REPORTS at the point of
+use, where an ambiguous one silently resolves to the wrong section.**
+
+**First finding, against my own §4c-xxxv ruling.** I insisted on an explicit
+grandfather list over a derivation, **because "a second copy of a fact must go
+stale loudly."** The first half is right: a derived exemption widens silently
+as the document grows. **The second half I asserted and then measured, and it
+is false — filling `viii` in leaves `KNOWN_GAPS` asserting a gap that no
+longer exists, `--strict` rc=0, zero findings.** A written list is not
+self-checking; it is only *cheaper to read* than a derivation. **AN EXEMPTION
+IS A SECOND COPY OF A FACT ABOUT THE TREE, so it takes the same treatment as
+every other locked copy here — CHECKED, never trusted because it is written
+down.** Hence the second arm: a grandfathered number that turns out to be
+PRESENT is reported, because at that moment the list is the stale artefact and
+the document is correct.
+
+**That is §4c-xxx aimed at an exemption rather than a caveat, and worse by a
+statable margin: a stale limit tells a REVIEWER not to bother; a stale
+exemption tells a CHECK not to look.** The reviewer might re-derive it; the
+check never will.
+
+**Second finding, and it is my own §4c-xli process rule failing in the
+direction I did not test.** I told everyone to `grep -c` a docs section's own
+sentence after a splice, because a splice that drops its payload passes every
+check here. **The Designer hit the false direction: her probe returned 0 with
+the section fully present, because prose WRAPS and the sentence exists in the
+file only as two lines with a newline inside it.** Reproduced on my own
+section: `it must be CHECKED against the tree, not trusted because it is
+written down` gives **raw 0, whitespace-normalised 1**, text present and
+correct. **A payload probe whose pattern cannot match wrapped prose reports
+every successful splice as a drop, and would send an author to re-splice a
+section that is already there.**
+
+**My rule was right about the hazard and wrong about the instrument, which is
+the same shape as the ruling above.** The fix is §4c-xxxiii's, third instance
+of one root cause today: **normalise whitespace on both sides, because the
+subject is prose and prose does not preserve the line breaks a probe was
+written against.** A single-line `grep -c` is a lock on a line, and what is
+being asserted is the presence of a sentence.
+
+**Four clauses for one sentence of prose, each discovered only after a tree
+violated it: at most once (built), exactly once consecutively (built here),
+ascending in file order (built), inside the §4c run (built).** §4c-xxii aimed
+at the convention rather than at a check — **nothing re-derives a claim written
+as prose, including the claim about what the claim is, and including the claim
+about how to check it.** Owed and unbuilt: a guard for a docs patch's own
+payload, which is the one artefact in this repository nothing checks at all,
+and Vector's weakened-predicate case.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

@@ -3794,6 +3794,64 @@ def check_section_order():
              "heading, so a correctly numbered section past that point is "
              "unreachable by reading. Do NOT renumber it to fit where it "
              "landed")
+    # sec.4c-xlvi (Ledger): the convention's SECOND clause, owed since I
+    # measured it and cheap here because the numerals are already collected,
+    # already converted and already in file order.
+    # check_no_duplicate_sections asserts "AT MOST ONCE", and a numeral
+    # appearing ZERO times satisfies it exactly as well as once -- renaming
+    # `### 4c-xxxiv.` to `### 4c-xl.` was measured line-neutral at rc=0
+    # `clear` while reserving five addresses the document does not contain.
+    # A gap is the absent-patch failure at the numbering level: honestly
+    # absent, honestly clear, and an inbound reference lands on nothing.
+    #
+    # WARN, and ranked BELOW a duplicate deliberately: a dangling reference
+    # REPORTS at the point of use, where an ambiguous one silently resolves
+    # to the wrong section and reads as correct. Asymmetric in severity AND
+    # in detectability, so the loud mode was correctly guarded last.
+    #
+    # GRANDFATHERED BY AN EXPLICIT LIST rather than a derivation -- a
+    # derived exemption ("ignore gaps below today's lowest section") widens
+    # silently as the document grows. AND THE LIST DOES NOT GO STALE LOUDLY
+    # ON ITS OWN: I ruled that it would, then measured it, and filling
+    # `viii` in leaves this list asserting a gap that no longer exists at
+    # rc=0 with zero findings. AN EXEMPTION IS A SECOND COPY OF A FACT
+    # ABOUT THE TREE, so it takes the same treatment as every other locked
+    # copy in this file -- CHECKED against the tree, never trusted because
+    # it is written down. Hence the second arm: a grandfathered number that
+    # turns out to be PRESENT is reported, because at that moment the list
+    # is the stale artefact and the document is correct. sec.4c-xxx's shape
+    # aimed at an exemption rather than a caveat, and worse by the margin
+    # that a stale limit tells a REVIEWER not to bother while a stale
+    # exemption tells a CHECK not to look.
+    KNOWN_GAPS = {8, 14, 15}
+    present = {_roman(num[3:]) for _, num in seen}
+    missing = sorted(n for n in range(min(present), max(present) + 1)
+                     if n not in present and n not in KNOWN_GAPS)
+    stale_exempt = sorted(n for n in KNOWN_GAPS if n in present)
+    if missing:
+        # remedy: fixes
+        warn("section-gap",
+             f"{len(missing)} sec.4c section number(s) reserved but absent "
+             f"in docs/PROCESS.md: {', '.join(str(n) for n in missing)} "
+             "(arabic; the headings are lowercase roman)",
+             "a numeral the document skips is an address it reserves and "
+             "does not contain, so an inbound `sec.4c-<numeral>` lands on "
+             "nothing. The convention's claim is `exactly once, "
+             "consecutively, in order, inside the sec.4c run` -- `at most "
+             "once` was never it. Renumber down to close the gap, or add "
+             "the missing section; if the gap is deliberate and permanent, "
+             "add it to KNOWN_GAPS in this check with a note")
+    if stale_exempt:
+        # remedy: fixes
+        warn("section-gap",
+             f"{len(stale_exempt)} grandfathered sec.4c gap(s) are now "
+             f"PRESENT in docs/PROCESS.md: "
+             f"{', '.join(str(n) for n in stale_exempt)} (arabic) -- the "
+             "exemption in this check is stale",
+             "remove the number from KNOWN_GAPS in this check. An "
+             "exemption is a second copy of a fact about the tree, and a "
+             "stale exemption tells a CHECK not to look -- worse than a "
+             "stale caveat, which only tells a reviewer not to bother")
     out = []
     for (n1, a), (n2, b) in zip(seen, seen[1:]):
         if _roman(b[3:]) <= _roman(a[3:]):
