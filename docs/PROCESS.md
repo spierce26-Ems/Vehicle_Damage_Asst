@@ -1029,6 +1029,27 @@ false evidence. An item must be falsifiable against the tree it will be walked
 on; when the mechanism it tests is absent, strike it with the reason and
 re-enable it in the diff that implements the mechanism — never leave it live and
 unpassable.
+
+**A specification that arrives after its implementation is a different
+artefact, and the inversion is worth exploiting rather than merely regretting.**
+Written as a guide it records intent; written after the code it must be
+reconciled against the landed tree, and a reconciliation is falsifiable in a
+way intent is not. Doing it by reading the tree rather than by remembering the
+patch is what found §1.2 unbuilt on the surface it was written for: the
+guidance band, the arm-time attestation and the review badge all shipped on the
+scar path and none on the 30-shot protocol camera, so those shots carry no
+guidance and can never record a declined attestation. **The property meant to
+drive capture-time guidance has exactly one consumer, the report filter — so
+the report will faithfully note a contaminated photograph the app never warned
+the user about.** Deciding what to *report* is not deciding what to *tell the
+user*, and one property serving both reads as coverage.
+
+**Which sets the standard for the closing section of any such reconciliation: it
+ends in open items, not a summary.** A reconciliation reporting only its
+successes is precisely the artefact this section is about. And **a citation is
+provenance only while its destination can be opened** — six references to a
+spec absent from the repository read as authority for a month, so landing the
+document is not enough: the citing artefact has to name the path.
 **And a count of commits on a moving branch cannot be written down.** A row
 documenting the lapsed isolation guarantee recorded 99 Swift commits and
 measured 100 one commit later — the very failure the row exists to describe,

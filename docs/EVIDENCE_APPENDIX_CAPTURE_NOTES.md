@@ -1,8 +1,16 @@
 # Report Spec — Capture-Quality Notes in the Evidence Appendix
 
-Owner: Ledger. Implements §3 of the Item 2 no-ruler / focus-gate UX spec.
+Owner: Ledger. Implements §3 of the Item 2 no-ruler / focus-gate UX spec,
+which is `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` in this repository. **Every
+"Item 2 spec" citation below means that file.** It was absent from the tree
+until it landed, so all six citations here were unfollowable — this line is
+what makes them resolve, and a citation is only provenance while its
+destination can be opened.
 Applies to `Services/PDFReportGenerator.swift` and the evidence appendix only.
 Ledger owns this wording; changes to it go through the copy lock in §4 below.
+The split of authority: this document is the authority on **wording**, the
+spec on **behaviour** — the tri-state semantics, the per-shot rule and the gate
+composition. §1.1's table restates those and is not their source.
 
 > **Provenance warning, added 2026-09-07.** This document cites *the Item 2 UX
 > spec* six times as the authority for its field semantics — §1's note
