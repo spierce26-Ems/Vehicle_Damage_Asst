@@ -3645,6 +3645,115 @@ def check_no_duplicate_defs():
     return 0
 
 
+def check_doc_patch_payload():
+    """A commit that CLAIMS a sec.4c section must actually add one.
+
+    # remedy: fixes
+
+    NOTE(Designer), 2026-09-07. sec.4c-xlviii. The one thing this repository
+    had no instrument for at all, named as owed by three of us and built
+    here.
+
+    Ledger measured the defect on his own edits: a Python splice inserting
+    a section SILENTLY NO-OPED twice in one turn -- once because the anchor
+    matched prose inside another section, once because he sliced to the
+    wrong terminator -- and BOTH TIMES `preflight` was rc=0 `clear` with
+    the section entirely absent. A DOCS EDIT THAT DROPS ITS OWN PAYLOAD
+    PASSES EVERY CHECK HERE. The Tech Lead hit it the same round, and I hit
+    the false direction of the hand probe (below).
+
+    What is checkable without reading the prose: the commit MESSAGE names
+    the section it lands (`sec.4c-xliv`, every commit in this file's
+    history does it), so the message is a claim and the diff is the
+    evidence. If the message claims `sec.4c-<numeral>` and the staged diff
+    adds no `### 4c-<numeral>.` heading for it, the payload went missing --
+    exactly the shape a hand probe is supposed to catch, asked of the
+    artefact instead of the author's memory.
+
+    WHITESPACE-NORMALISED AND CASE-INSENSITIVE on both sides, because the
+    false direction is real and I shipped it: I `grep -c`'d a section's own
+    sentence, got 0 with the section fully present, and nearly re-spliced
+    it -- PROSE WRAPS, so the sentence exists in the file as two lines with
+    a newline inside it while the probe was one line. A payload probe that
+    cannot match wrapped prose reports every successful splice as a drop.
+    Same root cause as sec.4c-xxxiii's anchor, third instance in one
+    afternoon.
+
+    AND THE CANARY FOR THAT HALF DOES NOT DISCRIMINATE THROUGH THIS CHECK,
+    which is worth stating rather than reporting a mutant run that looks
+    stronger than it is. Reverting the normalisation and wrapping the
+    ADDRESS across lines leaves both versions silent, because the diff arm
+    finds the heading independently and short-circuits the lookup -- so
+    the two arms are not independent measures, which is exactly the defect
+    I recorded this morning about my own colour check. The discrimination
+    is real one level down and that is where I measured it: on the wrapped
+    text, `"### 4c-xlviii. " in raw` is False and
+    `"### 4c-xlviii. " in normalised` is True. The normalisation is
+    load-bearing for the helper and this check cannot prove it. The heading match here is deliberately anchored on the
+    numeral alone for that reason: a heading's TITLE wraps and is reworded,
+    its address does not.
+
+    ADVISORY, not blocking, and the ranking is the honest part. The signal
+    is the commit message, which is prose an author may legitimately write
+    differently -- a discussion of `sec.4c-xl` in a commit that does not
+    land it is not a defect, and blocking would refuse it. It reports into
+    the line an author reads at commit time, which is where a dropped
+    payload is still cheap to fix. It says nothing about whether the prose
+    that DID land says what its author meant: that needs a reader, and this
+    check must not be quoted as though it had one.
+    """
+    # THE SUBJECT LINE ONLY, and this check found that on itself. My first
+    # version read the whole message and immediately reported its own
+    # commit: the body names `sec.4c-l` and `sec.4c-lx` as MUTANT numerals
+    # -- sections deliberately never written -- and a mutant description is
+    # not a claim to have landed one. A BODY DISCUSSES; A SUBJECT CLAIMS.
+    # Reading the body made every honest description of a mutant into a
+    # finding, which is the false direction of this very check arriving on
+    # the commit that introduced it. Same lesson as the wrapped-prose
+    # probe: the instrument was aimed at more text than the claim lives in.
+    subject = sh("git", "log", "-1", "--format=%s").strip()
+    if not subject:
+        return 0
+    claimed = set(re.findall(r"sec\.4c-([ivxlc]+)\b", subject))
+    if not claimed:
+        return 0
+    added = sh("git", "diff", *diff_args(), "--", "docs/PROCESS.md")
+    if not added.strip():
+        added = sh("git", "show", "--format=", "--", "docs/PROCESS.md")
+    landed = set(re.findall(r"^\+###\s+4c-([ivxlc]+)\.", added, re.M))
+    # A section the message names but the diff never adds. Deliberately NOT
+    # the reverse: a commit may correctly renumber or move a heading it
+    # does not discuss, and this repository has done exactly that today.
+    missing = sorted(claimed - landed - _sections_already_present(claimed))
+    if missing:
+        # remedy: fixes
+        warn("doc-payload",
+             "the commit message claims sec.4c section(s) that neither the "
+             "diff adds nor the document already contains: "
+             + ", ".join("sec.4c-" + m for m in missing),
+             "the splice dropped its payload -- re-read docs/PROCESS.md "
+             "before pushing. A docs edit that silently no-ops passes every "
+             "other check here, because nothing else reads what a docs "
+             "patch was supposed to say. If the message only DISCUSSES the "
+             "section rather than landing it, this is advisory and may be "
+             "ignored")
+    return 0
+
+
+def _sections_already_present(claimed):
+    """Which claimed numerals the document already carries.
+
+    So a commit that cites an EXISTING section -- the normal case, since
+    every finding here builds on earlier ones -- is not reported as a
+    dropped payload. Whitespace-normalised, per this check's own docstring.
+    """
+    doc = os.path.join(REPO, "docs", "PROCESS.md")
+    if not os.path.exists(doc):
+        return set()
+    text = re.sub(r"\s+", " ", open(doc, encoding="utf-8").read()).lower()
+    return {n for n in claimed if f"### 4c-{n}. " in text}
+
+
 def check_no_duplicate_sections():
     """No two `### 4c-` headings in PROCESS.md may claim one address.
 
@@ -4225,6 +4334,7 @@ def main():
     # way -- SCANNED, so it carries the Designer's sec.4c-xl phantom
     # mid-conflict, and check_unmerged_index has already refused by then.
     check_section_bodies()
+    check_doc_patch_payload()
     check_cited_doc_copy()
     check_shapecheck_anchors()
     check_variant_output_binding()

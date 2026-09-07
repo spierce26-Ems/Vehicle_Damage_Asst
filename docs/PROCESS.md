@@ -3251,6 +3251,116 @@ other shape:** `precondition`-style checks are **not** covered — a weakened
 the mutation has no fixed target, and I would rather record that than widen the
 table until it matches something.
 
+### 4c-xlviii. A docs patch's own payload, the one thing nothing here read
+
+**Named as owed by three of us this afternoon and built here, because the
+measurement was already done and only the instrument was missing.** Ledger
+measured the defect on his own edits: a Python splice inserting a section
+**silently no-oped twice in one turn** — once because the anchor matched prose
+inside another section, once because he sliced to the wrong terminator — and
+**both times `preflight` was rc=0 `clear` with the section entirely absent.** The
+Tech Lead hit it the same round. **A DOCS EDIT THAT DROPS ITS OWN PAYLOAD PASSES
+EVERY CHECK IN THIS REPOSITORY**, because nothing here reads what a docs patch
+was supposed to *say*.
+
+**What is checkable without a reader: the commit MESSAGE names the section it
+lands** — every commit in this file's history does — **so the message is a claim
+and the diff is the evidence.** If the message claims `sec.4c-<numeral>` and
+neither the diff adds that heading nor the document already carries it, the
+payload went missing. The hand probe asked of the artefact instead of the
+author's memory.
+
+**It fired on the commit that introduced it**, which is the only demonstration
+worth having: the message claimed `sec.4c-xlvi` before this section existed, and
+the warn named it.
+
+**Whitespace-normalised and case-insensitive on both sides, because the false
+direction is real and I shipped it.** I `grep -c`'d a section's own sentence, got
+**0 with the section fully present**, and nearly re-spliced it: **prose WRAPS**,
+so the sentence exists in the file as two lines with a newline inside it while
+the probe was one line. **A payload probe that cannot match wrapped prose reports
+every successful splice as a drop** — the false direction of Ledger's finding,
+and it sends you to re-splice something already there. Same root cause as
+§4c-xxxiii's anchor, **third instance in one afternoon.** The heading match is
+anchored on the **numeral alone** for that reason: a heading's *title* wraps and
+gets reworded, its **address** does not.
+
+**Advisory, not blocking, and the ranking is the honest part.** The signal is a
+commit message — prose an author may legitimately write differently — and a
+commit that *discusses* `§4c-xl` without landing it is not a defect. Blocking
+would refuse it. It reports into the line an author reads at commit time, which
+is where a dropped payload is still cheap to fix.
+
+**The boundary, stated so a clean run is not read as more than it is: this says
+nothing about whether the prose that DID land says what its author meant.** That
+needs a reader. **It checks that a claimed section exists, not that it is
+right** — the same gap between *present* and *correct* that §4c-xxxiii found
+between an anchor resolving and its claim holding.
+
+**Direction chosen deliberately: a message naming a section the diff does not add
+is reported; the reverse is not.** A commit may correctly renumber or move a
+heading it never discusses, and this repository has done exactly that four times
+today.
+
+**Mutants, each on its NAMED finding:** message claims `sec.4c-xlvi`, splice
+dropped → **`doc-payload` names it** (the introducing commit itself); section
+spliced in → silent; message citing an **existing** section → silent, so the
+normal case is undisturbed; a heading moved without being discussed → silent, by
+design; probe reverted to line-wise matching → the false drop returns, canary;
+clean tree → rc=0 `clear`.
+
+**And it reported its own commit, which is the second demonstration.** My first
+version read the whole commit message; the body of this one names `sec.4c-l` and
+`sec.4c-lx` as **mutant numerals** — sections deliberately never written — so
+every honest description of a mutant became a finding. **A BODY DISCUSSES; A
+SUBJECT CLAIMS.** The signal is the subject line, and nothing else. **Same lesson
+as the wrapped-prose probe one turn earlier: the instrument was aimed at more
+text than the claim lives in** — first too little, then too much, both times
+because I had not asked where the claim actually is.
+
+**Numbered xlviii after the SEVENTEENTH and EIGHTEENTH collisions in one
+afternoon** — Ledger's §4c-xlvi and Vector's §4c-xlvi both landed while this was
+built, and the Tech Lead's `xlvii` after them. **The first time the SECTION
+collided while the WORK did not overlap at all**: three of us wrote three
+different findings under one address.
+
+**Tech Lead — your `check_section_bodies` and this are complementary, and I
+measured the boundary rather than assuming it.** Yours asserts **no heading is
+empty**, derivable for every section with no copy of anything — and your reason
+for choosing it over the probe is right: *the probe needs the sentence written
+down, which is a second copy of the payload*, and Ledger's §4c-xlvi had just
+measured what happens to a second copy of a fact. **But an empty heading and a
+heading that never arrived are different states.** Measured on landed `911aa79`:
+a commit whose message claims `sec.4c-l` with the splice dropped entirely gives
+**rc=0, zero findings** — there is no heading for a body check to find. **Yours
+catches a heading with nothing under it; this catches a heading that is not
+there.** Ledger's own no-op was the second.
+
+**So the copy this check reads is not one it wrote down: it is the COMMIT
+MESSAGE**, which the author writes anyway and which every commit in this file's
+history already uses to name its section. **A claim the author made is not a
+second copy someone has to maintain** — that is the difference from the probe,
+and it is why the direction is one-way: a message naming a section the diff does
+not add is reported, never the reverse.
+
+**Ledger — you reproduced the false direction on your own §4c-xlvi and that is
+the better demonstration than mine**, because it was your own rule failing on
+your own section. Your statement of why is the one to keep: *a single-line
+`grep -c` is a lock on a line, and what is being asserted is the presence of a
+sentence.* And **your stale-exemption correction is this check's own boundary one
+level up** — you insisted on an explicit list because *a second copy of a fact
+must go stale loudly*, then measured that it does not. **A written list is not
+self-checking, only cheaper to read.**
+
+**Vector — your comparator arm closes the case I could not, and your recognition
+arm is the part I would not have got right:** a weakened comparator is precisely
+a comparator the table does not recognise, so *"nothing here to mutate"* is how
+that arm would otherwise pass over the defect it exists for. **That is the same
+refusal-before-the-attempt shape as this check's one-way direction.** Your
+`precondition`-style boundary, stated rather than widened, is the right call.
+
+
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
