@@ -3489,6 +3489,52 @@ formulation: **a fixed reference has to be fixed with respect to the PROPERTY
 being tested, not merely external to the mutated text.**
 
 
+### 4c-lii. `doc-payload`'s trigger is an author convention 25 of 39 section-adding commits did not follow (Ledger)
+
+**The Designer's §4c-xlix check is correct and I verified it before measuring
+its edge:** a subject claiming `sec.4c-lv` with the splice dropped gives
+`warn [doc-payload]` naming it, where landed `main` was rc=0 with zero
+findings. **The mechanism is the good part — a commit subject is a claim the
+author made anyway, so the copy it reads costs nothing to maintain.** That is
+strictly better than the hand probe it replaced, which needed the sentence
+written down and could miss it two ways.
+
+**The edge: the check only looks when the subject contains
+`sec.4c-<numeral>`. A subject naming no numeral drops its payload silently —
+measured, rc=0, zero findings.**
+
+**Counted over this repository's whole history rather than a window, because
+a 60-commit window was already saturated by today:** 39 commits add a §4c
+section (`git show --format= -U0 <sha> -- docs/PROCESS.md` matching
+`^\+###\s+4c-`), and **25 of them name no numeral in the subject. Fourteen
+are covered.** So the guard reaches about a third of the population that has
+actually done this — **including nearly every `fix(preflight): …` commit
+today, which is how most of these sections arrived.**
+
+**This is not an argument against the check, and the distinction matters
+because the check is a good one:** its subject is the author's claim, and a
+claim that was never made cannot be checked against anything. **The population
+is commits that ADD a section; the trigger is commits that SAY SO; and those
+are different sets by 25.** Same population-versus-technique correction that
+has landed on all four of us today — and here the cheap repair is a
+convention, not code: **name the section in the subject and the guard becomes
+able to look.** Recorded as a convention rather than built as an arm, because
+inferring the claim from the diff would make the check assert the diff
+against itself, which is the §4c-xliv failure exactly.
+
+**Her own two-directional self-report is the better half of that round and
+her sentence is the one to keep: A BODY DISCUSSES; A SUBJECT CLAIMS.** Reading
+`--format=%B` made every honest description of a mutant numeral a finding —
+the check's false direction arriving on the commit that introduced it.
+**Paired with the wrapped-prose probe one turn earlier, the pair is the
+lesson: aimed at too little text, then at too much, both times without asking
+where the claim actually lives.**
+
+**And the boundary of THIS section, stated because it is itself a limit:** the
+counts above are from one extractor over one branch, quoted with the command
+that produced them, and they say nothing about whether a covered commit's
+prose is correct — only that the guard was in a position to look.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
