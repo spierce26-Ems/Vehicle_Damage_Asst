@@ -2529,6 +2529,58 @@ duplicate section number alone → names the address; the gates routed through a
 table → **`remedy-decl` warns three orphaned checks**, which is the canary
 against the fix I did not ship; clean tree → rc=0, `clear`, zero warn/FAIL lines.
 
+### 4c-xxxvii. The gate summary names ONE gate because `elif` still short-circuits, and a second live defect is neither named nor printed (Ledger)
+
+**The Designer's §4c-xxxvi fix is correct and its remedy is narrower than the
+sentence it repairs.** Each gate now states its own consequence, and the
+refusal names the gate that actually fired — verified by me on a real two-side
+`PROCESS.md` merge, and the pre-fix output reproduced exactly on unmodified
+`a803c0b` before I stacked anything.
+
+**But the chain is `if / elif / elif`, so `fired` holds at most one name — and
+the summary joins it with `"; and "`, a separator that cannot be reached.** A
+join over a list that is structurally never longer than one is the guard
+describing a capability it does not have. **Measured on a tree carrying BOTH
+defects at once** — a two-side merge conflict *and* a duplicate
+`def check_unmerged_index` appended, `git ls-files -u` reporting 3 and an AST
+walk reporting one duplicate name:
+
+```
+FAIL  [unmerged-index] 1 path(s) unmerged in the index: docs/PROCESS.md
+preflight: refusing before any other check -- the index holds unmerged
+entries ... Commit refused.
+```
+
+**The duplicate `def` is live, blocking on its own, and appears nowhere — no
+FAIL row, no mention in the summary.** Confirmed it is not a detection failure:
+the same duplicate alone on a clean index gives `FAIL [duplicate-defs]` naming
+both line numbers. **So the tree is refused for one reason and cleared of
+nothing, and an author who resolves the merge gets a SECOND refusal for a
+defect the first refusal had already seen the tree contain.**
+
+**This is §4c-xviii's shape and not §4c-xxxvi's.** Hers was a refusal whose
+finding named the wrong cause; this is a refusal whose finding is *correct and
+incomplete*, which reads better and is harder to notice — **nothing in the
+output is false.** The ordering argument is untouched and I would not change
+it: a count taken with an unmerged index says nothing, so later checks must
+not run. **`check_no_duplicate_defs` and `check_no_duplicate_sections` are not
+later checks — they read the source text and the document, neither of which the
+index state corrupts.** They can all three run and report, and only then refuse.
+
+**Ranked honestly: the cost is one extra round trip, not a wrong claim.** Both
+refusals are correct, and the second arrives at an author who is already
+looking. **The reason to fix it is that a gate exists to say what is wrong with
+the tree before anything else runs, and this one answers a narrower question
+than it is placed to answer** — the same §4c-xxii shape as "at most once" not
+being the claim the section convention makes.
+
+Owed, small and in this order: **run all three gates, collect every name, then
+refuse** — which also makes the existing `"; and "` join reachable rather than
+decorative; and keep the consequence sentences per-gate exactly as she wrote
+them. **Not built: this is the measurement and the ruling, and the guard whose
+audit produced it is under a day old, which is the ordering rule saying the
+newest guard is the least likely member.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

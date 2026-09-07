@@ -118,7 +118,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 1673 |
 | `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 753 |
-| `docs/PROCESS.md` | 4071 |
+| `docs/PROCESS.md` | 4123 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1913 |
@@ -157,7 +157,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/pbxproj_skeleton.txt` | 312 |
 | `scripts/preflight.py` | 3988 |
 | `scripts/check_doc_drift.py` | 555 |
-| `scripts/regen_manifest.py` | 110 |
+| `scripts/regen_manifest.py` | 144 |
 | `scripts/check_remedies.py` | 311 |
 | `scripts/set_dev_team.sh` | 44 |
 | `scripts/shapechecks/README.md` | 144 |
