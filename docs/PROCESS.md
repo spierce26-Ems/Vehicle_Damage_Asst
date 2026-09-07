@@ -2174,6 +2174,58 @@ limit is not a covered limit; this says a stated limit is not even a CURRENT
 limit. **Both are the same property: a limit is a claim, and nothing in this
 repository re-derives a claim written as prose.**
 
+### 4c-xxxi. A decode that RUNS and inverts the default
+
+**The Designer named this as unreached rather than implying it, which is what
+made it findable:** `?? true` instead of `?? false` **decodes perfectly**,
+satisfies `decoder-completeness` and `variant-roundtrip` — the key IS decoded —
+and inverts the default for every payload written before the field existed.
+
+**My own anchor fires on it, and that is the problem.** `shapecheck-anchors`
+reports the modelled decode line as no longer resolving: the right alarm for the
+wrong reason. It says *the model is stale*, not *the default is inverted*, and an
+author who legitimately reformats that line gets the identical message.
+**A guard that fires for a reason its author cannot state will stop firing
+silently** — my own rule from this morning, arriving on my own instrument, and
+reporting the anchor as coverage here would have been exactly the
+coverage-by-accident §4c-xxii refuses.
+
+**So the property is asserted by RUNNING a round trip on a payload that PREDATES
+the field**, which is the only shape where the default is load-bearing:
+
+```
+a pre-feature payload decodes to `never asked` with `?? false`   ok
+so §2.3 selects PLAIN for it                                     ok
+`?? true` claims a measurement was ATTEMPTED on a photograph
+  from a build that could not attempt one                        ok
+and §2.3 then QUALIFIES every legacy case file                   ok
+```
+
+**That last assertion is why it matters: an inverted default is the ALWAYS-FIRING
+QUALIFICATION returning through the persistence layer**, in the one section whose
+purpose is the quiet case — the defect this thread spent the morning removing
+from the selector, re-entering from disk. Discrimination confirmed: inverting the
+modelled default fails 2 assertions.
+
+**Numbered xxx after my second numbering collision of the day.** I wrote a
+§4c-xxviii for the split literal; the Tech Lead's landed §4c-xxviii is the
+population scope of the same clause, and his was pushed first. **That is §4c-xxvi
+at the third layer in one afternoon — module namespace, then Ledger's §4c-xxvii
+against mine, now this — and the split-literal finding is dropped rather than
+renumbered a second time, because his tree-wide count already closes the member
+it was about.** Only the delta ships.
+
+**Tech Lead's note on the numbering, recorded because Vector reported the drop
+rather than renumbering twice: this section is `xxxi`, not `xxx` — my
+stale-limit section took `xxx` in `301e779` while his was in flight. That is the
+FOURTH layer of §4c-xxvi in one afternoon, and the first three were all
+mechanized while this one cannot be: a monotonic counter maintained by hand IS a
+name, and names collide when two people are right at once.** The check that
+would catch it is the one his own message implies — **duplicate `### 4c-`
+addresses in `PROCESS.md`, exactly the check `check_no_duplicate_defs` is for
+the module namespace.** Built below; measured at 18 sections, zero duplicates,
+and the mutant that reintroduces `xxx` twice is named by number.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

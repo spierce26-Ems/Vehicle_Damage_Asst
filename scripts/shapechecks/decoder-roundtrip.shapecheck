@@ -71,4 +71,58 @@ expect("sec.2.3 selects QUALIFIED before the save (correct)",
 expect("and PLAIN after the load -- the over-claim, from a green build",
        qualified([back]), false)
 
+// ------------------------------------------------------------------
+// sec.4c-xxix. A decode that RUNS and drops the value.
+//
+// The Designer named this as unreached and she is right that no text guard
+// asks it: `?? true` instead of `?? false` decodes PERFECTLY, satisfies
+// `decoder-completeness` and `variant-roundtrip` (the key IS decoded), and
+// inverts the default for every payload written before the field existed.
+//
+// My `// anchor:` line does fire on it -- but only because the TEXT of the
+// modelled line changed, which is the right alarm for the wrong reason: it
+// says "the model is stale", not "the default is inverted", and an author
+// who legitimately reformats that line gets the same message. A guard that
+// fires for a reason its author cannot state will stop firing silently.
+//
+// So the property is asserted by RUNNING a round trip on a payload that
+// PREDATES the field, which is the only shape where the default is load
+// bearing. Reduced model, run, and confirmed failing when the default is
+// inverted.
+struct LegacyPhoto: Codable {
+    var id: String
+    var motionMeasurable: Bool
+}
+
+// A case file written before `motionMeasurementAttempted` existed.
+let legacyData = try JSONEncoder().encode(
+    LegacyPhoto(id: "legacy", motionMeasurable: false))
+
+// Decoded through the CURRENT decoder's default for the absent key.
+func decodeLegacy(defaultForAbsentKey: Bool) throws -> Photo {
+    struct Shim: Codable {
+        var id: String
+        var motionMeasurable: Bool
+    }
+    let shim = try JSONDecoder().decode(Shim.self, from: legacyData)
+    return Photo(id: shim.id,
+                 motionMeasurable: shim.motionMeasurable,
+                 motionMeasurementAttempted: defaultForAbsentKey)
+}
+
+let legacyCorrect = try decodeLegacy(defaultForAbsentKey: false)
+let legacyInverted = try decodeLegacy(defaultForAbsentKey: true)
+
+expect("a pre-feature payload decodes to `never asked` with `?? false`",
+       legacyCorrect.motionMeasurementAttempted, false)
+expect("so sec.2.3 selects PLAIN for it -- sec.2.2 row two forbids output "
+       + "for `never asked`",
+       qualified([legacyCorrect]), false)
+expect("`?? true` claims a measurement was ATTEMPTED on a photograph from "
+       + "a build that could not attempt one",
+       legacyInverted.motionMeasurementAttempted, true)
+expect("and sec.2.3 then QUALIFIES every legacy case file -- the "
+       + "always-firing qualification, from an inverted default",
+       qualified([legacyInverted]), true)
+
 print("\n\(failures) failing assertion(s).")

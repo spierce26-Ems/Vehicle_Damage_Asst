@@ -3444,6 +3444,69 @@ def check_no_duplicate_defs():
     return 0
 
 
+def check_no_duplicate_sections():
+    """No two `### 4c-` headings in PROCESS.md may claim one address.
+
+    # remedy: fixes
+
+    NOTE(Tech Lead), 2026-09-07. sec.4c-xxxi's numbering, and the FOURTH layer
+    of sec.4c-xxvi in one afternoon: the module namespace, Ledger's locator
+    against mine, the Designer's locator fix against mine, and now two
+    sections numbered `xxx` -- my stale-limit section pushed first while
+    Vector's was in flight. The first three were mechanized; this one was
+    caught by a person reading two messages.
+
+    A MONOTONIC COUNTER MAINTAINED BY HAND IS A NAME, AND NAMES COLLIDE WHEN
+    TWO PEOPLE ARE RIGHT AT ONCE. Vector reported the drop of his own
+    sec.4c-xxviii rather than renumbering it a second time, which is what
+    made the pattern visible rather than tidy.
+
+    Two sections claiming one address is worse than a duplicate `def`, where
+    Python at least picks the last one deterministically: here BOTH survive,
+    every cross-reference in the document becomes ambiguous, and a reader
+    following `sec.4c-xxx` lands on whichever comes first. The document is
+    the artefact this repository cites in commit messages, shape checks and
+    remedies, so an ambiguous address is a citation defect at the root -- the
+    `File:NNN` mechanism arriving at the section level.
+
+    Blocking, on the same reasoning as the def check: every reference to the
+    duplicated number is a statement about the wrong section.
+    """
+    doc = os.path.join(REPO, "docs", "PROCESS.md")
+    if not os.path.exists(doc):
+        return 0
+    seen, dupes = {}, []
+    for n, line in enumerate(open(doc, encoding="utf-8"), 1):
+        m = re.match(r"^###\s+(4c-[ivxlc]+)\.", line)
+        if not m:
+            continue
+        key = m.group(1)
+        if key in seen:
+            dupes.append(f"{key} (lines {seen[key]} and {n})")
+        else:
+            seen[key] = n
+    if not seen:
+        # remedy: fixes
+        warn("duplicate-sections",
+             "no `### 4c-<numeral>.` headings found in docs/PROCESS.md",
+             "this check locates sections by that heading shape; if the "
+             "convention changed, re-point it -- a locator that silently "
+             "finds nothing is the absence asserting a pass (sec.4c-xxvii)")
+        return 0
+    if dupes:
+        # remedy: fixes
+        fail("duplicate-sections",
+             f"{len(dupes)} duplicate sec.4c section number(s) in "
+             f"docs/PROCESS.md: {'; '.join(dupes)}",
+             "two sections claiming one address leave every cross-reference "
+             "to that number ambiguous, and BOTH survive -- worse than a "
+             "duplicate `def`, where the last one at least wins "
+             "deterministically. Renumber the later one and fix its inbound "
+             "references; never merge two findings under one number")
+        return 1
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if "--install-hook" in args:
@@ -3551,7 +3614,7 @@ def main():
     # defect -- and this file's whole subject today is findings that reach
     # the reader through the wrong channel. So the namespace is checked
     # before any consumer of it can crash on it.
-    if check_no_duplicate_defs():
+    if check_no_duplicate_defs() or check_no_duplicate_sections():
         # PRINT before returning. Caught by my own mutant: the first version
         # of this early exit returned 1 without reaching the reporting loop
         # at the bottom, so the collision refused the commit and printed
