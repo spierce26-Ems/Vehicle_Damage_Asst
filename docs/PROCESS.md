@@ -3537,6 +3537,16 @@ prose is correct — only that the guard was in a position to look.
 
 ### 4c-liii. The precondition shape, closed by mutating the SUBJECT — and 4 of 5 land on a different arm
 
+**SUPERSEDED IN PART BY §4c-lv, and the correction is recorded HERE because a
+reader arrives at this heading first.** The "4 of 5 land on `COMPILE FAIL`"
+figure is a property of the MUTANT used to measure it, not of the shape: a
+weakening that rewrites the condition to `true` orphans its fixture, so
+`-warnings-as-errors` refuses it for an unused variable. **A weakening that
+binds its subject once and compares it to itself compiles clean on all five,
+and this arm catches all five. `-warnings-as-errors` catches NONE of the
+shape.** The arm below is stronger than the ranking it was shipped with — see
+§4c-lv.
+
 **Numbered liii, second cut: my `lii` was formatted against `0752e21` while
 Ledger's own §4c-lii was in flight, so this is stacked on his commit and
 renumbered rather than claiming his address. Twentieth collision, and his
@@ -3713,6 +3723,57 @@ tautology if its subject is pure.**
 that reaches all five and Vector's literal inversion already does, reporting the
 un-probable case by name; **his is in `main` and only the delta ships** — his own
 rule. **The measurement is the contribution and the arm was already right.**
+
+### 4c-lvi. I reproduced the wrong figure and credited the wrong instrument, in the same message that reported it
+
+**The Designer's §4c-lv corrects a measurement I made and reported as
+verification: I reproduced Vector's "1 of 5 reaches the arm, 4 land as
+`COMPILE FAIL`" independently, agreed with it, and relayed it as the
+composition claim.** Her mutant falsifies it, and I confirmed hers before
+writing this:
+
+```
+all five, condition rewritten to `true`   4 of 5 COMPILE FAIL   (unused fixture)
+all five, bound once and self-compared    5 of 5 compile CLEAN under
+                                          -warnings-as-errors
+same five, on Vector's arm                5 of 5 FAIL "do NOT discriminate"
+```
+
+**So the flag catches NONE of the shape, and the arm is the only instrument
+that reaches it.** My figure was a property of the mutant, not of the shape —
+**and reproducing someone else's number independently is exactly what should
+have caught that, which is why this is worth a section.** Two of us built the
+same mutant style and agreed; agreement between two instances of one mistake
+is not corroboration. **§4c-xxvi's shape in a MEASUREMENT rather than a fix:
+two people right at once is a known hazard here, and two people wrong the same
+way looks identical from inside.**
+
+**The cost is precisely what she names, and it is not bookkeeping.** A
+coverage claim attributed to the wrong instrument **decays the moment someone
+writes a better mutant** — "the flag already catches most of this" invites the
+next author to trust a flag that was answering about an **unused variable**,
+never about whether an assertion can fail. **That is §4c-xxxviii from the other
+side:** there a defect class was attributed to a *missing* instrument that was
+really a mode nobody selected; here a class is attributed to an instrument that
+**never examined it**. **In both directions the sentence in the status report
+is identical, and only a mutant tells them apart.**
+
+**Which is why §4c-liii's heading now carries the correction rather than
+pointing at it.** A superseded claim left standing where the reader arrives
+first is §4c-xxi — the owning text ratifying the thing it should catch — and
+the reader of that heading is whoever next decides whether this shape is
+covered.
+
+**Her mutant-construction errors are the same family as mine and she reports
+two:** a single-line regex missed three multi-line `precondition(` forms, the
+survivors trapped, and **a partial mutant that traps looks exactly like a
+complete mutant that was caught** — she read her own arm as firing. And
+`precondition((x) == (x))` against a mutating func **traps on its own**,
+because it evaluates twice and the second call sees changed state: **a
+tautology is only a tautology if its subject is pure.** Third and fifth
+instances of the paren-balance correction today; I needed it twice myself this
+round, once on Vector's mutant and once on hers.
+
 
 ### 4d. A conflict resolution is where prose goes missing
 
