@@ -263,8 +263,94 @@ struct PDFReportGenerator {
             header.draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 13))
             y += 18
             y += drawWrapping(f.notes, at: CGPoint(x: 60, y: y),
-                              font: .systemFont(ofSize: 11), maxWidth: rect.width - 120) + 23
+                              font: .systemFont(ofSize: 11), maxWidth: rect.width - 120) + 5
+            // NOTE(AI Developer), 2026-09-07. Appendix sec.2.4's
+            // cross-reference, found missing by Ledger's copy review: the
+            // Capture Conditions page existed and nothing in the findings
+            // section led a reader to it. The asymmetry is worth naming --
+            // sec.2.4's other half ("the score is never annotated,
+            // discounted or hedged") was satisfied trivially by NOT
+            // implementing the reference, so the constraining half was
+            // present and the informing half absent, which reads as
+            // compliance.
+            //
+            // SCOPE, stated because it is narrower than sec.2.4 asks for.
+            // sec.2.4 wants the reference on factors "whose score was
+            // computed from photographs that carry any note". `FactorScore`
+            // records no photo linkage at all -- no id, no set -- so
+            // per-factor attribution is not derivable here and inventing
+            // one would be a claim about which photograph fed which factor
+            // that the model cannot support. The reference is therefore
+            // emitted ONCE for the whole section when ANY analysis photo
+            // carries a note, and its wording says "photographs used in
+            // this analysis" rather than implying this factor's inputs.
+            // Per-factor precision needs `FactorScore` to carry its source
+            // photo ids; that is a model change and its own diff.
+            //
+            // Locked copy, no adjective, and deliberately nothing else:
+            // the reader is pointed at the facts and the report does not
+            // editorialise about its own inputs.
+            y += 18
         }
+
+        if captureConditionNotesExist(in: c) {
+            if y > rect.height - 80 { ctx.beginPage(); y = 50 }
+            _ = drawWrapping("Some photographs used in this analysis carry capture notes. See Capture Conditions in the evidence appendix.",
+                             at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11),
+                             maxWidth: rect.width - 100, color: .darkGray)
+        }
+    }
+
+    /// True when any analysis photo would produce a note on the Capture
+    /// Conditions page. Shares its conditions with
+    /// `drawCaptureConditions` deliberately: two independent predicates
+    /// for "does this photo carry a note" is exactly the duplicated-claim
+    /// defect this round was spent on, so both read `captureNotes(for:)`.
+    /// The appendix sec.2.2 notes a single photo carries, in the table's
+    /// order. THE one place these conditions live: `drawCaptureConditions`
+    /// renders them and `captureConditionNotesExist` asks whether any
+    /// exist, and both call this rather than testing the fields
+    /// themselves. Two independent predicates for "does this photo carry
+    /// a note" would be the same duplicated-claim defect as one string
+    /// rendered in two frames -- they would agree until someone edited
+    /// one, and the disagreement would be a cross-reference pointing at
+    /// an empty page or a page nothing points to.
+    ///
+    /// Every condition is tested against its REPORTABLE state, never
+    /// against "not true": `frameConfirmedClear == false` is an explicit
+    /// decline, while `nil` is "never asked" and must produce nothing.
+    /// Collapsing them would make an absence assert a finding.
+    ///
+    /// Wording is locked copy from `EVIDENCE_APPENDIX_CAPTURE_NOTES.md`
+    /// sec.2.2, reproduced verbatim.
+    private func captureNotes(for photo: CapturedPhoto) -> [String] {
+        var notes: [String] = []
+        if photo.gateOverridden {
+            notes.append("Captured manually while the app's sharpness and framing checks were not met. The examiner chose to record the shot rather than lose it. Detail read from this photograph may be limited.")
+        }
+        if photo.frameConfirmedClear == false {
+            notes.append("The examiner did not confirm that the frame was clear of a ruler, tape measure, or other foreign object before capture.")
+        }
+        if photo.qualityFlags.isBlurry {
+            notes.append("The app measured this photograph as not sharp at the point of capture.")
+        }
+        if photo.qualityFlags.isTooFar {
+            notes.append("The app measured the damage area as not filling the guide frame — the subject may be too distant for fine surface detail.")
+        }
+        // The `frameConfirmedClear != nil` guard is the table's own, and
+        // it is what keeps a library import silent: no live frame ever
+        // existed to measure, so "sharpness was not measured" would be a
+        // note about missing data rather than about the capture.
+        if photo.sharpnessScore == nil && photo.frameConfirmedClear != nil {
+            notes.append("Sharpness was not measured for this photograph.")
+        }
+        return notes
+    }
+
+    private func captureConditionNotesExist(in c: ForensicCase) -> Bool {
+        (c.victimVehicle.photos + (c.suspectVehicle?.photos ?? []))
+            .filter { $0.photoType.isAnalysisShot }
+            .contains { !captureNotes(for: $0).isEmpty }
     }
 
     // NOTE(AI Developer), added 2026-07 per Sean's explicit request ("can
@@ -845,29 +931,7 @@ struct PDFReportGenerator {
 
         var anyNotes = false
         for (index, photo) in photos.enumerated() {
-            // sec.2.2, in the table's order. Each condition is checked
-            // explicitly against the reportable state -- never against
-            // "not true", which would fold `nil` in with `false`.
-            var notes: [String] = []
-            if photo.gateOverridden {
-                notes.append("Captured manually while the app's sharpness and framing checks were not met. The examiner chose to record the shot rather than lose it. Detail read from this photograph may be limited.")
-            }
-            if photo.frameConfirmedClear == false {
-                notes.append("The examiner did not confirm that the frame was clear of a ruler, tape measure, or other foreign object before capture.")
-            }
-            if photo.qualityFlags.isBlurry {
-                notes.append("The app measured this photograph as not sharp at the point of capture.")
-            }
-            if photo.qualityFlags.isTooFar {
-                notes.append("The app measured the damage area as not filling the guide frame — the subject may be too distant for fine surface detail.")
-            }
-            // The guard on `frameConfirmedClear != nil` is the table's,
-            // and it is what keeps a library import silent: no live frame
-            // ever existed to measure, so "sharpness was not measured" is
-            // a note about missing data rather than about the capture.
-            if photo.sharpnessScore == nil && photo.frameConfirmedClear != nil {
-                notes.append("Sharpness was not measured for this photograph.")
-            }
+            let notes = captureNotes(for: photo)
             guard !notes.isEmpty else { continue }
             anyNotes = true
 
