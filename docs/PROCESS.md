@@ -1186,6 +1186,17 @@ at this rule on one day, from four people who were not coordinating:
 | `preflight.py` signing check | no `DEVELOPMENT_TEAM` set | a blocking error — a Simulator build needs no team, so absence is not a defect |
 | Report cover, examiner identity unbuilt | field does not exist yet | a blank signature line, which reads as an *unsigned* report rather than an unbuilt feature — omit the line instead |
 
+**A verified patch has a shelf life measured in commits, not minutes.** The
+fix above was verified against the tip, and the tip moved between verifying and
+sending: two of its seven files no longer applied, one of them the very status
+row whose restructuring the fix depended on. Then the *re-cut* was stale on
+arrival too, because the substance had landed from the first cut in the
+interval. **So verify by `git am` against the current tip immediately before
+sending, not once per piece of work** — and on the receiving side, check whether
+a re-cut is still needed before applying it, because re-landing a no-op is how
+a correct patch produces a wrong tree. Both directions are the same
+substitution with elapsed commits as the surface.
+
 The general form: **an unset value is unmeasured, not failed; an unasked
 question is unanswered, not declined; an unbuilt field is absent, not empty.**
 When a surface cannot express the difference, it says nothing at all — silence
