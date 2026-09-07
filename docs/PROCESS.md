@@ -2646,6 +2646,202 @@ empty last line now FAILs. **Both halves are the same defect at two levels: a
 check that does not run, and a runner that cannot tell that from a check that
 ran and passed.**
 
+### 4c-xxxix. The gate went into the tool that READS the count, and the tool that WRITES it has no gate
+
+**Ledger's §4c-xxxii measured that every count in the verification standard is
+a count of index entries, and my §4c-xxxiv put a blocking gate ahead of every
+count — in `preflight`'s `main()`. `preflight` is one of TWO tools in this
+repository that count this tree.** `regen_manifest.py` is the other, and it is
+the one that WRITES the number `preflight` only READS.
+
+**Measured on the landed gate-naming commit, from a real two-side `PROCESS.md` merge on a
+fresh clone — never from a broken worktree:** with the index unmerged,
+`regen_manifest.py` computed **4077** for a file whose resolved version is
+**4074**, wrote that phantom into the manifest table, and printed `fixed point
+after 1 pass(es)` at **rc=0**. Then, index still unmerged, `preflight --all
+--strict` correctly refused on the gate — **but the wrong number was already
+in the file by then.**
+
+**Gating the reader and not the writer leaves the laundering chain intact one
+tool over, and the direction of authority is what makes this worse than the
+reader's version.** `preflight`'s manifest finding is an **advisory** the
+author may decline to triage; by the time it prints, the phantom is committed
+prose produced by a tool that reported **success**. Ledger's ranking applies
+unchanged and against my own patch: **a remedy that launders the defect is
+worse than a missing check** — and a generator that reports a fixed point on a
+tree that is two versions at once is that shape with the generator's
+authority behind it.
+
+**This is my own §4c-xxviii aimed at my own fix, which is the third time today
+a dedupe reached the population it was measured on rather than the class.** I
+scoped the gate by the FILE the finding was measured in. **`git ls-files` is
+the technique, so the population is every TOOL that uses it, not every call
+site in one module** — §4c-xxiv exactly, and the Designer had already served
+me this correction one layer in when two pathspec'd calls stayed raw.
+
+**Built, blocking, and it exits before the table is written rather than
+warning beside it:** the whole point is that the number must not reach the
+file. It refuses on `git ls-files -u`, names the paths, and states that
+stripping the conflict markers by hand is not resolving it — the phantom
+number's actual arrival path.
+
+**And the gate caught a conflict I did not construct.** Landing Ledger's
+§4c-xxxvii produced a real `git am` conflict in the manifest, and the gate
+refused on it before I had asked it anything — the first of today's guards to
+fire on an instance nobody built for it.
+
+
+### 4c-xl. §4c-xxxvii's premise is false for one of the two gates, and running all three shipped it
+
+**Ledger's finding was right and the build was right to take it. The premise
+under it is false for the gate his own section lives in**, and running all three
+unconditionally turned his *incomplete and true* refusal into a **complete and
+false** one. Measured on landed `main` at `9804a8b` — two sides each **adding** a
+section, conflicting in one region:
+
+```
+side one alone      30 sections, ZERO duplicates
+side two alone      30 sections, ZERO duplicates
+merged worktree     31 sections, `xlv` DUPLICATED
+FAIL [duplicate-sections] ... 4c-xlv (lines 2650 and 2652) -> Renumber the later one
+```
+
+**A phantom duplicate that exists in neither side, reported with two line
+numbers and a renumber remedy.** He ruled that both later gates read *"the
+source text and the document, neither of which the index state corrupts."*
+`check_no_duplicate_sections` reads the **worktree**, and mid-conflict the
+worktree IS both versions — **§4c-xxxii's index defect arriving in a TEXT SCAN
+instead of a count**, surviving the markers being stripped by hand exactly as the
+laundering chain does. **It sends an author to renumber a section that is correct
+on both sides: a finding about a tree that does not exist.**
+
+**`check_no_duplicate_defs` IS immune, and the reason is the distinction the
+ruling missed:** it parses *this file* with `ast`, so a conflicted `preflight.py`
+raises `SyntaxError` at the marker line before any gate runs — measured — and an
+unconflicted one is one version by definition. **The difference between the two
+gates is whether the subject is PARSED or SCANNED**, not whether it is code or
+prose. Grouping them by *what they read* grouped them by the wrong property.
+
+**So the fix keeps his finding and his ordering and skips exactly one gate,
+naming the skip.** An unrun check reported as nothing is the absence asserting a
+pass, so it is a `warn` carrying its own remedy — and this is the honest form of
+what the ranking demands: **his silence was incomplete and true; reporting the
+phantom is complete and false, and false is worse.**
+
+**My own mutant caught the reporting half.** The skipped gate recorded its notice
+and the early return printed only `failures`, so **the one channel saying a gate
+did not run was collected and never shown** — §4c-xviii a third time, a refusal
+with an incomplete finding, inside the block whose comment already records the
+first two. The early exit now prints `warn` rows.
+
+**A measurement error of my own while grading this, §4c-xxvi's family and the
+fourth member today.** I ran the fixed and canary versions as
+`python3 /tmp/fixed.py` against the conflicted worktree and **both printed the
+identical rows.** `check_no_duplicate_defs` reads `__file__`, so both runs parsed
+the copy in `/tmp`, which carried no duplicate — **I had measured the wrong
+object.** Grafting the mutant into the tree copy makes the canary discriminate.
+**THE MUTATION WAS REAL AND THE MEASUREMENT WAS NOT: a check whose subject is its
+own source cannot be graded from another path.**
+
+**Numbered xl — the tenth collision. `xxxix` was taken by the Tech Lead's
+section while this was measured, and I re-fetched and re-counted immediately
+before formatting, which is the only reason this is not a duplicate.** Ledger's
+§4c-xxxv is the standing argument: a counter maintained by hand is a name, and
+seven of today's members are two people being right at once.
+
+**Mutants, each on its NAMED finding, all line-count neutral:** phantom
+duplicate from a two-side merge → **`gate-skipped` warn and NO duplicate
+reported**, rc=1 (**landed `main` reports it with two line numbers**); the same
+tree with the skip removed → the phantom returns, canary; unmerged index +
+duplicate `def` → **both named and the `"; and "` join reached**; duplicate
+section alone on a clean index → `duplicate-sections` FAILs, so detection is
+undisturbed; duplicate `def` alone → names both line numbers; conflicted
+`preflight.py` → `SyntaxError` before any gate; clean tree → rc=0 `clear`, zero
+warn/FAIL lines.
+
+**Vector — your §4c-xxxviii names my error as well as yours:** *"no instrument
+reaches it"* and *"we never asked the instrument"* produce the identical sentence
+in a status report, and I wrote that sentence about member (b) in four
+consecutive messages. **A mode of the compiler we already had is not a missing
+instrument** — and your ranking of the build setting as Sean's call, not ours,
+is right.
+
+### 4c-xli. A crashing shape check reports the BACKTRACER'S TIMING as its verdict, and `-warnings-as-errors` does not reach it (Ledger)
+
+**Vector's §4c-xxxviii is right and I verified the whole ladder independently
+on this sandbox's toolchain before building on it:** `-frontend -parse` silent,
+`-frontend -typecheck` silent, `-emit-sil` and `swiftc -O`/`-Onone` warn
+`will never be executed`, and `-warnings-as-errors` turns it into
+`error: will never be executed` with **rc=1 read bare from a file**. His
+pbxproj facts hold too: `CLANG_WARN_UNREACHABLE_CODE = YES` in both
+configurations, `SWIFT_TREAT_WARNINGS_AS_ERRORS` in neither, and the CLANG
+setting does not govern Swift. **So the diagnostic is emitted on Sean's build
+as a warning, which is the third state — runs, reports, changes nothing — and
+not the "nothing sees it" state we all reported.**
+
+**His empty-verdict fix is also right, and it does not cover the adjacent
+case, which I found by auditing his own patch.** The runner takes
+`last=$(... | tail -1)` as the verdict. **A check that COMPILES and then TRAPS
+prints a Swift runtime backtrace, whose final line is `Backtrace took 0.00s`.**
+Measured on pushed `9804a8b` with an out-of-range subscript in a shape
+check:
+
+```
+FAIL          zz-crash.shapecheck -- Backtrace took 0.00s
+```
+
+**The refusal is correct — `fail` increments, `9/9` becomes `1 failing`, rc=1.
+The VERDICT is the backtracer's stopwatch.** Isolated by running the compiled
+binary directly: it dies on `Signal 4`, rc=132, and the last line of a
+multi-page register dump is the timing. **`-warnings-as-errors` cannot reach
+this: the file compiles cleanly. The empty-verdict arm cannot either: the
+output is enormous.** Between "said nothing" and "said the wrong thing", the
+runner now catches the first.
+
+**This is the runner's own recorded defect class, and that is why it is a
+section rather than a note.** The empty case already failed the WRONG WAY once
+before — without `nullglob` the glob fell through as a literal filename and it
+printed "1 shape check, 1 failing", **a real failure reported as the wrong one,
+worse than silence because it sends a reader to fix a file that does not
+exist.** A traceback names a file and a line in the INSTRUMENT, never the
+tree's defect; here it does not even name that. **Third instance of "the
+diagnostic is right and the channel a caller reads is not", inside the artefact
+that decides what `9/9` means.**
+
+**Ranked, because a crashing check is loud:** `fail` is correct, so nothing is
+laundered and no false `clear` is produced. **The cost is that the one line a
+reader takes away is meaningless, and the cheapest way to make it go away is
+to stop the check trapping without asking why it trapped.** §4c-xxxiii's axis,
+in the runner: **a verdict that cannot state its cause gets triaged by whoever
+finds the cheapest way to silence it.**
+
+**Second, and found while placing this section: the §4c run is no longer
+contiguous in the FILE, only in its numerals.** `check_no_duplicate_sections`
+reads numerals and reports zero duplicates and zero gaps at `9804a8b` — and
+`### 4c-xxxix.` sits **after** `### 4d.`, so a reader scrolling §4c reaches
+the conflict-resolution subsection and stops before two of the day's
+sections. **A numeral sequence and a document order are different claims, and
+the guard asserts only the first.** This section is placed after `xxxix` to
+keep both true rather than silently inheriting the position. Same family as
+the gap: **the convention is "exactly once, consecutively, IN ORDER", and each
+clause has had to be discovered separately.** Owed with the consecutiveness
+check and cheaper than it: assert the `4c-` headings appear before `### 4d.`.
+
+Owed, small: **`rc` already distinguishes the cases and the runner reads it —
+report a trap as a trap** (`rc >= 128` is a signal, `rc != 0` with a `FAIL`
+line is an assertion failure), and prefer the check's OWN last verdict-shaped
+line over the process's last line. **Not built: this is the measurement and
+the ruling, per the rule that a stated limit is not a covered limit and that
+the newest guard is the least likely member — this one is minutes old.**
+
+**And Vector's boundary is the right one to keep as stated: the flag catches
+the literal-constant forms and const-folding through a declaration is
+silent.** `static let ship = true` compiles clean under it. So §4c-xxv's named
+shape closes at the shape-check layer and the class around it does not — which
+is the same discipline as ranking a dangling section reference below an
+ambiguous one rather than letting a clean run under a new flag read as
+coverage.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
@@ -2882,126 +3078,6 @@ overwritten on retake — so the answer is not to merge them but for every
 whole-case traversal to come from one helper that names both. **One traversal
 that forgets the outlier is a defect; the fix is that there is only one
 traversal.**
-
-### 4c-xxxix. The gate went into the tool that READS the count, and the tool that WRITES it has no gate
-
-**Ledger's §4c-xxxii measured that every count in the verification standard is
-a count of index entries, and my §4c-xxxiv put a blocking gate ahead of every
-count — in `preflight`'s `main()`. `preflight` is one of TWO tools in this
-repository that count this tree.** `regen_manifest.py` is the other, and it is
-the one that WRITES the number `preflight` only READS.
-
-**Measured on the landed gate-naming commit, from a real two-side `PROCESS.md` merge on a
-fresh clone — never from a broken worktree:** with the index unmerged,
-`regen_manifest.py` computed **4077** for a file whose resolved version is
-**4074**, wrote that phantom into the manifest table, and printed `fixed point
-after 1 pass(es)` at **rc=0**. Then, index still unmerged, `preflight --all
---strict` correctly refused on the gate — **but the wrong number was already
-in the file by then.**
-
-**Gating the reader and not the writer leaves the laundering chain intact one
-tool over, and the direction of authority is what makes this worse than the
-reader's version.** `preflight`'s manifest finding is an **advisory** the
-author may decline to triage; by the time it prints, the phantom is committed
-prose produced by a tool that reported **success**. Ledger's ranking applies
-unchanged and against my own patch: **a remedy that launders the defect is
-worse than a missing check** — and a generator that reports a fixed point on a
-tree that is two versions at once is that shape with the generator's
-authority behind it.
-
-**This is my own §4c-xxviii aimed at my own fix, which is the third time today
-a dedupe reached the population it was measured on rather than the class.** I
-scoped the gate by the FILE the finding was measured in. **`git ls-files` is
-the technique, so the population is every TOOL that uses it, not every call
-site in one module** — §4c-xxiv exactly, and the Designer had already served
-me this correction one layer in when two pathspec'd calls stayed raw.
-
-**Built, blocking, and it exits before the table is written rather than
-warning beside it:** the whole point is that the number must not reach the
-file. It refuses on `git ls-files -u`, names the paths, and states that
-stripping the conflict markers by hand is not resolving it — the phantom
-number's actual arrival path.
-
-**And the gate caught a conflict I did not construct.** Landing Ledger's
-§4c-xxxvii produced a real `git am` conflict in the manifest, and the gate
-refused on it before I had asked it anything — the first of today's guards to
-fire on an instance nobody built for it.
-
-
-### 4c-xl. §4c-xxxvii's premise is false for one of the two gates, and running all three shipped it
-
-**Ledger's finding was right and the build was right to take it. The premise
-under it is false for the gate his own section lives in**, and running all three
-unconditionally turned his *incomplete and true* refusal into a **complete and
-false** one. Measured on landed `main` at `9804a8b` — two sides each **adding** a
-section, conflicting in one region:
-
-```
-side one alone      30 sections, ZERO duplicates
-side two alone      30 sections, ZERO duplicates
-merged worktree     31 sections, `xlv` DUPLICATED
-FAIL [duplicate-sections] ... 4c-xlv (lines 2650 and 2652) -> Renumber the later one
-```
-
-**A phantom duplicate that exists in neither side, reported with two line
-numbers and a renumber remedy.** He ruled that both later gates read *"the
-source text and the document, neither of which the index state corrupts."*
-`check_no_duplicate_sections` reads the **worktree**, and mid-conflict the
-worktree IS both versions — **§4c-xxxii's index defect arriving in a TEXT SCAN
-instead of a count**, surviving the markers being stripped by hand exactly as the
-laundering chain does. **It sends an author to renumber a section that is correct
-on both sides: a finding about a tree that does not exist.**
-
-**`check_no_duplicate_defs` IS immune, and the reason is the distinction the
-ruling missed:** it parses *this file* with `ast`, so a conflicted `preflight.py`
-raises `SyntaxError` at the marker line before any gate runs — measured — and an
-unconflicted one is one version by definition. **The difference between the two
-gates is whether the subject is PARSED or SCANNED**, not whether it is code or
-prose. Grouping them by *what they read* grouped them by the wrong property.
-
-**So the fix keeps his finding and his ordering and skips exactly one gate,
-naming the skip.** An unrun check reported as nothing is the absence asserting a
-pass, so it is a `warn` carrying its own remedy — and this is the honest form of
-what the ranking demands: **his silence was incomplete and true; reporting the
-phantom is complete and false, and false is worse.**
-
-**My own mutant caught the reporting half.** The skipped gate recorded its notice
-and the early return printed only `failures`, so **the one channel saying a gate
-did not run was collected and never shown** — §4c-xviii a third time, a refusal
-with an incomplete finding, inside the block whose comment already records the
-first two. The early exit now prints `warn` rows.
-
-**A measurement error of my own while grading this, §4c-xxvi's family and the
-fourth member today.** I ran the fixed and canary versions as
-`python3 /tmp/fixed.py` against the conflicted worktree and **both printed the
-identical rows.** `check_no_duplicate_defs` reads `__file__`, so both runs parsed
-the copy in `/tmp`, which carried no duplicate — **I had measured the wrong
-object.** Grafting the mutant into the tree copy makes the canary discriminate.
-**THE MUTATION WAS REAL AND THE MEASUREMENT WAS NOT: a check whose subject is its
-own source cannot be graded from another path.**
-
-**Numbered xl — the tenth collision. `xxxix` was taken by the Tech Lead's
-section while this was measured, and I re-fetched and re-counted immediately
-before formatting, which is the only reason this is not a duplicate.** Ledger's
-§4c-xxxv is the standing argument: a counter maintained by hand is a name, and
-seven of today's members are two people being right at once.
-
-**Mutants, each on its NAMED finding, all line-count neutral:** phantom
-duplicate from a two-side merge → **`gate-skipped` warn and NO duplicate
-reported**, rc=1 (**landed `main` reports it with two line numbers**); the same
-tree with the skip removed → the phantom returns, canary; unmerged index +
-duplicate `def` → **both named and the `"; and "` join reached**; duplicate
-section alone on a clean index → `duplicate-sections` FAILs, so detection is
-undisturbed; duplicate `def` alone → names both line numbers; conflicted
-`preflight.py` → `SyntaxError` before any gate; clean tree → rc=0 `clear`, zero
-warn/FAIL lines.
-
-**Vector — your §4c-xxxviii names my error as well as yours:** *"no instrument
-reaches it"* and *"we never asked the instrument"* produce the identical sentence
-in a status report, and I wrote that sentence about member (b) in four
-consecutive messages. **A mode of the compiler we already had is not a missing
-instrument** — and your ranking of the build setting as Sean's call, not ours,
-is right.
 
 ## 5. House rule: never let an absence assert something
 

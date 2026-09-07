@@ -3708,6 +3708,86 @@ def check_no_duplicate_sections():
     return 0
 
 
+def check_section_order():
+    """`### 4c-` numerals must be MONOTONIC IN FILE ORDER, not merely unique.
+
+    # remedy: fixes
+
+    NOTE(Tech Lead), 2026-09-07. Found on MY OWN commit, independently, by
+    both Ledger and the Designer in the same round -- sec.4c-xli and
+    sec.4c-xl. `check_no_duplicate_sections` reported zero duplicates and
+    zero gaps at 9804a8b while `### 4c-xxxix.` sat AFTER `### 4d.`, because
+    I appended it before `## 5.` without reading what lay between. Unique,
+    in sequence by numeral, out of order in the document, `--strict` rc=0.
+
+    A READER SCROLLING sec.4c REACHES THE CONFLICT-RESOLUTION SUBSECTION AND
+    STOPS BEFORE TWO OF THE DAY'S SECTIONS. That is the whole cost, and it is
+    a citation defect of the same family as an ambiguous address: the section
+    exists, is correctly numbered, and is not where its number says it is.
+
+    A NUMERAL SEQUENCE AND A DOCUMENT ORDER ARE DIFFERENT CLAIMS, AND THE
+    GUARD ASSERTED ONLY THE FIRST. Third clause of one convention to be
+    discovered separately: "at most once" (built), "exactly once,
+    consecutively" (owed, unbuilt), and now "IN ORDER" -- each found only
+    after a tree violated it. sec.4c-xxii is the standing lesson and this is
+    its cheapest instance yet, because order needs no grandfather list: the
+    three pre-existing gaps at viii/xiv/xv are gaps in the NUMERALS and do
+    not perturb the ORDER of what is present.
+
+    WARN, not blocking, and the severity is the honest part. Nothing resolves
+    to the wrong section and nothing reads as correct that is not -- the
+    defect is that a reader stops early. Blocking on a placement convention
+    would refuse a commit over a scroll position, and Ledger's third state
+    (runs, reports, changes nothing) is the risk to state plainly rather than
+    over-rank: this one is reported into a line an author reads at commit
+    time, beside a remedy that names the heading to move.
+    """
+    doc = os.path.join(REPO, "docs", "PROCESS.md")
+    if not os.path.exists(doc):
+        return 0
+    seen = []
+    for n, line in enumerate(open(doc, encoding="utf-8"), 1):
+        m = re.match(r"^###\s+(4c-[ivxlc]+)\.", line)
+        if m:
+            seen.append((n, m.group(1)))
+    if not seen:
+        return 0
+    out = []
+    for (n1, a), (n2, b) in zip(seen, seen[1:]):
+        if _roman(b[3:]) <= _roman(a[3:]):
+            out.append(f"{b} (line {n2}) follows {a} (line {n1})")
+    if out:
+        # remedy: fixes
+        warn("section-order",
+             f"{len(out)} sec.4c heading(s) out of document order in "
+             f"docs/PROCESS.md: {'; '.join(out)}",
+             "sec.4c numerals must increase in FILE order, not merely be "
+             "unique. A section that is correctly numbered and misplaced is "
+             "still where a reader will not find it -- a reader scrolling "
+             "sec.4c stops at the first thing that is not a sec.4c heading. "
+             "Move the heading to its numeric position; do NOT renumber it "
+             "to match where it landed, which repairs the check and not the "
+             "document")
+    return 0
+
+
+def _roman(s):
+    """Roman numeral to int, for ORDER comparisons only.
+
+    Deliberately not a general parser: the numerals in this document are
+    lowercase i/v/x/l/c and this is a comparison, not a formatter.
+    """
+    vals = {"i": 1, "v": 5, "x": 10, "l": 50, "c": 100}
+    total = 0
+    for i, ch in enumerate(s):
+        v = vals[ch]
+        if i + 1 < len(s) and vals[s[i + 1]] > v:
+            total -= v
+        else:
+            total += v
+    return total
+
+
 def main():
     args = sys.argv[1:]
     if "--install-hook" in args:
@@ -3955,6 +4035,14 @@ def main():
     check_signing_configured()
     check_delimiter_balance(files)
     check_manifest_drift()
+    # AFTER the gate, deliberately: this reads the worktree text exactly as
+    # check_no_duplicate_sections does, so it has the Designer's sec.4c-xl
+    # phantom in the same way -- mid-conflict the worktree is both sides and
+    # the ORDER of a doubled region is meaningless too. It is not IN the gate
+    # because it is advisory, and the gate exists to refuse; and it runs after
+    # check_unmerged_index has already refused, so a conflicted tree never
+    # reaches it. SCANNED, not parsed -- her distinction, applied on arrival.
+    check_section_order()
     check_cited_doc_copy()
     check_shapecheck_anchors()
     check_variant_output_binding()
