@@ -360,7 +360,28 @@ struct PDFReportGenerator {
         // rule, and a heading that describes the section rather than
         // asserting its outcome. The string supplies the finding.
         if let reason = c.matchResult?.suspectExclusionReason {
-            let boxRect = CGRect(x: 50, y: y, width: rect.width - 100, height: 60)
+            // The box is MEASURED, not fixed. At 60pt tall with the body
+            // starting 26pt down, this box held ~2 lines at 11pt; the three
+            // strings `evaluateExclusionRule()` returns run roughly 270,
+            // 490 and 715 characters, i.e. 3, 6 and 8 lines at this width.
+            // Every one of them overran, and the longest by ~45pt into the
+            // status line drawn below. The red fill hid it; a hairline
+            // border does not, which is how it surfaced. A frame that
+            // cannot fit the real string is a layout defect, never a
+            // licence to shorten locked copy -- and here the string IS the
+            // finding, so a clipped exclusion is a missing one.
+            let bodyFont = UIFont.systemFont(ofSize: 11)
+            let bodyWidth = rect.width - 100 - 24
+            let bodyHeight = ceil(
+                (reason as NSString).boundingRect(
+                    with: CGSize(width: bodyWidth, height: .greatestFiniteMagnitude),
+                    options: [.usesLineFragmentOrigin, .usesFontLeading],
+                    attributes: [.font: bodyFont],
+                    context: nil
+                ).height
+            )
+            let boxRect = CGRect(x: 50, y: y, width: rect.width - 100,
+                                 height: 26 + bodyHeight + 12)
             let path = UIBezierPath(roundedRect: boxRect, cornerRadius: 8)
             UIColor.systemGray6.setFill()
             path.fill()
@@ -370,8 +391,8 @@ struct PDFReportGenerator {
             "RULE-OUT ASSESSMENT".draw(at: CGPoint(x: boxRect.minX + 12, y: boxRect.minY + 8),
                                        font: .boldSystemFont(ofSize: 12), color: .darkGray)
             reason.draw(at: CGPoint(x: boxRect.minX + 12, y: boxRect.minY + 26),
-                        font: .systemFont(ofSize: 11), maxWidth: boxRect.width - 24, color: .darkGray)
-            y += 76
+                        font: bodyFont, maxWidth: bodyWidth, color: .darkGray)
+            y += boxRect.height + 16
         }
 
         let statusText: String
