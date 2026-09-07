@@ -1713,7 +1713,17 @@ def check_cited_doc_copy():
 
     cited = set()
     scanned_literals = 0
-    for f in sh("git", "ls-files", f"{SOURCE_ROOT}/*.swift").splitlines():
+    # DEDUPED, per sec.4c-xxxiv: `git ls-files` reports a conflicted path
+    # once per stage. `tracked_files()` fixed the unpathspec'd call; these
+    # two pathspec'd calls were not routed through it and stayed raw, so
+    # the widening reached the population it was measured on and not the
+    # class. sec.4c-xxiv's own ordering rule -- A DEFECT CLASS IS A
+    # PROPERTY OF A TECHNIQUE, SO ITS AUDIT IS SCOPED BY THE TECHNIQUE,
+    # NEVER BY THE DIFF -- and `sh("git","ls-files")` IS the technique.
+    # Silent here rather than wrong: `scanned_literals` is a COUNT and a
+    # tripled file inflates it, so the "found no literals at all" canary
+    # below could be satisfied by one file counted three times.
+    for f in _ls_files_deduped(f"{SOURCE_ROOT}/*.swift"):
         if not f:
             continue
         try:
@@ -1773,8 +1783,11 @@ def check_cited_doc_copy():
              "trusting a clear result")
         return
 
-    for doc in sh("git", "ls-files", "ios/reference/*.md",
-                  "docs/*.md").splitlines():
+    # Deduped, same reason. A tripled document is read three times and
+    # `warn` is called three times for one file -- the phantom count
+    # leaking into the finding, which is exactly what sec.4c-xxxii
+    # measured on `conflict-markers`.
+    for doc in _ls_files_deduped("ios/reference/*.md", "docs/*.md"):
         if not doc:
             continue
         stem = os.path.splitext(os.path.basename(doc))[0]
@@ -2025,6 +2038,20 @@ def check_manifest_line_counts():
              "and never resolve a manifest conflict by picking a side: each "
              "side is right about its own patch's file and stale about the "
              "other's, and both are plausible integers")
+
+
+def _ls_files_deduped(*pathspecs):
+    """`git ls-files <pathspecs>` as a set of FILES, not of index entries.
+
+    NOTE(Designer), 2026-09-07. sec.4c-xxxvi. The Tech Lead's
+    `tracked_files()` deduped the unpathspec'd call and the five checks
+    reading it; these pathspec'd calls were the same technique with a
+    different argument and stayed raw. One helper so the technique is ONE
+    object that can be audited once -- three private call sites make it
+    three, and the two written first are the ones nobody re-reads.
+    """
+    out = sh("git", "ls-files", *pathspecs)
+    return sorted({f for f in out.splitlines() if f})
 
 
 def tracked_files():
@@ -3788,8 +3815,40 @@ def main():
     # defect -- and this file's whole subject today is findings that reach
     # the reader through the wrong channel. So the namespace is checked
     # before any consumer of it can crash on it.
-    if (check_unmerged_index() or check_no_duplicate_defs()
-            or check_no_duplicate_sections()):
+    # sec.4c-xxxvi (Designer). The gate that FIRED must be the gate the
+    # refusal line NAMES. `or` short-circuits, so an unmerged index refuses
+    # here and the sentence below still reads `a duplicate \`def\` means
+    # later checks call the WRONG function` -- measured on landed `a803c0b`
+    # from a real two-side conflict in `PROCESS.md`, with the correct
+    # `unmerged-index` FAIL printed three lines above the wrong diagnosis.
+    # The FAIL rows are right and the summary they sit under is not, and
+    # the summary is the line a refused author reads first.
+    #
+    # This is sec.4c-xxxiii's ambiguity one level up: there the guard could
+    # not say WHICH edit, here the aggregate cannot say WHICH GATE. An
+    # author mid-merge is sent to audit a namespace that is fine, and the
+    # cheapest way to make the named cause go away is to touch something
+    # unrelated to the real one.
+    # Called DIRECTLY, not through a table of function objects. My first
+    # version built `[("unmerged-index", check_unmerged_index), ...]` and
+    # `check_remedies` immediately warned that three checks are "defined
+    # and declare remedies but main() never calls it" -- its reachability
+    # walk looks for `ast.Call` on an `ast.Name`, and a bare reference in a
+    # list is not a call. THE GUARD WAS RIGHT: a list of function objects
+    # that nothing iterates is a check that does not run, and it cannot
+    # tell my iterated table from that. Rewriting the walk to accept bare
+    # references would have widened it to accept the real defect, so the
+    # call sites stay literal and the ordering stays short-circuiting.
+    # Ledger's rule, on my own patch: the fix that satisfies a guard by
+    # loosening it is the one to refuse.
+    fired = []
+    if check_unmerged_index():
+        fired.append("unmerged-index")
+    elif check_no_duplicate_defs():
+        fired.append("duplicate-defs")
+    elif check_no_duplicate_sections():
+        fired.append("duplicate-sections")
+    if fired:
         # PRINT before returning. Caught by my own mutant: the first version
         # of this early exit returned 1 without reaching the reporting loop
         # at the bottom, so the collision refused the commit and printed
@@ -3798,10 +3857,20 @@ def main():
         # not a finding either.
         for check, msg, remedy in failures:
             print(f"FAIL  [{check}] {msg}\n      -> {remedy}")
-        print("\npreflight: refusing before any other check -- a duplicate "
-              "`def` means later checks call the WRONG function, so every "
-              "result below it would be about the wrong code. Commit "
-              "refused.")
+        why = {
+            "unmerged-index": "the index holds unmerged entries, so this "
+                              "tree is TWO VERSIONS AT ONCE and every count "
+                              "below would be a count of index entries",
+            "duplicate-defs": "a duplicate `def` means later checks call "
+                              "the WRONG function, so every result below it "
+                              "would be about the wrong code",
+            "duplicate-sections": "two sections claim one address, so every "
+                                  "cross-reference to that number is "
+                                  "ambiguous",
+        }
+        print("\npreflight: refusing before any other check -- "
+              + "; and ".join(why[n] for n in fired)
+              + ". Commit refused.")
         return 1
     check_pbxproj_registration()
     check_skeleton_drift()

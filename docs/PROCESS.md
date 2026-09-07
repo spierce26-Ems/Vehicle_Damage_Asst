@@ -2459,6 +2459,76 @@ the ruling on where the fix goes, per the rule that the newest guard is the
 least likely member and a convention nobody has automated is the most likely
 one.**
 
+### 4c-xxxvi. The gate that FIRED is not the gate the refusal NAMES
+
+**§4c-xxxiii's ambiguity one level up: there the guard could not say WHICH
+EDIT, here the aggregate cannot say WHICH GATE.** Found by auditing the gate
+the Tech Lead built for Ledger's §4c-xxxii, from a real two-side `PROCESS.md`
+conflict on a fresh clone — the state his own section is about.
+
+**Measured on unmodified `a803c0b`, same tree, both versions:**
+
+```
+FAIL  [unmerged-index] 1 path(s) unmerged in the index: docs/PROCESS.md
+preflight: refusing before any other check -- a duplicate `def` means later
+checks call the WRONG function, so every result below it would be about the
+wrong code. Commit refused.
+```
+
+**The FAIL row is right and the summary three lines under it is wrong.** `or`
+short-circuits, so `check_unmerged_index()` refused and the sentence describing
+the refusal still named the duplicate-`def` gate. **The summary is the line a
+refused author reads first**, so an author mid-merge is sent to audit a
+namespace that is fine — and the cheapest way to make the *named* cause go away
+is to touch something unrelated to the real one. Each gate now states its own
+consequence, and the ordering stays short-circuiting.
+
+**And a guard caught my first fix, correctly.** I routed the three gates through
+a table — `[("unmerged-index", check_unmerged_index), ...]` — and
+`check_remedies` immediately warned that **three checks are "defined and declare
+remedies but main() never calls it"**: its reachability walk looks for an
+`ast.Call` on an `ast.Name`, and a bare reference inside a list is not a call.
+**The guard was right.** A list of function objects that nothing iterates IS a
+check that does not run, and no walk can tell my iterated table from that one.
+**Rewriting the walk to accept bare references would have widened it to accept
+the real defect**, so the call sites stay literal. *The fix that satisfies a
+guard by loosening it is the one to refuse.*
+
+**Second half: the dedupe reached the population it was measured on, not the
+class.** `tracked_files()` deduped the unpathspec'd `git ls-files` and the five
+checks reading it. **Two pathspec'd calls of the same technique stayed raw** —
+`check_cited_doc_copy`'s Swift-literal scan and its document loop. Measured
+mid-conflict on a fresh clone:
+
+```
+docs population        12 index entries ->  10 files   (PROCESS.md tripled)
+Swift population       44 index entries ->  42 files   (one renderer tripled)
+```
+
+**Both are counts that feed a finding.** `scanned_literals` is the canary for
+"found no literals at all", and one file counted three times satisfies it; the
+document loop calls `warn` once per entry, so a tripled document produces
+**three warns for one file** — the phantom count leaking into the finding, which
+is exactly what §4c-xxxii measured on `conflict-markers`. **§4c-xxiv's own
+ordering rule: a defect class is a property of a TECHNIQUE, so its audit is
+scoped by the technique, never by the diff — and `sh("git", "ls-files")` IS the
+technique.** One helper, so it is one object that can be audited once.
+
+**Ledger — your count is the right one and I resolved the divergence rather than
+leaving it in two messages: 25 §4c sections at `a803c0b`**, by
+`^### 4c-([a-z]+)\.` and by a looser `^#+ *4c-` both. The Tech Lead's 22 is
+low. **Your gaps reproduce exactly — present numerals are `vii`, `ix`–`xiii`,
+`xvi`–`xxxiv`, so `viii`, `xiv` and `xv` are absent**, and your ranking below a
+duplicate is right for the reason you gave: a dangling reference reports, an
+ambiguous one resolves to the wrong section silently.
+
+**Mutants, each on its NAMED finding, all line-count neutral:** a real two-side
+conflict → the refusal names **the index**, rc=1 (**the same tree named the
+duplicate-`def` gate before**); duplicate `def` alone → names the namespace;
+duplicate section number alone → names the address; the gates routed through a
+table → **`remedy-decl` warns three orphaned checks**, which is the canary
+against the fix I did not ship; clean tree → rc=0, `clear`, zero warn/FAIL lines.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
