@@ -2073,6 +2073,73 @@ alongside the code, which is §4c-xx's subject arriving in a verification line
 rather than in a guard. **Quote the extractor with the count; an AST walk and a
 `grep` are two populations, and only one of them is the program.**
 
+### 4c-xxviii. A count is scoped by a POPULATION, and multiplicity was counted over one file
+
+**The multiplicity clause closes §4c-xxv member (a) and I audited it the way
+§4c-xxiv says to — against the population rather than the diff. It counts over
+`PDFReportGenerator` only.** Add the same locked literal to `ScarCaptureView`,
+line-count neutral: **`--strict` rc=0, zero warn/FAIL lines, `run.sh` 9/9, and
+two emitters of a string §2.3 emits from exactly one place.**
+
+**"Emitted from exactly one place" is a claim about the APP, and `flat` is one
+file — the file the renderer lives in *today*.** A per-file count answers the
+claim only for as long as nobody adds a second renderer, and this repository has
+already been bitten by a locked attestation string living as **six literals
+across two files**, where "the locked string is correct" was a claim about six
+places and a reviewer opened one.
+
+**The shape is §4c-xxiv one axis over: A COUNT WHOSE POPULATION IS NARROWER THAN
+ITS CLAIM IS THE SAME DEFECT AS A COUNT THAT SCOPES A RULE** — it withdraws
+coverage silently from whatever falls outside, and the newest additions are
+exactly what falls outside. §4c-xxiv said *audit every instrument of a
+technique*; this says *count over every member of the population*. **Both are
+the same question: what is this figure's population, and does it match the
+population the claim is about?**
+
+Fixed by counting over `tracked_swift()` through the shared `swift_code_only`,
+so a duplicate in any tracked Swift file is a finding. **Five mutants, each
+graded on its NAMED finding, all line-count neutral:** cross-file duplicate →
+`variant-binding` blocking naming the tree-wide count, rc=1 (**was rc=0, zero
+findings**); the count reverted to per-file with the mutant kept → **no finding
+at all**, the canary; the Designer's same-file duplicate → still caught, so the
+widening lost nothing; the same literal in a COMMENT in another file → **does
+not fire**, because the population is code (§4c-xx through §4c-xxiii would be
+undone by counting commentary); no-op → clear, rc=0.
+
+### 4c-xxix. Ledger's §4c-xxvii closed: the locator moves to the artefact §4.1 owns
+
+**Ledger's finding reproduced on the stacked tree before I touched it: reword
+`emit this instead` to `use the following wording` and regress the condition to
+v1, line-count neutral — `--strict` rc=0, zero warn/FAIL lines.** Four words of
+ordinary editorial prose, and the guard stops looking. **§4.1 locks the variants
+and now the condition; nothing locked the sentence that INTRODUCES them, so the
+guard was guarded content behind an unguarded address — and a rewrite for
+readability, the most ordinary edit a document takes, is indistinguishable from
+an attack on the guard.**
+
+**Anchored on the `<!-- CONDITION: -->` declaration instead**, which is the
+machine-readable line, is owned by §4.1, and cannot be touched by a copy edit.
+The declaration is now **both the anchor and excluded from the judged window** —
+it carries the correct expression and previously immunised this very check
+against the defect it declares, so the two roles have to be kept apart
+deliberately. A missing declaration is still REPORTED by the population arm
+above, so the loop cannot silently find nothing.
+
+**Five mutants, graded on named findings, all line-count neutral:** locator
+reworded + condition regressed → `variant-condition` names the superseded
+instruction, rc=4 (**was nothing**); the locator reverted to the prose literal
+with the mutant kept → **no finding**, the canary; condition regressed with the
+locator untouched → still named, so §4c-xxi is unbroken; the declaration
+deleted → the population arm reports it rather than passing; no-op → clear,
+rc=0.
+
+**Ledger's general form is the one to keep, and it covers all nine hardenings
+today — presence, comment-blindness, adjacency, ordering, consumer,
+multiplicity, population, module namespace, locator: EVERY ONE HARDENED WHAT A
+GUARD READS OR WHERE IT LIVES; NONE ASKED HOW IT FINDS WHAT IT READS. A LOCATOR
+IS PART OF A GUARD'S CONTRACT AND HAS TO BE AS LOCKED AS THE CONTENT IT
+LOCATES.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

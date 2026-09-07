@@ -863,8 +863,35 @@ def check_locked_variant_conditions():
         # as the trigger, rather than as the form that was replaced.
         if key != "allclear.partial":
             continue
+        # sec.4c-xxvii (Ledger's finding; remedy mine). The window used to be
+        # located by searching for the literal `emit this instead` -- four
+        # words of ORDINARY EDITORIAL PROSE. Reword them for readability and
+        # the guard stops looking, silently: measured line-count neutral,
+        # condition regressed to v1 with `emit this instead` changed to `use
+        # the following wording`, `--strict` was rc=0 with zero warn/FAIL
+        # lines. sec.4.1 locks the variants and the condition; nothing locked
+        # the sentence that INTRODUCES them, so this was GUARDED CONTENT
+        # BEHIND AN UNGUARDED ADDRESS -- and a rewrite for readability, the
+        # most ordinary edit a document takes, is indistinguishable from an
+        # attack on the guard.
+        #
+        # Anchor on the `<!-- CONDITION: -->` DECLARATION instead: it is the
+        # machine-readable line, sec.4.1 owns it, and editing it is already a
+        # deliberate act rather than a copy edit. The declaration must be
+        # BOTH the anchor and excluded from the judged window -- it carries
+        # the correct expression, and it previously immunised this very check
+        # against the defect it declares. Missing entirely is REPORTED by the
+        # `variant_count and not declared` arm above, so this loop cannot
+        # silently find nothing.
+        #
+        # The general form, and it covers every hardening today -- presence,
+        # comment-blindness, adjacency, ordering, consumer, multiplicity,
+        # population, module namespace: EVERY ONE HARDENED WHAT A GUARD
+        # READS OR WHERE IT LIVES; NONE ASKED HOW IT FINDS WHAT IT READS. A
+        # LOCATOR IS PART OF A GUARD'S CONTRACT AND HAS TO BE AS LOCKED AS
+        # THE CONTENT IT LOCATES.
         for i, l in enumerate(lines):
-            if not re.search(r"emit this instead", l):
+            if not re.search(r"<!--\s*CONDITION:\s*" + re.escape(key), l):
                 continue
             # The DECLARATION must be stripped from the window before the
             # prose is judged. Caught by mutation, not by reading: with the
@@ -884,8 +911,11 @@ def check_locked_variant_conditions():
             # expression, so it vouched for a v1 instruction on the same
             # line. Strip the comment CONTENT: a declaration must never be
             # able to vouch for the prose beside it, wherever it sits.
+            # Forward from the declaration, which now anchors rather than
+            # trails the window; `<!-- ... -->` content is still stripped so
+            # the anchor cannot vouch for the prose it introduces.
             window = re.sub(r"<!--.*?-->", " ",
-                            " ".join(lines[max(0, i - 6):i + 1]),
+                            " ".join(lines[i:i + 8]),
                             flags=re.S)
             if "motionMeasurable == false" in window and want not in window:
                 # remedy: fixes
@@ -1037,15 +1067,42 @@ def check_variant_output_binding():
     # This closes duplication only. An early `return` before the draw --
     # member (b) -- has every asserted token present and none of it running,
     # and no counting reaches that: it needs sec.4's renderer.
+    # sec.4c-xxvii (Tech Lead). Count over the TREE, not over one file.
+    # The clause above reads `flat`, which is PDFReportGenerator only -- the
+    # file the section's renderer lives in today. Measured line-count
+    # neutral: the same locked literal added to `ScarCaptureView` leaves
+    # `--strict` at rc=0 with zero warn/FAIL lines and `run.sh` 9/9, because
+    # the count is scoped to the file the check was written against rather
+    # than to the population the claim is about. "Emitted from exactly one
+    # place" is a claim about the APP; a per-file count answers it only for
+    # as long as nobody adds a second renderer, and this repository has
+    # already been bitten by a locked string living as six literals across
+    # two files.
+    #
+    # A COUNT IS SCOPED BY A POPULATION, AND A COUNT WHOSE POPULATION IS
+    # NARROWER THAN ITS CLAIM IS THE SAME DEFECT AS A COUNT THAT SCOPES A
+    # RULE -- it withdraws coverage silently from whatever falls outside.
+    # sec.4c-xxiv's rule, one axis over: that one said audit every
+    # instrument of a technique, this one says count over every member of
+    # the population.
+    tree_all = flat
+    for f in tracked_swift():
+        if os.path.abspath(os.path.join(REPO, f)) == os.path.abspath(gen):
+            continue
+        try:
+            tree_all += " " + " ".join(swift_code_only(
+                open(os.path.join(REPO, f), encoding="utf-8").read()).split())
+        except OSError:
+            continue
     for label, variant in (("qualified", qualified),
                            ("plain", " ".join(variants[0].split()))):
-        n = flat.count(variant)
+        n = tree_all.count(variant)
         if n > 1:
             # remedy: fixes
             fail("variant-binding",
-                 f"sec.2.3's {label} all-clear literal appears {n} times in "
-                 f"PDFReportGenerator.swift; it is emitted from exactly one "
-                 f"place, the ternary arm",
+                 f"sec.2.3's {label} all-clear literal appears {n} times "
+                 f"in the tracked Swift tree; it is emitted from exactly "
+                 f"one place, the ternary arm in PDFReportGenerator.swift",
                  "a second copy is a second emission the lock never "
                  "authorised: the ternary still selects correctly, every "
                  "anchor and the consumer seq still resolve, and the page "
