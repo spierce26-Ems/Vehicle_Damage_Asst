@@ -462,7 +462,9 @@ another spec is not evidence.
 | §0 property consumed by the report filter | `PDFReportGenerator.drawCaptureConditions` |
 | §0 load-bearing `photoType: .paintTransfer` NOTE | `ScarCaptureView.performCapture` |
 | §1.2 analysis band, from a local constant | `ScarCaptureView.topInstruction` |
+| §1.2 both band variants, from `isAnalysisShot` | `CaptureCameraView.analysisShotBand` |
 | §1.3 arm-time attestation, once per session | `ScarCaptureView.readyButton` |
+| §1.3 same, analysis shots only, once per session | `CaptureCameraView.readyButton` |
 | §1.4 review badge on `== false` only | `PhotoReviewView.thumbnail` |
 | §2.1 fill gate `isCloseEnough` + `framingMessage` | `ScarCaptureCameraService` |
 | §2.2 sharpness folded into `isFocused` | `ScarCaptureCameraService.recomputeFocusGate` |
@@ -472,9 +474,55 @@ another spec is not evidence.
 | Appendix §2 per-photo notes | `PDFReportGenerator.drawCaptureConditions` |
 | Appendix §2.4 cross-reference | `drawFactorBreakdown` (section-level, see below) |
 
-### Not built, found by reading the tree after the fact
+### The protocol camera's §1.2/§1.3 gap — closed 2026-09-07, second commit
 
-**§1.2's per-shot band does not exist on the 30-shot camera.** This is the
+**Current state: `CaptureCameraView` now carries both band variants and the
+arm-time attestation.** `PhotoReviewView`'s badge needed no change — it keys on
+`frameConfirmedClear == false`, which protocol-camera analysis shots can now
+actually carry, so §1.4 covers this surface by construction the moment the
+attestation writes.
+
+One thing this diff deliberately does **not** wire, and it is a finding rather
+than an omission: **`gateOverridden` stays unwritten on this camera.** Its
+locked note reads "captured manually while the app's sharpness and framing
+checks were not met" — and this camera runs Steady / lens-settled / Even
+Lighting, with no sharpness statistic and no fill gate at all. Writing `true`
+here would put a sentence in an evidence appendix naming two checks that never
+ran on that photograph. Failure direction decides it: `true` is a **wrong**
+claim, absent is a **missing** one. Re-enabled by whichever diff brings those
+terms to this camera, or by per-camera wording in the lock — Ledger's call.
+
+**And the attestation's arrival falsifies an inference the appendix draws.**
+`docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §1.1 reasons that
+`frameConfirmedClear != nil` means "this photo postdates the sharpness field",
+which is why the unmeasured-sharpness note is guarded on
+`sharpnessScore == nil && frameConfirmedClear != nil`. That held while the
+attestation existed only on the scar screen, which measures sharpness. A
+protocol-camera analysis shot now lands at `frameConfirmedClear != nil` **with
+`sharpnessScore == nil` permanently**, so every such photo emits "Sharpness was
+not measured for this photograph" — true, but on every analysis shot of every
+case rather than on the exceptional one. Ledger's row five was a rarity note;
+on this surface it becomes furniture. Recorded, not reworded: it is his copy.
+
+**Verified with a real Swift frontend, which is new for this project.** A
+swift.org 5.10.1 Linux tarball at `~/toolchains/swift` clears
+`preflight.py`'s `swift-parse` advisory outright: **0 advisories whole-tree,
+all 42 Swift files actually parsed** rather than reported as unparsed. Beyond
+that, the new attestation state machine was reduced to a no-SwiftUI shape,
+compiled, and **executed** against eight `precondition`s — unasked records
+`nil`, the first tap on an analysis shot asks without arming, the second arms
+and records `true`, a later shot in the same session does not re-ask, a
+reference shot arms on the first tap and records `nil`, an attestation does not
+leak onto a reference shot, `gateOverridden` stays `false`, and a completed
+protocol is not an analysis shot. All hold. **Three mutations of the shape each
+failed on a different one**, which is what makes the set evidence rather than
+decoration. It is still not a build: no iOS SDK, and nothing here type-checks
+a SwiftUI `body`.
+
+*Below this line is history, correct when written and superseded by the
+paragraphs above.*
+
+**§1.2's per-shot band did not exist on the 30-shot camera.** This is the
 divergence the reconciliation caught that nobody flagged in review, and it is
 the one worth reading closely.
 
@@ -497,7 +545,7 @@ arm-time attestation and §1.4's review badge have the same gap — both are
 wired on the scar path only, so a 30-shot analysis photo is never asked about
 and can never carry `frameConfirmedClear == false`.
 
-Recorded here rather than fixed, because it is a second screen's worth of work
+Recorded rather than fixed at the time, because it is a second screen's worth of work
 and belongs in its own diff. **It is not a partial implementation of §1.2 — it
 is §1.2 unbuilt on the surface §1.2 was written for.**
 

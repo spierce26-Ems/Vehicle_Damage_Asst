@@ -1689,6 +1689,30 @@ consequence from the source, not from their statement of it** — especially
 when your commit makes it normative, because a rule is read by people who will
 never see the message it came from.
 
+**The Swift frontend advisory is available to clear, not only to report — and
+executing a reduced shape beats typechecking one.** `preflight.py`'s
+`swift-parse` advisory names the exact paths it searches, including
+`~/toolchains/swift`. A swift.org Linux tarball needs no iOS SDK, installs in a
+few minutes, and takes the whole-tree run from "1 advisory, 42 files NOT
+parsed" to **0 advisories with all 42 actually parsed**. Every `NOT COMPILED`
+handover today reported that advisory rather than removing it. Parsing is still
+not a build — no iOS SDK, no type-check of a SwiftUI `body` — but "no frontend
+found" is a fixable environment gap, not a property of the sandbox, and a check
+that reports itself unavailable is worth less than the twenty minutes it costs
+to make it run.
+
+With a toolchain present, Vector's reduced-shape method extends one step:
+**compile the shape AND run it, with `precondition`s for the behaviour the real
+code must have.** A typecheck proves the shapes are legal; executing an
+assertion set proves the state machine transitions the way the spec says. Its
+discriminating half is unchanged and non-negotiable — **mutate the shape and
+confirm each assertion FAILS.** Three mutations of the Item 2 attestation shape
+(dropping the analysis-shot guard on the record, dropping it on the ask,
+defaulting the tri-state to `false`) each failed on a different precondition;
+had any passed, the assertion set would have been decorative. The limit is the
+same as before: a reduced shape says nothing about the file it was reduced
+from.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.

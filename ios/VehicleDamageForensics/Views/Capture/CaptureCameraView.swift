@@ -80,6 +80,46 @@ struct CaptureCameraView: View {
     @State private var lastGatedShotType: PhotoType?
     @State private var justAutoCapture = false
 
+    // NOTE(Designer), 2026-09 (Item 2 sec.1.3 on the 30-shot camera).
+    // The arm-time attestation, mirroring `ScarCaptureView`'s pair of
+    // the same two `@State` vars and deliberately NOT sharing them:
+    // that screen is unconditionally an analysis surface, this one asks
+    // only on analysis shots, so the conditions differ even though the
+    // interaction is identical.
+    //
+    // `didAskFrameClear` is per camera SESSION, not per shot -- one
+    // confirmation per visit to this screen, per the spec, or it becomes
+    // a mash-through and the attestation stops meaning anything.
+    // `pendingFrameClear` is the tri-state answer and stays `nil` until
+    // the question is actually answered: `nil` is "never asked", which
+    // is the whole reason `CapturedPhoto.frameConfirmedClear` is `Bool?`
+    // -- see that field's doc comment.
+    @State private var didAskFrameClear = false
+    @State private var pendingFrameClear: Bool?
+
+    /// Whether the shot the protocol is currently asking for has its
+    /// pixels read by the analysis engine. Drives the sec.1.2 band's
+    /// variant and whether the sec.1.3 attestation is asked at all.
+    ///
+    /// This reads `PhotoType.isAnalysisShot` -- unlike `ScarCaptureView`,
+    /// which uses a local constant on purpose. This is the surface the
+    /// property exists for: here the shot type genuinely varies shot to
+    /// shot, and the exhaustive `switch` behind the property is what
+    /// makes a future `PhotoType` case fail to compile rather than
+    /// silently opt out of the guidance.
+    /// Observability, per `docs/PROCESS.md` §4c's rule on computed
+    /// properties: this is read from `body`, so its input chain has to be
+    /// published or the band silently will not refresh when the protocol
+    /// advances. It is. `viewModel.nextShotType` is computed from
+    /// `currentShotIndex`, which derives from `@Published forensicCase`'s
+    /// photo/skip lists -- the same chain the existing
+    /// `.onChange(of: viewModel.nextShotType)` above already depends on,
+    /// so the band and the lighting-gate re-derivation refresh together.
+    /// Nothing here reads an unpublished camera property.
+    private var currentShotIsAnalysis: Bool {
+        viewModel.nextShotType?.isAnalysisShot ?? false
+    }
+
     var body: some View {
         ZStack {
             CameraPreviewView(cameraService: camera)
@@ -173,6 +213,18 @@ struct CaptureCameraView: View {
                     .background(.black.opacity(0.5), in: Capsule())
                     .foregroundStyle(.white)
                     .padding(.bottom, 16)
+
+                // NOTE(Designer), 2026-09 (Item 2 sec.1.2). Directly
+                // under the instruction text, per the spec, and above
+                // the shutter row so it is in the same glance as the
+                // control it qualifies. Suppressed once the protocol is
+                // complete: with no next shot there is no shot type to
+                // describe, and the reference variant would assert
+                // "keep the tape measure in frame" about nothing.
+                if viewModel.nextShotType != nil {
+                    analysisShotBand
+                        .padding(.bottom, 16)
+                }
 
                 // NOTE(AI Developer), added 2026-07 per Sean's request
                 // ("we also should have the ability to upload images from
@@ -312,15 +364,72 @@ struct CaptureCameraView: View {
     /// deliberate "start the timer" action, not another capture button.
     private var readyButton: some View {
         Button {
+            // NOTE(Designer), 2026-09 (Item 2 sec.1.3). Analysis shots
+            // only: on the first tap of Ready in this camera session the
+            // label swaps for one beat and asks the attestation; the
+            // second tap arms as normal, and later shots in the same
+            // session skip the question. A reference shot arms on the
+            // first tap exactly as before -- asking "tape measure out of
+            // frame?" on the height-reference shot would be telling the
+            // user to remove the evidence that shot exists to capture.
+            if currentShotIsAnalysis && !didAskFrameClear {
+                didAskFrameClear = true
+                return
+            }
+            // Answering is what makes this `true`; an unasked question
+            // stays `nil`. A reference shot never reaches the branch
+            // above, so its captures record `nil` -- correct, because
+            // nobody was asked.
+            if didAskFrameClear && pendingFrameClear == nil {
+                pendingFrameClear = true
+            }
             camera.armAutoCapture()
         } label: {
-            Label("Ready", systemImage: "checkmark.circle.fill")
+            Label(isAskingFrameClear ? "Tape measure out of frame?" : "Ready",
+                  systemImage: "checkmark.circle.fill")
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .background(Color.blue, in: Capsule())
                 .foregroundStyle(.white)
         }
+    }
+
+    /// True for the one beat where the Ready button is carrying the
+    /// attestation question rather than its own label.
+    private var isAskingFrameClear: Bool {
+        didAskFrameClear && pendingFrameClear == nil
+    }
+
+    /// NOTE(Designer), 2026-09 (Item 2 sec.1.2). Two variants, and the
+    /// reference variant is not decoration: told "no rulers" as a blanket
+    /// rule, a user drops the height-reference shot and the case loses
+    /// scale entirely. The band's job is to say which KIND of shot this
+    /// is, every shot, all day -- the same two strings deliberately, so
+    /// it becomes furniture the user stops reading and starts obeying.
+    ///
+    /// Styling matches the `statusMessage` capsule above it rather than
+    /// introducing a new treatment: same `.black.opacity` ground, no
+    /// colour, no icon beyond the emoji in the locked string. It is not a
+    /// warning -- nothing has gone wrong -- and an alarm colour on a
+    /// permanent element is a colour the user stops seeing.
+    ///
+    /// Copy is verbatim from `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md`'s
+    /// lock (`band.analysis` / `band.reference`); do not reword here.
+    @ViewBuilder
+    private var analysisShotBand: some View {
+        Text(currentShotIsAnalysis
+                ? "🔬 Analysis shot — damaged paint only. Move the tape measure out of frame."
+                : "📏 Measurement shot — keep the tape measure in frame.")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.center)
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
 
     /// NOTE(AI Developer), added 2026-07 for guided auto-capture, same
@@ -482,10 +591,35 @@ struct CaptureCameraView: View {
         } else {
             step = matchingSteps.last ?? CaptureProtocolStep.fullProtocol[0]
         }
+        // NOTE(Designer), 2026-09 (Item 2 sec.1.3). The attestation is
+        // recorded only for analysis shots. A reference shot passes
+        // `nil` -- "never asked" -- which is truthful and is why the
+        // field is `Bool?`: a blanket `false` would write "the examiner
+        // declined to confirm" about a question nobody put to them.
+        //
+        // `gateOverridden` is DELIBERATELY NOT WRITTEN here, and the
+        // reason is a finding rather than an omission. This camera runs
+        // Steady / lens-settled / Even Lighting; it has no sharpness
+        // statistic and no fill-ratio gate (see `CameraService`'s gate
+        // list and Sean's "we can distance gate later if needed"). The
+        // locked note for `gateOverridden == true` reads "captured
+        // manually while the app's sharpness and framing checks were not
+        // met" -- so writing `true` from this screen would put a sentence
+        // in an evidence appendix naming two checks that never ran on
+        // this photograph.
+        //
+        // Failure direction decides it: recording `true` yields a WRONG
+        // claim, recording nothing yields a MISSING one. A manual tap
+        // over a failing steady/lighting gate here goes unnoted, and
+        // that is the lesser harm. It is re-enabled by whichever diff
+        // brings the sharpness and fill terms to this camera, or by a
+        // per-camera wording in the lock -- Ledger's call, not mine.
+        let attestation: Bool? = nextType.isAnalysisShot ? pendingFrameClear : nil
         do {
             let photo = try await camera.capturePhoto(
                 forStep: step,
-                sequenceIndex: viewModel.currentShotIndex + 1
+                sequenceIndex: viewModel.currentShotIndex + 1,
+                frameConfirmedClear: attestation
             )
             // NOTE(AI Developer), fixed 2026-07 per Sean's on-device
             // report ("terminated due to using too much memory", Xcode

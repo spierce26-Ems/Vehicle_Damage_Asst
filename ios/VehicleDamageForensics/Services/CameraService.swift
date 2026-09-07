@@ -544,9 +544,28 @@ final class CameraService: NSObject, ObservableObject {
 
     // MARK: - Photo Capture
 
+    /// NOTE(Designer), 2026-09 (Item 2 sec.1.3/sec.2.4 on the 30-shot
+    /// camera). `frameConfirmedClear` and `gateOverridden` are passed IN
+    /// rather than derived here, because both are facts about the user
+    /// interaction that produced this capture and this service cannot see
+    /// either: whether the arm-time attestation was asked and answered
+    /// lives in `CaptureCameraView`, and whether the shutter was tapped
+    /// with a gate failing is known at the tap, not at the encode.
+    ///
+    /// Both default to the honest value for a caller that does not pass
+    /// them -- `nil` ("never asked") and `false` ("no gate was
+    /// overridden") -- so an existing call site keeps recording exactly
+    /// what it knows. `sharpnessScore` is deliberately NOT a parameter:
+    /// this camera measures no sharpness statistic (see the gate list at
+    /// the top of this file), and `nil` is the field's "not measured".
+    /// Passing `0.0` or a gate-derived stand-in would be the defect
+    /// Vector found in `QualityFlags` one level up -- a gate may say
+    /// "not yet"; a recorded finding may only say what was measured.
     func capturePhoto(
         forStep step: CaptureProtocolStep,
-        sequenceIndex: Int
+        sequenceIndex: Int,
+        frameConfirmedClear: Bool? = nil,
+        gateOverridden: Bool = false
     ) async throws -> CapturedPhoto {
         guard session.isRunning else { throw CameraError.sessionNotRunning }
         captureState = .capturing
@@ -574,7 +593,9 @@ final class CameraService: NSObject, ObservableObject {
             gpsCoordinate: gps,
             cameraSettings: CameraSettings(),
             sequenceIndex: sequenceIndex,
-            annotationNotes: step.instruction
+            annotationNotes: step.instruction,
+            frameConfirmedClear: frameConfirmedClear,
+            gateOverridden: gateOverridden
         )
 
         // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report

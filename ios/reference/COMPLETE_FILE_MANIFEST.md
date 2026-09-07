@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 75 tracked files, of which 42 Swift sources (21096 lines).
+Totals: 75 tracked files, of which 42 Swift sources (21251 lines).
 
 ## iOS app — Xcode project
 
@@ -48,7 +48,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift` | 534 |
+| `ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift` | 668 |
 | `ios/VehicleDamageForensics/Views/Capture/CaptureFlowView.swift` | 423 |
 | `ios/VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift` | 537 |
 | `ios/VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift` | 212 |
@@ -67,7 +67,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Services/CameraService.swift` | 1000 |
+| `ios/VehicleDamageForensics/Services/CameraService.swift` | 1021 |
 | `ios/VehicleDamageForensics/Services/HeadingProvider.swift` | 60 |
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
 | `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1387 |
@@ -117,11 +117,11 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | File | Lines |
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 803 |
-| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 597 |
-| `docs/PROCESS.md` | 1715 |
+| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 645 |
+| `docs/PROCESS.md` | 1739 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
-| `ios/README.md` | 1911 |
+| `ios/README.md` | 1913 |
 
 ## Reference material (`ios/reference/`)
 
