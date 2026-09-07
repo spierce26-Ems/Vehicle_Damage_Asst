@@ -669,6 +669,7 @@ editor "restoring" wording that was deliberately changed.
 | 2026-09-07 | `confirm.arm` | Tape measure out of frame? *(single control; second tap = yes)* | Tape measure out of frame? *(text unchanged; now a question with two answers)* | **No text change — recorded because the string's MEANING changed without a diff.** As a single Ready control the question's only answer was a second tap, so it read as a prompt to proceed. It is now a genuine question, and its answers are `confirm.yes`/`confirm.no`. **A ledger whose trigger is "the characters changed" would not have caught this**, and the next editor comparing the two revisions sees nothing. |
 | 2026-09-07 | `confirm.yes` | *(new)* | Yes — clear | Added with the decline affordance. Names the FRAME's state, not the examiner's diligence, which is what keeps §2.2 row two an attestation rather than a claim about a person (§3). Symmetrical with `confirm.no` by requirement, not by style. |
 | 2026-09-07 | `confirm.no` | *(new)* | No — not clear | Added with the decline affordance; it is what makes row two and §1.4's badge reachable at all. Must not drift toward "skip"/"later"/"not sure" — each turns a recorded decline into a deferral, and deferral is `nil`'s meaning, which must stay unreachable from a button. Must not acquire a warning adjective or the word "anyway": §4.2's argument applies unchanged — an answer that reads as a confession is an answer nobody gives twice. |
+| 2026-09-07 | `confirm.no` | *(text unchanged)* | *(text unchanged; presentation corrected)* | **No text change — recorded because the string's PRESENTATION violated its own lock entry.** It shipped with an `exclamationmark.circle` and a dimmed capsule against `confirm.yes` on a blue primary one, passing this lock byte-for-byte while breaking the symmetry constraint above. **A warning glyph is a warning adjective the lock cannot see.** Corrected to identical styling with no icon on either, held by one shared label builder per screen. Recorded here because a ledger triggered only by changed characters would not have caught it — the same gap as `confirm.arm`'s row, pointed at presentation instead of meaning. |
 
 The current value of `review.flag` is therefore **"Analysis photo — examiner
 did not confirm the frame was clear"**, and the §2.2 note wording for
@@ -741,6 +742,32 @@ constrain the data behind them:**
   wording, and for the identical reason: **the affordance's honesty is what
   makes the recorded value worth anything.** `confirm.no` is not a
   confession.
+- **And the symmetry constraint binds every channel, not only the words —
+  `confirm.no` must not be marked as the adverse choice in ANY of wording,
+  icon, colour, weight, or order.** This is not a hypothetical extension:
+  the answers first shipped with an `exclamationmark.circle` on the decline
+  and a dimmed capsule against a blue primary one, **passing this lock
+  byte-for-byte while breaking the rule it exists to enforce.** An
+  exclamation mark says *"you are about to do something wrong"* in a channel
+  no string comparison covers, and the button hierarchy says it again in
+  layout. **A warning glyph is a warning adjective the copy lock cannot
+  see.** Corrected to identical typography, padding, capsule and weight with
+  **no icon on either** — deliberately not a matched pair, because any mark
+  on the adverse option reads as severity and a checkmark on the favourable
+  one alone restores the hierarchy. **Held structurally by one shared label
+  builder per screen**, not two call sites that currently agree: two
+  independent builders drift the moment someone restyles one, the same
+  single-source reasoning that made `captureNotes(for:)` the only source of
+  the note conditions.
+
+  **Why it passed four readers is this lock's own subject: the strings were
+  the unit of review, so a channel outside the strings was outside the
+  review.** The general form is in `docs/PROCESS.md` §5b — when copy carries
+  attribution, neutrality or symmetry, check the icon, colour, weight and
+  order against the same constraint, because a lock that inspects strings
+  cannot see one hop away. **Same route as §4.0's cited-document rule**,
+  which exists because the report pointed at banned language rather than
+  containing it.
 - **Neither answer may imply the capture is blocked.** Both proceed. Wording
   that suggests otherwise costs a photograph, and §4.2's argument applies
   unchanged: a flagged photograph in the file beats a missing one.

@@ -2234,23 +2234,33 @@ displayed. (Found on a run whose verdict I first
 read through a pipe, and so first read as passing — the pipe-masking failure
 recorded above, hit in the course of using the rule that names it.)
 
-**A copy lock covers words; a UI asserts in channels a lock cannot see.** The
-attestation's two answers passed the lock byte-for-byte and still broke the
-rule the lock exists to enforce: the decline shipped with an
-`exclamationmark.circle` and a dimmed capsule opposite a blue primary one, so
-**an exclamation mark and a colour said what the words were written not to
-say.** No diff of the strings shows it, and no reviewer comparing text against
-the inventory would catch it.
+**A copy constraint that says "neutral", "symmetrical" or "not a fault" is
+not a constraint on characters, so a string comparison cannot enforce it.**
+The two attestation answers passed their lock entry byte-for-byte while
+shipping an `exclamationmark.circle` on the decline and a dimmed capsule
+against a blue primary one — **a warning glyph is a warning adjective the copy
+lock cannot see**, and the button hierarchy said the same thing again in
+layout. The wording was written precisely to keep the decline from reading as
+a confession, because an answer that reads as an admission is one nobody gives
+twice, and that loses the finding instead of recording it.
 
-So when copy carries a constraint — attribution, neutrality, symmetry — **check
-the icon, the colour, the weight, and the order against the same constraint**,
-because each is a channel that can carry the adjective the words omit.
-Concretely for a symmetric pair: identical typography and no glyph on either,
-rather than a matched pair of glyphs, since any mark on the adverse option
-reads as severity and a mark on only the favourable one restores the
-hierarchy. And hold the symmetry **structurally** — one shared label builder,
-not two call sites that currently agree, for the same reason
-`captureNotes(for:)` is the single source of the note conditions.
+**So when copy carries attribution, neutrality or symmetry, check the icon,
+colour, weight and order against the same constraint.** It survived four
+readers for this section's own reason: **the strings were the unit of review,
+so a channel outside the strings was outside the review** — the same route as
+§4.0's cited-document rule, where the report contained no banned language and
+merely pointed at it. A lock that inspects strings cannot see one hop away,
+whether that hop is a citation or a glyph.
+
+**Two mechanical notes worth keeping.** The repair is **no icon on either
+answer** rather than a matched pair, because any mark on the adverse option
+reads as severity and a mark on the favourable one alone restores the
+hierarchy — neutrality is not achieved by balancing two signals. And the
+symmetry is held by **one shared label builder per screen**, not two call
+sites that currently agree: two independent builders drift the moment someone
+restyles one, which is the single-source reasoning that made
+`captureNotes(for:)` the only source of the note conditions and
+`captureConditionPhotos(in:)` the only traversal.
 
 **Verified in the tree, and the argument does not stop where it was applied:
 there is one builder per SCREEN and their bodies are byte-identical across the
