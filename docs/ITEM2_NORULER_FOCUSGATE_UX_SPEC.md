@@ -504,6 +504,17 @@ not measured for this photograph" — true, but on every analysis shot of every
 case rather than on the exceptional one. Ledger's row five was a rarity note;
 on this surface it becomes furniture. Recorded, not reworded: it is his copy.
 
+**Resolved 2026-09-07, and the resolution is not a rewording — the guard was a
+proxy and the copy was never the problem.** `frameConfirmedClear != nil` was
+standing in for *"this photograph came from a path that measures sharpness"*,
+true only because one screen did both jobs. The row now reads
+`sharpnessScore == nil && sharpnessMeasurable`, a stored `Bool` set by the
+capture path itself: this camera leaves it `false` because it measures nothing,
+the scar screen sets it `true` because it does, and it decodes `false` for
+pre-field photographs. **The wording keeps its rarity and Ledger's copy is
+untouched** — no copy edit could have fixed a predicate reading the wrong
+field. See PROCESS.md §4c on proxies.
+
 **Verified with a real Swift frontend, which is new for this project.** A
 swift.org 5.10.1 Linux tarball at `~/toolchains/swift` clears
 `preflight.py`'s `swift-parse` advisory outright: **0 advisories whole-tree,

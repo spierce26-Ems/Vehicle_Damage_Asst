@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 75 tracked files, of which 42 Swift sources (21251 lines).
+Totals: 75 tracked files, of which 42 Swift sources (21310 lines).
 
 ## iOS app — Xcode project
 
@@ -30,7 +30,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 694 |
+| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 730 |
 | `ios/VehicleDamageForensics/Models/Case.swift` | 851 |
 | `ios/VehicleDamageForensics/Models/MatchResult.swift` | 709 |
 | `ios/VehicleDamageForensics/Models/PaintSampleKit.swift` | 140 |
@@ -53,7 +53,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift` | 537 |
 | `ios/VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift` | 212 |
 | `ios/VehicleDamageForensics/Views/Capture/PhotoReviewView.swift` | 359 |
-| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1538 |
+| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1545 |
 | `ios/VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift` | 189 |
 | `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift` | 596 |
 | `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift` | 319 |
@@ -70,7 +70,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Services/CameraService.swift` | 1021 |
 | `ios/VehicleDamageForensics/Services/HeadingProvider.swift` | 60 |
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
-| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1387 |
+| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1403 |
 | `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
 | `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 638 |
 | `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
@@ -116,9 +116,9 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 803 |
-| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 645 |
-| `docs/PROCESS.md` | 1769 |
+| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 830 |
+| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 656 |
+| `docs/PROCESS.md` | 1791 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1913 |

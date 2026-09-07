@@ -685,7 +685,14 @@ struct ScarCaptureView: View {
                 // is nil until the arm-time confirmation runs.
                 frameConfirmedClear: pendingFrameClear,
                 gateOverridden: overridden,
-                sharpnessScore: camera.sharpnessScore
+                sharpnessScore: camera.sharpnessScore,
+                // This screen MEASURES sharpness, so a `nil`
+                // `sharpnessScore` here genuinely means the measurement was
+                // attempted and unavailable -- which is what the appendix's
+                // fifth note reports. Stated rather than inferred from
+                // `frameConfirmedClear`, which the 30-shot camera now also
+                // sets without measuring anything.
+                sharpnessMeasurable: true
             )
             camera.resetAutoCaptureStreak()
             camera.stopSession()

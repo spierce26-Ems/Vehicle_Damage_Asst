@@ -48,7 +48,7 @@ when any of:
 | `gateOverridden == true` | captured with the sharpness/framing gate failing, via the manual shutter |
 | `frameConfirmedClear == false` | the examiner was asked and did not attest the frame was free of a ruler or foreign object |
 | `qualityFlags.isBlurry` or `.isTooFar` | set at capture time from the MEASURED sharpness and fill terms — not from the gate booleans; see the spec's §2.4 correction, and §1.1 below for why the distinction is this table's problem too |
-| `sharpnessScore == nil && frameConfirmedClear != nil` | sharpness was not measured for this photo (see §1.1 for why the second clause) |
+| `sharpnessScore == nil && sharpnessMeasurable` | sharpness was not measured for this photo (see §1.1 — the second clause was `frameConfirmedClear != nil` and that was a proxy) |
 
 Reference/measurement shots get **no** note for any of these. A tape measure in
 a measurement shot is wanted evidence, not a defect — this is the core insight
@@ -74,12 +74,37 @@ No extra field is needed to distinguish the cases. Swift's optional comparison
 excludes `nil` on its own, so the §1 condition is literally
 `frameConfirmedClear == false` and is unconditionally correct as written.
 
-**`frameConfirmedClear` also dates the photo.** A photo that was asked the
-confirmation question is necessarily a post-Item-2 capture, so
-`frameConfirmedClear != nil` is the test for "this photo postdates the
-sharpness field" — which is why the sharpness row reads
-`sharpnessScore == nil && frameConfirmedClear != nil`. No second field there
-either.
+**`frameConfirmedClear` used to date the photo, and that inference is retired
+— it was a proxy, and it failed.** The reasoning was: a photo that was asked
+the confirmation question is necessarily a post-Item-2 capture, so
+`frameConfirmedClear != nil` tests "this photo postdates the sharpness field",
+and the sharpness row could read `sharpnessScore == nil && frameConfirmedClear
+!= nil` with no second field.
+
+**That held only while the attestation lived exclusively on the screen that
+MEASURES sharpness.** `ScarCaptureView` both asks the question and computes a
+sharpness statistic, so on that one path the two really did coincide. When
+§1.3's attestation shipped on the 30-shot protocol camera — which runs
+steady/lens-settled/lighting gates, measures no sharpness statistic, and
+therefore correctly passes no `sharpnessScore` — every protocol analysis shot
+landed `frameConfirmedClear != nil` with `sharpnessScore == nil`
+**permanently**. Four analysis shots per vehicle, every case: *"Sharpness was
+not measured for this photograph"* on photographs whose examiner **had**
+attested and where nothing was wrong. **A note that fires always carries no
+information, so the reader stops reading it — including on the one photograph
+it was written for.**
+
+The row now reads `sharpnessScore == nil && sharpnessMeasurable`, a field set
+only by a capture path that actually measures. **The wording is unchanged**:
+the sentence was always right and the predicate was reading the wrong field.
+**Two fields agreeing today is not the same claim as one field meaning the
+other**, and nothing about this correlation was causal, so it could not survive
+a second capture path. It cost one `Bool`.
+
+The general form, since this is the third instance in this document: **do not
+infer a photograph's provenance from an unrelated field that happens to
+correlate with it — record the provenance.** §1's third and fourth rows were
+the same mistake pointed at gates instead of paths.
 
 Library imports land at `nil` / `nil` and correctly emit nothing: no live
 camera frame ever existed to measure, so silence is the honest output rather
@@ -112,7 +137,7 @@ One line per photo, prefixed with the shot label and photo index.
 | `frameConfirmedClear == false` (recorded) | The examiner did not confirm that the frame was clear of a ruler, tape measure, or other foreign object before capture. |
 | `qualityFlags.isBlurry` | The app measured this photograph as not sharp at the point of capture. |
 | `qualityFlags.isTooFar` | The app measured the damage area as not filling the guide frame — the subject may be too distant for fine surface detail. |
-| `sharpnessScore == nil && frameConfirmedClear != nil` | Sharpness was not measured for this photograph. |
+| `sharpnessScore == nil && sharpnessMeasurable` | Sharpness was not measured for this photograph. |
 
 Multiple triggers on one photo produce multiple lines under one photo heading,
 in the table's order. Do not merge them into a summary sentence — each one is a
@@ -647,6 +672,8 @@ decision rather than an oversight.
 - [ ] A photo where the examiner was asked and declined (`frameConfirmedClear == false`) does render the note — confirming `nil` and `false` are not collapsed anywhere in the render path.
 - [ ] **A scar capture taken on the very first frame, before any measurement lands, renders row five and NOT rows three or four.** The negative case for `a9deebb`: enter the scar camera, tap the manual shutter immediately, export. One note — *"Sharpness was not measured for this photograph"* — with no *"The app measured…"* line beside it. **Two notes on that photo means the flags are reading gates again.** Walk it a second time with the lens hunting: `isFocused` is the conjunction of device focus and the sharpness measurement, so a hunting lens over a sharp frame is the other way a gate reads `false` with a good measurement in hand.
 - [ ] ~~A factor whose inputs include a flagged photo shows the §2.4 cross-reference, and its numeric score is unchanged from the same analysis run without the appendix.~~ **NOT IMPLEMENTED — do not walk this item, it cannot pass.** `408a247` built §1, §2.1, §2.2 and §2.3 in full and verbatim, and did not build §2.4: *"See Capture Conditions in the evidence appendix."* has zero references in Swift, and `drawFactorBreakdown` renders `f.notes` and nothing else. **A checklist line for a clause nobody built would have been walked, found no cross-reference to look at, and read as a pass — or as a defect in the tester's method.** That is this document's own subject one artefact over. Re-enable it in the same diff that implements §2.4; the requirement stands.
+- [ ] **A completed protocol with no scar photo renders NO "Sharpness was not measured" notes at all.** The negative case for the retired proxy: capture all four analysis shots on the protocol camera (attesting on the first Ready tap), export, and search the Capture Conditions page for *"Sharpness was not measured"* — **zero hits.** Those photographs have `frameConfirmedClear == true` and `sharpnessScore == nil`, exactly the pair the old `!= nil` guard fired on, so **four hits per vehicle means the guard is reading the attestation again.** The same case must still render the §2.3 all-clear, because nothing is wrong with those photographs.
+- [ ] **A case with BOTH a protocol capture and a scar photo renders row five for the scar photo only.** Discriminates the fix from simply disabling the note: shoot on the scar camera's first frame, and the appendix must carry the note once — for the scar photo — beside four silent protocol analysis shots. **If it renders zero times, the fix removed the note instead of scoping it.**
 - [ ] Search the rendered PDF text for: likely, probably, consistent with, suggests, indicates, match confirmed — zero hits in the Capture Conditions section.
 
 ---

@@ -341,7 +341,23 @@ struct PDFReportGenerator {
         // it is what keeps a library import silent: no live frame ever
         // existed to measure, so "sharpness was not measured" would be a
         // note about missing data rather than about the capture.
-        if photo.sharpnessScore == nil && photo.frameConfirmedClear != nil {
+        // NOTE(AI Developer), 2026-09-07. This guard was
+        // `sharpnessScore == nil && frameConfirmedClear != nil`, using the
+        // attestation as a PROXY for "this photograph came from the screen
+        // that measures sharpness". Sound only while the attestation lived
+        // exclusively on `ScarCaptureView`, which asks it AND measures. The
+        // moment sec.1.3 shipped the attestation on the 30-shot protocol
+        // camera -- which measures no sharpness statistic and correctly
+        // passes no `sharpnessScore` -- every protocol analysis shot landed
+        // `!= nil` with `sharpnessScore == nil` permanently: four notes per
+        // vehicle, every case, about photographs whose examiner HAD attested
+        // and where nothing was wrong. A note that fires always carries no
+        // information, so the reader stops reading it -- including on the
+        // one photograph it was written for.
+        //
+        // Two fields agreeing today is not one field meaning the other. The
+        // predicate is now stated by the capture path itself.
+        if photo.sharpnessScore == nil && photo.sharpnessMeasurable {
             notes.append("Sharpness was not measured for this photograph.")
         }
         return notes

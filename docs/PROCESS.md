@@ -1743,6 +1743,28 @@ against the tip and applied clean; the interaction is invisible to `git am`,
 to the parse check, and to every per-patch review, because no single diff
 contains it.
 
+**Resolved by recording the fact, not by rewording the note:** the guard now
+reads `sharpnessScore == nil && sharpnessMeasurable`, a stored `Bool` set only
+by a capture path that actually measures. The scar screen sets it `true`, the
+protocol camera leaves it `false` because it measures nothing, and it decodes
+`false` for every photograph saved before the field existed — none of which
+came from a measuring path either. **The copy is unchanged**, which is the
+point: the sentence was always right and the predicate was reading the wrong
+field. It cost one `Bool`.
+
+**A footnote on the magnitude, because getting it wrong is the same class of
+error:** the analysis shots per vehicle come from
+`PhotoType.requiredCaptureProtocol` (2 `.closeupDamage` + 2 `.paintTransfer` =
+**four**), not from `CaptureProtocolStep.fullProtocol`, which has 8 and 4 of
+them across its 30 steps. `CaptureViewModel.protocolShots` is
+`requiredCaptureProtocol`, and `fullProtocol` is a coaching-metadata lookup
+table — `requiredCaptureProtocol`'s own doc comment says so, and says the
+number was once duplicated inconsistently in three places. **Counting a
+population from the richer-looking list is the shape that comment was written
+about**, and the correct figure is smaller, which does not weaken the finding:
+four notes per vehicle on every case is already a note that carries no
+information.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.

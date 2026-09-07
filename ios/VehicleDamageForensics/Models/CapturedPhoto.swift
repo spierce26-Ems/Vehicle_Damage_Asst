@@ -212,6 +212,35 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     /// only records what was measured.
     var sharpnessScore: Double?
 
+    /// Whether the capture path that produced this photograph runs a
+    /// sharpness measurement at all -- independent of whether that
+    /// measurement succeeded, which is `sharpnessScore`.
+    ///
+    /// NOTE(AI Developer), 2026-09-07. This exists to REPLACE A PROXY.
+    /// The appendix's fifth note condition -- "Sharpness was not measured
+    /// for this photograph" -- was guarded on
+    /// `sharpnessScore == nil && frameConfirmedClear != nil`, using the
+    /// attestation as a stand-in for "this photo came from the screen that
+    /// measures sharpness". Sound only while the attestation lived
+    /// exclusively on `ScarCaptureView`, which both asks it AND measures.
+    /// Once the attestation shipped on the 30-shot protocol camera --
+    /// which measures no sharpness statistic, and correctly passes no
+    /// `sharpnessScore` -- every protocol analysis shot landed
+    /// `frameConfirmedClear != nil` with `sharpnessScore == nil`
+    /// permanently, so the note fired on all four analysis shots of every
+    /// vehicle, on photographs whose examiner HAD attested and where
+    /// nothing was wrong.
+    ///
+    /// Two fields agreeing today is not the same claim as one field
+    /// meaning the other, and the proxy failed the moment a second capture
+    /// path made them independent. The predicate is now stated rather than
+    /// inferred: only a path that measures sets this `true`.
+    ///
+    /// Decodes `false` for every photograph saved before this field
+    /// existed, which is correct -- none of them came from a measuring
+    /// path either, so none should carry a not-measured note.
+    var sharpnessMeasurable: Bool
+
     // MARK: Init
 
     init(
@@ -238,7 +267,8 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         scarFrontEndpoint: ScarEndpoint? = nil,
         frameConfirmedClear: Bool? = nil,
         gateOverridden: Bool = false,
-        sharpnessScore: Double? = nil
+        sharpnessScore: Double? = nil,
+        sharpnessMeasurable: Bool = false
     ) {
         self.id = id
         self.imageData = imageData
@@ -264,6 +294,7 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.frameConfirmedClear = frameConfirmedClear
         self.gateOverridden = gateOverridden
         self.sharpnessScore = sharpnessScore
+        self.sharpnessMeasurable = sharpnessMeasurable
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -336,6 +367,10 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         frameConfirmedClear = try c.decodeIfPresent(Bool.self, forKey: .frameConfirmedClear)
         gateOverridden = try c.decodeIfPresent(Bool.self, forKey: .gateOverridden) ?? false
         sharpnessScore = try c.decodeIfPresent(Double.self, forKey: .sharpnessScore)
+        //   `sharpnessMeasurable` -> false: a photo saved before this field
+        //   existed did not come from a measuring path either, so `false`
+        //   is the truthful decode rather than a lenient one.
+        sharpnessMeasurable = try c.decodeIfPresent(Bool.self, forKey: .sharpnessMeasurable) ?? false
     }
 
     // MARK: Duplication (item #5)
@@ -385,7 +420,8 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
             // fabricate a clean capture record for a shot that had one.
             frameConfirmedClear: frameConfirmedClear,
             gateOverridden: gateOverridden,
-            sharpnessScore: sharpnessScore
+            sharpnessScore: sharpnessScore,
+            sharpnessMeasurable: sharpnessMeasurable
         )
     }
 
