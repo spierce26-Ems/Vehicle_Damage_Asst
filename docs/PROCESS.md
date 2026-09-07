@@ -1857,6 +1857,56 @@ stripping, because the comment text leaked into the captured selector, so it
 named the right defect for the wrong reason. **A guard that fires for a reason
 its author cannot state is a guard that will stop firing silently.**
 
+### 4c-xxv. The exemplar for the open class, so "still open" is a measurement rather than a caveat
+
+**§4c-xix's MEMBER is now closed several times over** — the sign guard, the
+`anchor-seq` arm pairing, §4c-xxiv's code-only flatten, and `swift_code_only`
+across three guards. **The CLASS is still open, and it gets a mutant here rather
+than a sentence, because this document has twice been caught mistaking a class
+described in prose for a covered one**: §4c-xxii on my own decline, and
+`check_note_rows_implemented`, whose four-line self-stated scope nobody read as
+owed work until the audit reached it a day later. A stated limit is not a
+covered limit, so the limit is measured.
+
+```swift
+let allClear = motionUnmeasured          // correct
+    ? "…checks that could be run… movement was not measured for every photograph."
+    : "…met the app's capture-quality checks at the time of capture."
+_ = drawWrapping("…met the app's capture-quality checks at the time of capture.",  // ← drawn literal
+```
+
+**Measured on the landed tree with every instrument present: `preflight --all
+--strict` → `clear`, rc=0, zero `warn`/`FAIL` lines; `run.sh` → 8/8, rc=0.**
+Selector correct, declaration correct, both locked strings byte-exact, ternary
+correct, every anchor and the seq resolving, `variant-binding` satisfied,
+`note-rows` satisfied — **and every report prints the unqualified all-clear
+regardless of what was measured.** The §2.3 over-claim in its final form,
+reached without touching one thing any instrument reads.
+
+**Deliberately line-count neutral.** A first version added a line and produced
+two manifest advisories; those are not the finding — they are the manifest
+noticing a file grew, and reporting them as a catch would be **crediting a guard
+for an accident of formatting**, which is this section's own subject aimed at its
+own evidence. Re-measured neutral, the tree is fully `clear`.
+
+**The general form: every instrument here binds the CONDITION to the tree, and
+none binds the DRAW to the condition.** Anchors, seqs, equality, locked strings,
+the sign guard and the note-row haystack all answer *is the right thing
+computed*. The remaining class is *is the computed thing what reaches the page* —
+a value computed correctly and discarded, an early `return` before the draw, a
+second `drawWrapping`, a literal inlined at the call site. **None is reachable by
+any grep, however strong, because the defect is that a correct expression has no
+consumer — and absence of a consumer is not a substring.**
+
+**Note what this means for the audit that found the other six.** §4c-xxiv scopes
+an audit by TECHNIQUE, and it works because those six were all members of one
+technique's blind spot. **This class is not a member of that blind spot; it is
+the boundary of the technique itself**, so no ordering of grep-strength
+instruments reaches it and a seventh member of that family would not either.
+**Only rendering the block and reading the emitted string does.** That is §4's
+standing debt, and it is now the only thing between this page and an examiner's
+signature.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
