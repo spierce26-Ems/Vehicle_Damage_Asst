@@ -2450,6 +2450,33 @@ clean tree. **Count from a clean tree, or count the stages you are standing
 in** — the same shape as reading a verdict through a pipe: the tool was right
 and the reading was not.
 
+**And the sweep is owed by whoever lands ON the rename, not only by the
+renamer.** A patch authored against the pre-rename tree carries pre-rename
+citations forward through a clean apply, and its author is the one who can
+still see both names. This section caught the `motionMeasurable` patch that
+way, doing exactly that.
+
+**A qualification that fires on every artefact is furniture, so the repair for
+an over-claiming sentence is usually a second variant rather than a softer
+sentence.** §2.3's all-clear covered a photograph whose motion was never
+measured as though its steadiness had been verified — a member missing a check,
+independent of the set-missing-a-member defect repaired in the same section, so
+the first repair did nothing for it. **The tempting fix is to weaken the one
+sentence** ("the checks that could be run"), which is honest on the reports
+that have an unmeasured photograph and needless on every other, and a
+qualification a reader sees every time is one they stop reading. The variant is
+emitted only where the tree can show the condition, so **the plain form keeps
+its strength and the qualified form keeps its meaning.**
+
+**The paired constraint, and it is the one that decides the shape: a
+per-artefact qualification and a per-item note are not interchangeable.** The
+same true fact stated once per report costs a clause; stated once per
+photograph it annotates every photograph on a device that lacks the sensor and
+destroys the note's meaning for the one that needed it. **Ask what the claim's
+subject is — the set or the member — and put the qualification at that level.**
+Softening the member's note to cover the set's problem is how the always-firing
+note re-enters after being removed.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
