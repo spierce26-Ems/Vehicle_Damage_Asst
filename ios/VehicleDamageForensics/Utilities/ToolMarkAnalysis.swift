@@ -1072,15 +1072,20 @@ struct ToolMarkComparison: Codable, Equatable {
         // qualifier reads as "not yet computed", the more forgiving claim
         // `filteredSummary` was rewritten to avoid.
         guard !hasExclusions else {
-            // Second sentence is sec.6.1's locked wording VERBATIM. The
-            // locked template's first sentence ("Filtered comparison -- NN%
-            // similarity across M of N cross-sections") describes the
-            // FILTERED figure, and this property carries the UNFILTERED
-            // score, so it cannot be dropped in here whole. Flagged to
-            // Ledger as a scope question on the lock rather than resolved by
-            // paraphrase -- the claim-bearing sentence is reproduced exactly
-            // and the score keeps its own true subject.
-            return String(format: "%.0f%% similarity — Statistical significance is not established for a filtered subset. See the exclusion record in the appendix.", score)
+            // sec.6.1's locked wording for the UNFILTERED-figure surface,
+            // VERBATIM, per Ledger's scope ruling on the Designer's
+            // question. The original template's first sentence describes the
+            // FILTERED figure and this property carries the UNFILTERED
+            // score, so the template cannot be used whole -- that would make
+            // the number lie to fit the lock. But the first shipped version
+            // of this fix left a BARE percentage beside "for a filtered
+            // subset", and AN UNQUALIFIED QUANTITY INHERITS ITS SUBJECT FROM
+            // THE SENTENCE NEXT TO IT, so a correct claim silently
+            // mislabelled the number as the filtered one. The first sentence
+            // now names the score's own subject; the claim-bearing second
+            // sentence is unchanged. Where a surface carries the FILTERED
+            // figure the original template stands (`filteredSummary`).
+            return String(format: "Unfiltered comparison — %.0f%% similarity across all cross-sections. Statistical significance is not established for a filtered subset. See the exclusion record in the appendix.", score)
         }
         guard let p = permutationPValue, let trials = nullTrialCount else {
             return String(format: "%.0f%% similarity — significance not testable", score)

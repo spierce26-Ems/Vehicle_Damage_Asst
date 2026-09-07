@@ -1198,12 +1198,17 @@ struct PDFReportGenerator {
     // already renders capture notes as "the examiner attested", and an
     // unattributed attestation is weaker than none.
     //
-    // Renders an explicit statement in BOTH directions. Per the
-    // Designer's rule (adopted as general): specify omission rather
-    // than leaving blank lines, because a blank examiner line reads as
-    // an unsigned report -- a worse artefact than an obviously
-    // incomplete one. So an unrecorded examiner prints a sentence
-    // saying so, never an empty signature rule.
+    // CHANGED 2026-09-07 per sec.4.3.1 as ruled. This previously rendered
+    // an explicit statement in BOTH directions, citing the Designer's
+    // specify-omission rule (a blank examiner line reads as an unsigned
+    // report). That rule is right about a blank LINE and does not reach
+    // this case: the heading drew unconditionally, so the omission
+    // sentence appeared UNDER an "Attestation" title -- a section
+    // asserting that there is no attestation. Two adopted rules were in
+    // conflict in the tree, each citing authority, and the ruling went to
+    // sec.5: omit the block entire, heading included. The omission is
+    // recorded in the audit trail, which is a log and promises no
+    // signature.
     private func drawAttestationBlock(
         ctx: UIGraphicsPDFRendererContext,
         rect: CGRect,
@@ -1214,14 +1219,37 @@ struct PDFReportGenerator {
             ctx.beginPage()
             y = 50
         }
+        // NOTE(Tech Lead), 2026-09-07, sec.4.3.1 as ruled. The heading was
+        // drawn HERE, unconditionally, BEFORE the examiner branch -- so an
+        // unsigned report printed an "Attestation" section whose content was
+        // that there is no attestation. AN ABSENCE ASSERTING SOMETHING WITH A
+        // TITLE ON IT is the sec.5 failure the rule names; blankness never was
+        // the issue, which is why my first ruling (keep the sentence, it is not
+        // a blank line) fixed the wrong half. The guard now covers the heading
+        // too: no examiner, no section. The omission belongs in the audit
+        // record, not under a heading that promises a signature.
+        guard let examiner = c.examiner, examiner.hasAnyDetail else { return }
+
         y += 20
         "Attestation".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14))
         y += 22
 
-        if let examiner = c.examiner, examiner.hasAnyDetail {
-            "The person named below documented this case using this application and attested to the capture conditions recorded in it."
+        do {
+            // sec.4.3.1's locked `attest.body`, VERBATIM. Sentence one is
+            // FIRST PERSON and stays so: documenting the case and answering
+            // the capture-condition question per frame ARE the examiner's own
+            // recorded acts, and a person can be held to "I ..." where an app
+            // printing a disclaimer about itself cannot. (The prior lock said
+            // "I generated this report", wrong in its VERB not its person --
+            // the app generates the report.) Sentence two is deliberately
+            // THIRD PERSON: the identification limit is the only one this
+            // report states anywhere, so it must hold whether or not an
+            // examiner is named -- a first-person limit vanishes with the
+            // signature exactly when the report is least attributable. The
+            // tree had dropped that sentence entirely.
+            "I documented this case using this application and attested to the capture conditions recorded in it. This report makes no claim of forensic identification."
                 .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
-            y += 32
+            y += 46
             // Only the fields that exist are printed. A placeholder in
             // an attestation is a statement the app cannot support.
             if let name = examiner.name {
@@ -1236,13 +1264,6 @@ struct PDFReportGenerator {
                 ("Badge / ID: " + badge).draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11))
                 y += 16
             }
-        } else {
-            // The omission is stated outright rather than left as a
-            // blank line -- see this method's header note.
-            "No examiner identity was recorded for this case, so this report carries no attestation. The capture conditions recorded in it cannot be attributed to a named person."
-                .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 11),
-                      maxWidth: rect.width - 100, color: .darkGray)
-            y += 34
         }
     }
 
