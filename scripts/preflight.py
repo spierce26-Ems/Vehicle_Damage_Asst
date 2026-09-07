@@ -593,8 +593,28 @@ def check_shapecheck_anchors():
             if not os.path.exists(target):
                 broken.append(f"{name} -> {rel} (no such file)")
                 continue
+            # Whitespace-normalised on BOTH sides (Designer, sec.4c-xxxiii).
+            # An anchor's subject is a LINE OF CODE, and Swift reads neither
+            # its indentation nor its inter-token spacing -- so a reformat
+            # that changed neither the code nor the model was reported as
+            # `the modelled line changed or moved`. Measured on `79ba1db`:
+            # ONE EXTRA SPACE inside the anchored decode and an INVERTED
+            # DEFAULT on that same line produce the BYTE-IDENTICAL failure.
+            # The diagnosis therefore cannot tell a formatter from a
+            # semantic change, and the cheapest way to clear either is to
+            # edit the anchor -- converting a real alarm into a silent one
+            # by exactly the route this check's own remedy forbids.
+            # A GUARD THAT FIRES FOR A REASON ITS AUTHOR CANNOT STATE WILL
+            # STOP FIRING SILENTLY (Vector, on his own instrument).
+            #
+            # Narrowing it is the PRECONDITION for the clause below being
+            # the thing that names the inverted default: while both edits
+            # emit one identical FAIL, the tree has no channel that says
+            # which happened.
+            def _ws(t):
+                return " ".join(t.split())
             hits = [ln for ln in open(target, encoding="utf-8")
-                    .read().splitlines() if needle in ln]
+                    .read().splitlines() if _ws(needle) in _ws(ln)]
             if not hits:
                 broken.append(f"{name} -> {rel} (`{needle[:60]}` absent)")
                 continue
@@ -1141,6 +1161,80 @@ def check_variant_output_binding():
                      "storage drops it, with the OVER-CLAIM surviving the "
                      "round trip. Two reports from one case file must make "
                      "the same claims about what was measured")
+                return
+
+        # sec.4c-xxxiii (Designer). sec.4c-xxxi's defect READ OFF THE TREE.
+        # Vector's section closes the mechanism by construction in a
+        # reduced Codable model, and the Tech Lead measured the honest
+        # boundary on landed `main`: flip the tree's `?? false` to
+        # `?? true` and the ONLY finding is `shapecheck-anchors`, because
+        # `decoder-roundtrip` models the Codable pair rather than reading
+        # `CapturedPhoto`. So the anchor detects that a line moved, the
+        # shape check proves the mechanism is real, and NEITHER READS THE
+        # TREE'S DEFAULT. This clause is that missing channel and nothing
+        # more -- it is the population half of a claim whose mechanism is
+        # already proved, the same relation as his tree-wide count against
+        # my per-file one.
+        #
+        # It asserts the PROPERTY, not the text: on a payload that predates
+        # the field every selector input takes its decode default, and
+        # sec.2.3 must select PLAIN for it. Defaults are read out of
+        # `init(from:)` and the expression is THE SELECTOR'S OWN, so this
+        # is not a second copy of the predicate -- add a term to the
+        # selector and this re-derives; a written list would have to be
+        # kept in agreement. Static evaluation of a legacy payload, NOT a
+        # compile: the running version is Vector's shape check, and if a
+        # default stops being a literal this clause goes quiet rather than
+        # guessing (a partial read is declined below).
+        defaults = {}
+        for f in sorted(selector_fields):
+            m = re.search(r"^\s*" + re.escape(f)
+                          + r"\s*=\s*try\s+\w+\s*\.\s*decodeIfPresent"
+                          r"\s*\(.*?\)\s*\?\?\s*(true|false)\s*$",
+                          code, re.M)
+            if m:
+                defaults[f] = m.group(1) == "true"
+        if len(defaults) == len(selector_fields) and selector_fields:
+            expr = " ".join(sel.group(1).split())
+            for f, v in defaults.items():
+                expr = re.sub(r"\$0\." + re.escape(f) + r"\b",
+                              "True" if v else "False", expr)
+            legacy = None
+            # Literals and boolean operators only -- anything else and the
+            # clause declines rather than evaluating a selector it does not
+            # fully understand. Declining is a MISSING claim; guessing is a
+            # wrong one, and this file chose that direction all day.
+            norm = (expr.replace("&&", " and ").replace("||", " or ")
+                        .replace("!", " not "))
+            if re.fullmatch(r"[\s()]*(?:(?:not\s+)*(?:True|False)"
+                            r"(?:\s+(?:and|or)\s+)?[\s()]*)+", norm):
+                try:
+                    legacy = bool(eval(norm,  # noqa: S307 - literals only
+                                       {"__builtins__": {}}, {}))
+                except Exception:
+                    legacy = None
+            if legacy is True:
+                inverted = sorted(f for f, v in defaults.items() if v)
+                # remedy: fixes
+                fail("variant-legacy-default",
+                     "sec.2.3's selector is TRUE on a payload that PREDATES "
+                     "the field ("
+                     + ", ".join("`" + f + "` defaults `true` on decode"
+                                 for f in inverted)
+                     + ") -- so every case file saved before the field "
+                       "existed renders the QUALIFIED all-clear, claiming a "
+                       "measurement was attempted on a photograph from a "
+                       "build that could not attempt one",
+                     "default the field to the value that means NEVER ASKED "
+                     "(`?? false` here), never to the one that means a "
+                     "measurement happened. An inverted default is the "
+                     "ALWAYS-FIRING QUALIFICATION arriving through the "
+                     "persistence layer instead of the selector, and it "
+                     "DECODES PERFECTLY -- `decoder-completeness` and "
+                     "`variant-roundtrip` are both satisfied by it, and "
+                     "`shapecheck-anchors` fires only because the line "
+                     "moved. Change the DEFAULT, not this check and not "
+                     "the anchor")
                 return
 
     # sec.4c-xxvii (Tech Lead). Count over the TREE, not over one file.

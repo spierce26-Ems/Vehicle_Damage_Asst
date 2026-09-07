@@ -2226,6 +2226,75 @@ addresses in `PROCESS.md`, exactly the check `check_no_duplicate_defs` is for
 the module namespace.** Built below; measured at 18 sections, zero duplicates,
 and the mutant that reintroduces `xxx` twice is named by number.
 
+### 4c-xxxiii. §4c-xxxi's defect, READ OFF THE TREE
+
+**Vector's §4c-xxxi proves the mechanism and the Tech Lead measured its
+boundary: flip the tree's `?? false` to `?? true` and the ONLY finding is
+`shapecheck-anchors`, because `decoder-roundtrip` models the Codable pair rather
+than reading `CapturedPhoto`.** So on landed `main` the anchor detects that a
+line MOVED, the shape check proves the mechanism is REAL, and **neither reads the
+tree's default.** This is the missing channel and nothing more — the population
+half of a claim whose mechanism is already proved, the same relation as the Tech
+Lead's tree-wide count against my per-file one in §4c-xxviii.
+
+**The anchor's diagnosis was not merely imprecise, it was ambiguous, and I
+measured both sides on `79ba1db`:**
+
+```
+`?? false` -> `?? true`         FAIL shapecheck-anchors: `...` absent
+one extra space, same line      FAIL shapecheck-anchors: `...` absent   (identical)
+```
+
+**An inverted default and a reformat produced the BYTE-IDENTICAL failure.** The
+tree therefore had no channel that said which happened, and the cheapest way to
+clear either is to move the anchor — **converting a real alarm into a silent one
+by exactly the route `shapecheck-anchors`' own remedy forbids.** *A guard that
+fires for a reason its author cannot state will stop firing silently* (Vector,
+this morning, on his own instrument), and reporting the anchor as coverage here
+would have been the coverage-by-accident §4c-xxii refuses.
+
+**Two halves, and the first is a precondition for the second:**
+
+1. **The anchor is whitespace-normalised on both sides.** An anchor's subject is
+   a LINE OF CODE, and Swift reads neither its indentation nor its inter-token
+   spacing, so a reformat that changes neither the code nor the model must not
+   report `the modelled line changed or moved`. Reverting the normalisation with
+   the reformat mutant in place restores the false FAIL — the canary.
+2. **`variant-legacy-default` asserts the PROPERTY, not the text.** On a payload
+   that predates the field every selector input takes its decode default, and
+   §2.3 must select PLAIN for it. **`?? true` inverts the default for every
+   legacy case file** — the always-firing qualification arriving through the
+   persistence layer instead of the selector, in the one section whose purpose is
+   the quiet case.
+
+**The defaults are read out of `init(from:)` and the expression is THE
+SELECTOR'S OWN**, so this is not a second copy of the predicate: add a term to
+the selector and it re-derives. **Where a default stops being a literal the
+clause DECLINES rather than evaluating a selector it does not fully understand** —
+declining is a missing claim, guessing is a wrong one, and this document chose
+that direction all day. Static evaluation of a legacy payload, **not** a compile:
+the running version is Vector's shape check.
+
+**Mutants, each graded on its NAMED finding, all line-count neutral:**
+`?? true` → `variant-legacy-default` naming the field and the consequence,
+rc=1 (**was `shapecheck-anchors` alone**); reformat only → **clear**, rc=0
+(**was FAIL**); inverted AND reformatted → still named; clause disabled with
+the mutant kept → **no `variant-legacy-default` finding**, canary;
+normalisation reverted with the reformat kept → the false FAIL returns, canary;
+selector gains an undecoded field → `variant-condition` fires first, so the
+derivation is real; **`motionMeasurable ?? true` alone → SILENT, and correctly
+so: it sits under a negation, so the legacy payload selects PLAIN**; both
+defaults flipped → fires naming only the positive term; the default made
+non-literal → declines rather than guessing; clean tree → rc=0.
+
+**Ledger — the axis. All eleven hardenings, plus your index-entry population,
+asked what a guard reads, where it lives, how it finds its subject, or what
+population it counts. This one asks whether a guard's DIAGNOSIS DISTINGUISHES
+THE CAUSES IT FIRES FOR.** Two different edits, one message: the guard was
+right that something changed and could not say what, which is the same defect as
+a count without its population — **a signal whose cause is ambiguous is triaged
+by whoever finds the cheapest way to silence it.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
