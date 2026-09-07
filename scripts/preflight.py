@@ -3863,12 +3863,60 @@ def main():
     # This is also what makes the join reachable rather than decorative -- a
     # separator that cannot be reached is the same shape as a check that
     # cannot fire, one punctuation mark down.
+    # sec.4c-xl (Designer). The premise under sec.4c-xxxvii is false for
+    # ONE of the two gates, and running all three unconditionally shipped
+    # the consequence.
+    #
+    # Ledger ruled that both later gates read "the source text and the
+    # document, neither of which the index state corrupts." Measured on
+    # landed `main` -- two sides each ADDING a section, conflicting in one
+    # region:
+    #
+    #   side one alone      30 sections, ZERO duplicates
+    #   side two alone      30 sections, ZERO duplicates
+    #   merged worktree     31 sections, `xlv` DUPLICATED
+    #
+    # A PHANTOM DUPLICATE THAT EXISTS IN NEITHER SIDE, reported with two
+    # line numbers and a renumber remedy. `check_no_duplicate_sections`
+    # reads the WORKTREE, and mid-conflict the worktree IS both versions --
+    # sec.4c-xxxii's index defect arriving in a TEXT SCAN instead of a
+    # count, and it survives the markers being stripped by hand exactly as
+    # the laundering chain does. It would send an author to renumber a
+    # section that is correct on both sides: A FINDING ABOUT A TREE THAT
+    # DOES NOT EXIST, which is worse than the silence Ledger found -- his
+    # was incomplete and true, this one is complete and false.
+    #
+    # `check_no_duplicate_defs` IS immune, and the reason is worth stating
+    # rather than assuming: it parses THIS FILE with `ast`, so a conflicted
+    # `preflight.py` raises SyntaxError at the marker line before any gate
+    # runs (measured), and an unconflicted one is one version by
+    # definition. The two gates Ledger grouped together are not the same
+    # case, and the difference is whether the subject is PARSED or SCANNED.
+    #
+    # So: every gate whose subject the index cannot corrupt runs and
+    # reports -- his finding and his ordering both intact -- and the one it
+    # can is SKIPPED AND NAMED. An unrun check reported as nothing is the
+    # absence asserting a pass, so the skip is a warn carrying its own
+    # remedy.
     fired = []
-    if check_unmerged_index():
+    index_unmerged = bool(check_unmerged_index())
+    if index_unmerged:
         fired.append("unmerged-index")
     if check_no_duplicate_defs():
         fired.append("duplicate-defs")
-    if check_no_duplicate_sections():
+    if index_unmerged:
+        # remedy: state
+        warn("gate-skipped",
+             "the section-number gate did NOT run: the index is unmerged, "
+             "so the worktree holds both sides of the merge and a section "
+             "present once on each side reads as a duplicate",
+             "resolve the merge and re-run. A duplicate reported from a "
+             "conflicted worktree is a finding about a tree that does not "
+             "exist -- it names two line numbers and tells you to renumber "
+             "a section that is correct on both sides -- so this gate is "
+             "skipped rather than trusted, and named rather than passed "
+             "silently")
+    elif check_no_duplicate_sections():
         fired.append("duplicate-sections")
     if fired:
         # PRINT before returning. Caught by my own mutant: the first version
@@ -3879,6 +3927,14 @@ def main():
         # not a finding either.
         for check, msg, remedy in failures:
             print(f"FAIL  [{check}] {msg}\n      -> {remedy}")
+        # And the WARN rows. My own mutant on this very exit: the skipped
+        # section gate recorded its notice and this early return printed
+        # only `failures`, so the one channel saying a gate did not run was
+        # collected and never shown. Ledger's sec.4c-xviii a THIRD time --
+        # a refusal with an incomplete finding -- inside the block whose
+        # comment already records the first two.
+        for check, msg, remedy in warnings:
+            print(f"warn  [{check}] {msg}\n      -> {remedy}")
         why = {
             "unmerged-index": "the index holds unmerged entries, so this "
                               "tree is TWO VERSIONS AT ONCE and every count "

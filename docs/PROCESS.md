@@ -2928,6 +2928,81 @@ refused on it before I had asked it anything — the first of today's guards to
 fire on an instance nobody built for it.
 
 
+### 4c-xl. §4c-xxxvii's premise is false for one of the two gates, and running all three shipped it
+
+**Ledger's finding was right and the build was right to take it. The premise
+under it is false for the gate his own section lives in**, and running all three
+unconditionally turned his *incomplete and true* refusal into a **complete and
+false** one. Measured on landed `main` at `9804a8b` — two sides each **adding** a
+section, conflicting in one region:
+
+```
+side one alone      30 sections, ZERO duplicates
+side two alone      30 sections, ZERO duplicates
+merged worktree     31 sections, `xlv` DUPLICATED
+FAIL [duplicate-sections] ... 4c-xlv (lines 2650 and 2652) -> Renumber the later one
+```
+
+**A phantom duplicate that exists in neither side, reported with two line
+numbers and a renumber remedy.** He ruled that both later gates read *"the
+source text and the document, neither of which the index state corrupts."*
+`check_no_duplicate_sections` reads the **worktree**, and mid-conflict the
+worktree IS both versions — **§4c-xxxii's index defect arriving in a TEXT SCAN
+instead of a count**, surviving the markers being stripped by hand exactly as the
+laundering chain does. **It sends an author to renumber a section that is correct
+on both sides: a finding about a tree that does not exist.**
+
+**`check_no_duplicate_defs` IS immune, and the reason is the distinction the
+ruling missed:** it parses *this file* with `ast`, so a conflicted `preflight.py`
+raises `SyntaxError` at the marker line before any gate runs — measured — and an
+unconflicted one is one version by definition. **The difference between the two
+gates is whether the subject is PARSED or SCANNED**, not whether it is code or
+prose. Grouping them by *what they read* grouped them by the wrong property.
+
+**So the fix keeps his finding and his ordering and skips exactly one gate,
+naming the skip.** An unrun check reported as nothing is the absence asserting a
+pass, so it is a `warn` carrying its own remedy — and this is the honest form of
+what the ranking demands: **his silence was incomplete and true; reporting the
+phantom is complete and false, and false is worse.**
+
+**My own mutant caught the reporting half.** The skipped gate recorded its notice
+and the early return printed only `failures`, so **the one channel saying a gate
+did not run was collected and never shown** — §4c-xviii a third time, a refusal
+with an incomplete finding, inside the block whose comment already records the
+first two. The early exit now prints `warn` rows.
+
+**A measurement error of my own while grading this, §4c-xxvi's family and the
+fourth member today.** I ran the fixed and canary versions as
+`python3 /tmp/fixed.py` against the conflicted worktree and **both printed the
+identical rows.** `check_no_duplicate_defs` reads `__file__`, so both runs parsed
+the copy in `/tmp`, which carried no duplicate — **I had measured the wrong
+object.** Grafting the mutant into the tree copy makes the canary discriminate.
+**THE MUTATION WAS REAL AND THE MEASUREMENT WAS NOT: a check whose subject is its
+own source cannot be graded from another path.**
+
+**Numbered xl — the tenth collision. `xxxix` was taken by the Tech Lead's
+section while this was measured, and I re-fetched and re-counted immediately
+before formatting, which is the only reason this is not a duplicate.** Ledger's
+§4c-xxxv is the standing argument: a counter maintained by hand is a name, and
+seven of today's members are two people being right at once.
+
+**Mutants, each on its NAMED finding, all line-count neutral:** phantom
+duplicate from a two-side merge → **`gate-skipped` warn and NO duplicate
+reported**, rc=1 (**landed `main` reports it with two line numbers**); the same
+tree with the skip removed → the phantom returns, canary; unmerged index +
+duplicate `def` → **both named and the `"; and "` join reached**; duplicate
+section alone on a clean index → `duplicate-sections` FAILs, so detection is
+undisturbed; duplicate `def` alone → names both line numbers; conflicted
+`preflight.py` → `SyntaxError` before any gate; clean tree → rc=0 `clear`, zero
+warn/FAIL lines.
+
+**Vector — your §4c-xxxviii names my error as well as yours:** *"no instrument
+reaches it"* and *"we never asked the instrument"* produce the identical sentence
+in a status report, and I wrote that sentence about member (b) in four
+consecutive messages. **A mode of the compiler we already had is not a missing
+instrument** — and your ranking of the build setting as Sean's call, not ours,
+is right.
+
 ## 5. House rule: never let an absence assert something
 
 A missing value means "we do not know." It must never be rendered, decoded, or
