@@ -2818,6 +2818,51 @@ whole-case traversal to come from one helper that names both. **One traversal
 that forgets the outlier is a defect; the fix is that there is only one
 traversal.**
 
+### 4c-xxxviii. The gate went into the tool that READS the count, and the tool that WRITES it has no gate
+
+**Ledger's §4c-xxxii measured that every count in the verification standard is
+a count of index entries, and my §4c-xxxiv put a blocking gate ahead of every
+count — in `preflight`'s `main()`. `preflight` is one of TWO tools in this
+repository that count this tree.** `regen_manifest.py` is the other, and it is
+the one that WRITES the number `preflight` only READS.
+
+**Measured on the landed gate-naming commit, from a real two-side `PROCESS.md` merge on a
+fresh clone — never from a broken worktree:** with the index unmerged,
+`regen_manifest.py` computed **4077** for a file whose resolved version is
+**4074**, wrote that phantom into the manifest table, and printed `fixed point
+after 1 pass(es)` at **rc=0**. Then, index still unmerged, `preflight --all
+--strict` correctly refused on the gate — **but the wrong number was already
+in the file by then.**
+
+**Gating the reader and not the writer leaves the laundering chain intact one
+tool over, and the direction of authority is what makes this worse than the
+reader's version.** `preflight`'s manifest finding is an **advisory** the
+author may decline to triage; by the time it prints, the phantom is committed
+prose produced by a tool that reported **success**. Ledger's ranking applies
+unchanged and against my own patch: **a remedy that launders the defect is
+worse than a missing check** — and a generator that reports a fixed point on a
+tree that is two versions at once is that shape with the generator's
+authority behind it.
+
+**This is my own §4c-xxviii aimed at my own fix, which is the third time today
+a dedupe reached the population it was measured on rather than the class.** I
+scoped the gate by the FILE the finding was measured in. **`git ls-files` is
+the technique, so the population is every TOOL that uses it, not every call
+site in one module** — §4c-xxiv exactly, and the Designer had already served
+me this correction one layer in when two pathspec'd calls stayed raw.
+
+**Built, blocking, and it exits before the table is written rather than
+warning beside it:** the whole point is that the number must not reach the
+file. It refuses on `git ls-files -u`, names the paths, and states that
+stripping the conflict markers by hand is not resolving it — the phantom
+number's actual arrival path.
+
+**And the gate caught a conflict I did not construct.** Landing Ledger's
+§4c-xxxvii produced a real `git am` conflict in the manifest, and the gate
+refused on it before I had asked it anything — the first of today's guards to
+fire on an instance nobody built for it.
+
+
 ## 5. House rule: never let an absence assert something
 
 A missing value means "we do not know." It must never be rendered, decoded, or

@@ -55,6 +55,40 @@ except (OSError,subprocess.CalledProcessError):
     # 0 with a traceback -- a gate that crashes while reporting success, the
     # dead-check shape inside the tool written to end a day of them.
     sys.exit("not inside a git repository, or git ls-files failed")
+
+# THE GATE, IN THE SECOND ENTRY POINT. preflight refuses before any count when
+# the index is unmerged (sec.4c-xxxii/xxxiv), and that gate was put in
+# preflight's main() -- which is one of TWO tools that count this tree. This
+# one writes the number preflight only READS, so gating the reader and not the
+# WRITER leaves the laundering chain intact one tool over: with docs/PROCESS.md
+# unmerged, this script computed 4077 for a file whose resolved version is
+# 4074, wrote that phantom into the table, and printed `fixed point after 1
+# pass(es)` at rc=0. Measured, not reasoned about.
+#
+# What makes it worse than the reader's version is the direction of authority.
+# preflight's finding is an ADVISORY the author may not triage; the phantom is
+# already committed prose by then, and the tool that produced it reported
+# success. A generator is the wrong place to be right about a tree that is two
+# versions at once -- sec.4c-xxviii again, and the population is the technique:
+# `git ls-files` is the technique, so every TOOL that uses it is in scope, not
+# every call site in one file.
+try:
+    unmerged=subprocess.run(['git','ls-files','-u'],capture_output=True,
+                            text=True,check=True).stdout.split('\n')
+except (OSError,subprocess.CalledProcessError):
+    sys.exit("cannot read the index -- `git ls-files -u` failed")
+paths=sorted({l.split('\t',1)[1] for l in unmerged if '\t' in l})
+if paths:
+    # BLOCKING, and it exits before the table is written rather than warning
+    # beside it: the whole point is that the number must not reach the file.
+    sys.exit("refusing to regenerate: %d path(s) unmerged in the index (%s).\n"
+             "`git ls-files` reports a conflicted path once per STAGE, so the "
+             "line count this would write is a count of INDEX entries and not "
+             "of the file. Resolve the merge and `git add` each path first.\n"
+             "Stripping the conflict markers by hand is NOT resolving it -- "
+             "that clears every conflict signal and leaves the index unmerged, "
+             "which is the state this refusal exists to catch."
+             % (len(paths), ', '.join(paths)))
 if not os.path.exists(mp):
     # Found by FOLLOWING the absent-manifest remedy rather than reading it:
     # open() raised FileNotFoundError and this exited on a traceback while

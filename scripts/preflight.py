@@ -3841,12 +3841,34 @@ def main():
     # call sites stay literal and the ordering stays short-circuiting.
     # Ledger's rule, on my own patch: the fix that satisfies a guard by
     # loosening it is the one to refuse.
+    # LEDGER'S sec.4c-xxxvii, BUILT: the `elif` chain made `fired` structurally
+    # incapable of holding more than one name, so the "; and " join below was a
+    # separator no tree could reach -- and on a tree carrying BOTH a two-side
+    # merge and a duplicate `def`, the index was named and the duplicate `def`
+    # was live, blocking on its own, and printed NOWHERE. Not a detection
+    # failure: the same duplicate alone reports both line numbers. A refusal
+    # that is CORRECT AND INCOMPLETE, which reads better and is harder to
+    # notice than my sec.4c-xxxvi (correct row, wrong summary), because
+    # nothing in the output is false.
+    #
+    # His argument for why the ordering survives is the one that decides it:
+    # these three are not "later checks". check_no_duplicate_defs reads the
+    # SOURCE TEXT and check_no_duplicate_sections reads the DOCUMENT, and an
+    # unmerged index corrupts NEITHER -- what it corrupts is every COUNT of
+    # the tree, which is what the gate protects and what all three sit ahead
+    # of. So all three run and report, and only then does it refuse. The cost
+    # is honestly stated as his: one extra round trip, never a wrong claim,
+    # and the author who resolves the merge is already looking.
+    #
+    # This is also what makes the join reachable rather than decorative -- a
+    # separator that cannot be reached is the same shape as a check that
+    # cannot fire, one punctuation mark down.
     fired = []
     if check_unmerged_index():
         fired.append("unmerged-index")
-    elif check_no_duplicate_defs():
+    if check_no_duplicate_defs():
         fired.append("duplicate-defs")
-    elif check_no_duplicate_sections():
+    if check_no_duplicate_sections():
         fired.append("duplicate-sections")
     if fired:
         # PRINT before returning. Caught by my own mutant: the first version
