@@ -941,6 +941,32 @@ different visible failure, one site at a time, forever. **One validated bound
 at the field fixes every consumer, including the ones nobody has enumerated
 yet.**
 
+**And the search direction was the flaw in every pass, including the ones that
+found things.** Each started from a *draw* and followed the value it already
+knew about. That reaches a field's own draw, and with effort the derived one,
+but it cannot reach a *second* unbounded field at all — a search seeded with
+`reason` never finds `examinerName`, because they share no substring.
+**Enumerate the free-text inputs and find their draws, not the reverse:**
+thirty-six `TextField`s in `Views/`, of which two are unbounded and reach the
+report — `reason` on the tool-mark page and, via `displaySummary`, the audit
+page; `examinerName` on the custody page through `attributionSummary`.
+`.textContentType` is a keyboard hint, not a limit. Going draw-first only ever
+re-finds the value you started with, which is why several passes produced a
+growing count of the same field.
+
+**A related disguise, from the same rule applied to a whole spec rather than
+its named fields: all four of the appendix's per-photo note conditions are
+unbuilt, not the one the ticked decision cited.** `gateOverridden`,
+`sharpnessScore` and `PhotoType.isAnalysisShot` have zero references;
+`isBlurry`, `isTooFar`, `isTooClose` and `hasMotionBlur` are *declared* on
+`QualityFlags` with `false` defaults and never assigned anywhere, while
+`issueDescriptions` and `hasIssues` have no readers. `buildQualityFlags` sets
+exposure and roll only. **A field that exists, decodes, and always reads
+`false` is a worse disguise than an absent one** — grep finds it, the type
+checks, and every consumer silently takes the clean branch. So checking a spec
+against the tree means checking that each condition is *assigned*, not that its
+name resolves.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
