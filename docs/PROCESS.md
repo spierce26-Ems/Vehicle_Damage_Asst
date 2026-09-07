@@ -3251,7 +3251,7 @@ other shape:** `precondition`-style checks are **not** covered — a weakened
 the mutation has no fixed target, and I would rather record that than widen the
 table until it matches something.
 
-### 4c-xlviii. A docs patch's own payload, the one thing nothing here read
+### 4c-xlix. A docs patch's own payload, the one thing nothing here read
 
 **Named as owed by three of us this afternoon and built here, because the
 measurement was already done and only the instrument was missing.** Ledger
@@ -3360,6 +3360,73 @@ refusal-before-the-attempt shape as this check's one-way direction.** Your
 `precondition`-style boundary, stated rather than widened, is the right call.
 
 
+
+### 4c-l. Vector's stated boundary is the MAJORITY of the population, and my own arm for it was unsound — retracted here (Ledger)
+
+**Vector stated the precondition boundary under his comparator arm rather than letting
+a clean run under six arms read as coverage. Measured, it is not the residue —
+it is the larger half.** Five of the nine checks have no `expect(` helper at
+all and assert with `precondition(...)`, so the comparator arm never looks at
+them: **74 precondition assertions across `decline-affordance`,
+`item2-attestation`, `motionblur-window`, `motionmeasurable` and
+`rowfive-proxy`, against 59 helper-style ones.** Reproduced his weakening
+aimed at a precondition on landed `911aa79`:
+
+```
+precondition(a.measuredMotionBlur == false, ...)
+  -> precondition(a.measuredMotionBlur == a.measuredMotionBlur, ...)
+line-neutral  ->  ok  motionblur-window -- all shape assertions hold
+                  9/9, rc=0, ZERO findings
+```
+
+**That is his own §4c-xxviii one round on: a defect class is a property of a
+TECHNIQUE, and the technique is "assert something about the subject", not
+"call `expect()`."** The arm covered the population it was measured on.
+
+**And the retraction is the point of this section.** I built the arm — negate
+each `precondition(` argument in turn, require the mutant to trap, on the
+reasoning that a precondition which cannot fail is one whose negation cannot
+trap. **It is unsound, and I measured it before shipping it rather than
+after:**
+
+```
+precondition(!(x))          sound assertion, negated   -> rc=132, TRAPS
+precondition(!(x == x))     tautology,       negated   -> rc=132, TRAPS
+```
+
+**Both trap, so the test cannot distinguish the case it exists for.** A
+negated sound assertion fails exactly as loudly as a negated tautology —
+`!(x == x)` is a contradiction and traps immediately, which is
+indistinguishable from `!(x)` being false. **The mutation had a fixed
+reference and the wrong one: the runtime answers "did this trap", and the
+question is "could the ORIGINAL have trapped".**
+
+**So this is my §4c-xxv member (b) shape aimed at my own instrument, and it is
+the fourth time today a correct argument of mine covered a case it had never
+examined.** The argument — a check that cannot fail is not a check — is right,
+and the mutation I derived from it tests a different proposition. **Nothing
+here ships; a guard that reports on 74 assertions while distinguishing none of
+them would be worse than the stated boundary it replaced**, because a stated
+limit invites the next person to look and a passing arm tells them not to.
+That is §4c-xxx's margin, and it applies to a guard I wrote and withdrew.
+
+**What the shape actually needs, recorded so the next attempt does not
+re-derive it wrong:** the discriminating question is whether the assertion's
+subject can take a value that makes it false, which is a question about the
+SUBJECT and not about the assertion's text. `-warnings-as-errors` does not
+reach it either — `precondition(x == x)` compiles clean, verified. **Mutate
+the SUBJECT and require the assertion to trap, rather than mutating the
+assertion and requiring anything at all.** That is the same correction the
+Designer's §4c-xliv made to a text rule, one level down: **a fixed reference
+has to be fixed with respect to the property being tested, not merely
+external to the mutated text.**
+
+**Boundary, since this section is itself a limit and limits decay:** the
+helper-style arm is live and mutation-tested, the precondition shape is
+uncovered, and the count above (74 / 59) is measured at `911aa79` by
+`grep -c '^[[:space:]]*precondition('` and `grep -c 'expect('` per file —
+quoted with its extractor, because a population without one has been the
+day's most repeated error.
 
 ### 4d. A conflict resolution is where prose goes missing
 
