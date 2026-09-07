@@ -1901,11 +1901,53 @@ consumer — and absence of a consumer is not a substring.**
 **Note what this means for the audit that found the other six.** §4c-xxiv scopes
 an audit by TECHNIQUE, and it works because those six were all members of one
 technique's blind spot. **This class is not a member of that blind spot; it is
-the boundary of the technique itself**, so no ordering of grep-strength
-instruments reaches it and a seventh member of that family would not either.
-**Only rendering the block and reading the emitted string does.** That is §4's
-standing debt, and it is now the only thing between this page and an examiner's
-signature.
+the boundary of the technique itself.** That is §4's standing debt, and it is
+now the only thing between this page and an examiner's signature.
+
+**AMENDED against myself, and it is the second time in one day.** The mutant
+above is closed at grep strength by an `anchor-seq` binding
+`_ = drawWrapping(allClear,` and its argument line: **a competing literal at
+that argument position cannot be there without displacing the required one**, so
+the required CONSUMER is a substring even though the absence of one is not.
+Verified — the mutant returns `1 blocking`, and with the seq removed it goes
+silent, so the binding is load-bearing. **Twice today I stated a class-level
+limit correctly and let it settle the member in front of me**, which is
+§4c-xxii aimed back at its own author. **A class statement being RIGHT is what
+makes it dangerous: it earns the reader's agreement and then covers a member it
+never examined.** The sentence above claiming no grep reaches this was
+over-broad and is corrected here rather than left standing.
+
+**The class survives with ONE demonstrated member, and the count came down
+twice while this entry was being written** — which is the strongest argument
+for measuring it rather than asserting it. Both candidates were line-count
+neutral and re-measured by me against every instrument in the tree:
+
+- **CLOSED — a SECOND `drawWrapping`** of the unqualified literal appended on
+  the existing line. Closed on **MULTIPLICITY**, the one axis no text guard
+  here had asked about: each locked variant is emitted from exactly one place,
+  so a second occurrence is a second emission the lock never authorised. **`in`
+  answers "at least once"; "exactly once" is the claim §2.3 actually makes.**
+  Verified: `1 blocking`, naming the variant and the count. *(Also: the mutant
+  is only honest folded onto the existing line — as a NEW line it costs a
+  manifest advisory instead.)*
+- **OPEN — `if true { return }`** before the draw, folded onto an existing
+  line → **rc=0, zero warn/FAIL lines, `run.sh` 8/8.** Every asserted token
+  present and none of it running. **Counting cannot reach a live statement that
+  never executes.**
+
+**That is not a caveat about what we did not test. It is one specific
+line-neutral edit that puts a false all-clear on an examiner's page with every
+instrument in this repository green** — the sharpest statement of §4's debt
+available, because it names the edit rather than the gap.
+
+**And the ordering lesson is the transferable one, stated by the reader who
+closed (a): a boundary claim can be right about the CLASS and not decisive for
+the MEMBER on the table, so try to close the member at the cheap strength
+FIRST, then re-state what remains open with a mutant.** Three times today a
+correct class statement of mine covered a member it had never examined. The
+claim *absence of a consumer is not a substring* was true and was the right
+argument for the class; **what it could not do was tell (a) from (b), and only
+a mutant per member could.**
 
 ### 4c-xxvi. Two correct fixes, one name, two signatures — a collision no textual merge inspects
 
@@ -1962,6 +2004,74 @@ named correctly, so the walk is not top-level-only; no-op → `clear`, rc=0.
 **Check that follows, and it is cheap: after merging two patches that each
 introduce a helper, grep the module for duplicate `def` names.** `git am` clean
 is a statement about lines, never about the namespace they define.
+
+### 4c-xxvii. A check anchored on the prose that CARRIES a claim is anchored on wording nothing locks
+
+**The audit, pointed at the §4c-xxi prose guard rather than at any code view or
+helper, finds the guard keyed on an unlocked phrase.**
+`check_locked_variant_conditions` locates §2.3's emit instruction by searching
+for the literal `emit this instead`, then judges the condition stated near it.
+**So reword that phrase and the guard stops looking, silently.** Measured on
+landed `d7ddd3b`, line-count neutral, with the condition regressed to v1 in the
+same edit:
+
+```
+preflight --all --strict  ->  clear, rc=0, zero warn/FAIL lines
+```
+
+**Canary — the identical v1 regression with `emit this instead` left intact:
+`warn [variant-condition]`, rc=4.** So the guard works, and four words of
+editorial rewording turn it off while the defect it exists for is present.
+
+**This is §4c-xxi at one more remove.** That entry established that **the owning
+document ratifies the regression**, because it is what a reviewer consults when
+they doubt the code. The guard built for it reads the document — **and locates
+the claim by prose that is not itself locked.** §4.1's ledger locks the
+*variants* and now the *condition*; nothing locks the sentence that introduces
+them. **A locked string with an unlocked locator is guarded content behind an
+unguarded address**, and a rewrite for readability — the most ordinary edit a
+document takes — is indistinguishable from an attack on the guard.
+
+The narrow remedy is to key on the locked artefact instead: the
+`<!-- CONDITION: -->` declaration already sits three lines above and is
+machine-readable by construction. **It belongs to that check's owner; the
+numbers above are the specification.** One irony to state so it is not
+re-committed — that declaration was itself what immunised an earlier version of
+this same check, so keying on it requires the declaration be *excluded from the
+judged window* while *serving as its anchor*.
+
+**The general form: an instrument's ANCHOR is an artefact with its own failure
+mode, independent of what the instrument asserts.** Anchors into code took a
+whole class of hardening today — presence, comment-blindness, adjacency,
+ordering, the consumer, and the module namespace. **Every one hardened what a
+guard READS or WHERE IT LIVES; none asked how the guard FINDS what it reads.** A
+check that locates its subject by unlocked prose has the same standing as a
+shape check that re-declares its subject locally: **it keeps passing after the
+thing it points at has moved, and its output does not change shape when it
+does.**
+
+**One methodological pair earned today, kept as one entry because they are the
+same error on opposite channels.** Every mutant in this section is **line-count
+neutral**, because one that adds a line produces manifest advisories and
+reporting those as the catch **credits a guard for an accident of formatting**.
+Its twin: **a mutant that appears to FAIL is a claim too — check which finding
+fired before believing either direction.** Mine is a false positive on the
+guard, its twin a false negative on the mutant, and **both come from reading a
+channel that is not the finding** — the same error as reading `rc` where the
+finding is in the text. **Grade a mutant on its NAMED finding.** Between them
+they caught three would-be reports today, in three different authors, including
+both of ours.
+
+**And the same discipline applied to a figure in this very entry, because it is
+the round's other recurring error.** Verifying the helper count I read
+`grep -c swift_code_only` as **7** where the reported figure was **6**. The
+reported figure is right: an AST walk gives **1 definition and 5 call sites**,
+and my seventh match was **this document's own prose** naming the helper.
+**Extractor versus population, in my own number, in the entry about anchors** —
+and the tell was that `grep` was counting the artefact that describes the code
+alongside the code, which is §4c-xx's subject arriving in a verification line
+rather than in a guard. **Quote the extractor with the count; an AST walk and a
+`grep` are two populations, and only one of them is the program.**
 
 ### 4d. A conflict resolution is where prose goes missing
 
