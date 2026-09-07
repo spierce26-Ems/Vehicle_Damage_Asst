@@ -2818,7 +2818,7 @@ whole-case traversal to come from one helper that names both. **One traversal
 that forgets the outlier is a defect; the fix is that there is only one
 traversal.**
 
-### 4c-xxxviii. The gate went into the tool that READS the count, and the tool that WRITES it has no gate
+### 4c-xxxix. The gate went into the tool that READS the count, and the tool that WRITES it has no gate
 
 **Ledger's §4c-xxxii measured that every count in the verification standard is
 a count of index entries, and my §4c-xxxiv put a blocking gate ahead of every
