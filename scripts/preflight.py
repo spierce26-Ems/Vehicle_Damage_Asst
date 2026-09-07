@@ -3715,11 +3715,51 @@ def check_doc_patch_payload():
     if not subject:
         return 0
     claimed = set(re.findall(r"sec\.4c-([ivxlc]+)\b", subject))
-    if not claimed:
-        return 0
     added = sh("git", "diff", *diff_args(), "--", "docs/PROCESS.md")
     if not added.strip():
         added = sh("git", "show", "--format=", "--", "docs/PROCESS.md")
+    if not claimed:
+        # LEDGER'S sec.4c-lii, BUILT AS A SEPARATE ARM -- and the reason it
+        # is buildable is that it asserts a DIFFERENT proposition than the
+        # one he correctly declined to build.
+        #
+        # He measured the trigger over the whole history: 39 commits add a
+        # sec.4c section, 25 name no numeral in the subject, 14 were covered.
+        # I reproduced 39/14/25 independently, and the uncovered set is
+        # nearly every `fix(...)` commit today -- FOUR OF THEM MINE. So the
+        # check reached about a third of its population, and he recorded the
+        # repair as a convention because INFERRING THE CLAIM FROM THE DIFF
+        # would make the check assert the diff against itself (sec.4c-xliv).
+        # That is right, and it rules out one arm, not both.
+        #
+        # This arm never infers a claim. It asserts that the CONVENTION was
+        # FOLLOWED: the diff adds a section, so a claim was owed, and no
+        # claim was made. The diff is the TRIGGER and the subject is the
+        # SUBJECT -- the two sides are different artefacts, which is exactly
+        # what the Designer's third-fixed-reference correction asks for. It
+        # says nothing about whether any payload landed; it says the
+        # instrument that WOULD say so could not look.
+        #
+        # A CONVENTION NOBODY HAS AUTOMATED IS THE MOST LIKELY MEMBER, which
+        # is this repository's oldest lesson and the reason a free repair
+        # recorded only in prose does not stay repaired. WARN: a subject
+        # line is prose an author may legitimately write differently, and
+        # blocking a commit over its wording would be the wrong severity for
+        # a claim nobody is required to make.
+        if re.search(r"^\+###\s+4c-[ivxlc]+\.", added, re.M):
+            # remedy: fixes
+            warn("doc-payload",
+                 "this commit ADDS a sec.4c section and its subject line "
+                 "names no `sec.4c-<numeral>`, so the payload check had "
+                 "nothing to check the diff against",
+                 "name the section in the subject line -- `sec.4c-<numeral>` "
+                 "-- and the payload guard becomes able to look. Measured "
+                 "over this repository's history, 25 of 39 section-adding "
+                 "commits named no numeral, so the guard was in a position "
+                 "to look at 14. This is the convention, not the payload: "
+                 "it does NOT say a section is missing, only that nothing "
+                 "verified one arrived")
+        return 0
     landed = set(re.findall(r"^\+###\s+4c-([ivxlc]+)\.", added, re.M))
     # A section the message names but the diff never adds. Deliberately NOT
     # the reverse: a commit may correctly renumber or move a heading it

@@ -3609,6 +3609,49 @@ comparator arm instead. **A check with NEITHER a helper nor an invertible
 subject is reported**, because that is a check no arm here can establish is
 falsifiable at all.
 
+### 4c-liv. Ledger's trigger measurement was buildable after all — because the arm asserts a different proposition than the one he declined
+
+**Ledger measured that `doc-payload`'s trigger reached about a third of its
+population — 39 commits add a §4c section, 25 name no numeral in the subject,
+14 were covered — and recorded the repair as a CONVENTION rather than code,
+because inferring the claim from the diff would make the check assert the diff
+against itself.** I reproduced **39 / 14 / 25** independently with explicit
+`subprocess` calls, and **the uncovered set is nearly every `fix(...)` commit
+of today, four of them mine.**
+
+**His reasoning is right and it rules out one arm, not both.** The arm he
+declined would infer the CLAIM from the diff — circular, and §4c-xliv exactly.
+**This arm never infers a claim: it asserts that the CONVENTION WAS FOLLOWED.**
+The diff adds a section, so a claim was owed; the subject makes none. **The
+diff is the TRIGGER and the subject is the SUBJECT — two different artefacts,
+which is precisely what the Designer's third-fixed-reference correction asks
+for.**
+
+**What it says and what it does not.** It says **nothing** about whether a
+payload landed — that would be the circular arm. It says **the instrument that
+would tell you could not look.** Those are different findings, and conflating
+them is how the ambiguity axis (§4c-xxxiii) gets earned: this one names the
+absent claim, and the remedy says so explicitly rather than implying a section
+is missing.
+
+**The reason it is worth code at all is this repository's oldest lesson: A
+CONVENTION NOBODY HAS AUTOMATED IS THE MOST LIKELY MEMBER.** Twelve of the
+day's collisions were that sentence. **A free repair recorded only in prose
+does not stay repaired — and §4c-xxx is the margin: prose tells a reader; only
+a check tells the next commit.**
+
+**WARN, and the severity is the honest part rather than the convenient one.** A
+subject line is prose an author may legitimately write differently, and
+**blocking a commit over its wording would be the wrong severity for a claim
+nobody is required to make.** It lands in the line an author reads at commit
+time, next to the numeral they were about to omit.
+
+**Measured on the day's own history, which is the test that matters: the arm
+fires on 25 real commits including four of mine, and is silent on the 14 that
+followed the convention** — so it is not a rule invented for a mutant. Ledger's
+own §4c-lii commit passes it, because he named his section.
+
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
