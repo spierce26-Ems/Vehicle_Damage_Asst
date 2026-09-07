@@ -390,6 +390,90 @@ def check_docs_owed(files):
              "the code")
 
 
+def check_note_rows_implemented():
+    """Every note row the appendix SPECIFIES must exist in the renderer.
+
+    # remedy: fixes
+
+    NOTE(Vector), 2026-09-07. `qualityFlags.hasMotionBlur` was written into
+    evidence from 6c2202f: persisted on CapturedPhoto, decoded additively,
+    carried through duplication, and given a row in sec.2.2's note table.
+    `PDFReportGenerator.captureNotes(for:)` implemented five of the table's
+    six rows and never read it. The flag reached the model and the artefact
+    never asked, so a photograph the app had MEASURED as moved printed an
+    all-clear -- for two rounds, through three reviews, past a doc table that
+    said otherwise.
+
+    That is the zero-reader defect one layer out from where it was found. Its
+    first instance was a computed property with no reader anywhere; the
+    repair gave it a reader on the MODEL, which is not the artefact that
+    makes the claim. A spec row and a rendered note are different artefacts,
+    and only the second is what an examiner reads. THE POPULATION FOR "IS
+    THIS WIRED" IS THE RENDERED PAGE, NOT THE STRUCT.
+
+    So this check is the population stated mechanically: read the copy table
+    that OWNS the wording, and assert each row's string appears verbatim in
+    the renderer. Advisory rather than blocking, because the table is
+    Ledger's document and a new row legitimately lands before its code.
+
+    Scope, stated so a clear run is not read as stronger than it is: this
+    matches the note STRING, so it proves the copy is present and reachable
+    in the file -- not that the predicate guarding it is correct. A row
+    guarded by `if false` passes. It closes the "specified but never
+    rendered" gap and nothing else.
+    """
+    doc = os.path.join(REPO, "docs", "EVIDENCE_APPENDIX_CAPTURE_NOTES.md")
+    gen = os.path.join(REPO, "ios", "VehicleDamageForensics", "Services",
+                       "PDFReportGenerator.swift")
+    if not os.path.exists(doc) or not os.path.exists(gen):
+        return
+    lines = open(doc).read().splitlines()
+    # The note table is the one whose header names the condition and the note.
+    start = None
+    for i, l in enumerate(lines):
+        head = l.lower()
+        if (l.startswith("|") and "note" in head
+                and ("trigger" in head or "condition" in head)):
+            start = i + 2
+            break
+    if start is None:
+        # remedy: fixes
+        warn("note-rows",
+             "could not locate the sec.2.2 condition/note table in "
+             "EVIDENCE_APPENDIX_CAPTURE_NOTES.md",
+             "this check anchors on a table header naming Trigger/Condition "
+             "and Note; "
+             "if the table moved or was retitled, re-point the anchor -- an "
+             "anchor that silently finds nothing is the absence asserting a pass")
+        return
+    rows = []
+    for l in lines[start:]:
+        if not l.startswith("|"):
+            break
+        cells = [c.strip() for c in l.strip("|").split("|")]
+        if len(cells) >= 2 and cells[1]:
+            rows.append((cells[0], cells[1]))
+    if not rows:
+        # remedy: fixes
+        warn("note-rows",
+             "the sec.2.2 note table parsed to zero rows",
+             "a check that examines nothing cannot fail -- verify the table's "
+             "shape rather than trusting this check's silence")
+        return
+    text = open(gen).read()
+    missing = [(c, n) for c, n in rows if n not in text]
+    if missing:
+        names = "; ".join(c for c, _ in missing)
+        # remedy: fixes
+        warn("note-rows",
+             f"sec.2.2 specifies {len(rows)} note rows; "
+             f"{len(missing)} have no string in PDFReportGenerator.swift ({names})",
+             "add the row to captureNotes(for:) with the note copied VERBATIM "
+             "from the table, guarded by the recorded flag and never by a live "
+             "gate -- or, if the row is intentionally not implemented yet, say "
+             "so in the table so a reader does not read it as shipped")
+
+
 def check_cited_doc_copy():
     """A document the app CITES to a reader is report copy.
 
@@ -2250,6 +2334,7 @@ def main():
     check_delimiter_balance(files)
     check_manifest_drift()
     check_cited_doc_copy()
+    check_note_rows_implemented()
     check_doc_drift()
     check_conflict_markers()
     check_cited_commits()

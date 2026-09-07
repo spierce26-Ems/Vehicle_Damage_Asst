@@ -1190,6 +1190,49 @@ that the sentence is still true — so symbol citations move the failure from
 and is worth being precise about. **A checkable pointer is not a verified
 claim**, and the citation audit is a smaller thing than a review.
 
+### 4c-x. "Count the rows and count the branches" is a check, not a habit
+
+The sixth note row went two rounds unrendered: `hasMotionBlur` was persisted,
+decoded, duplicated, locked and given a row in the appendix's condition table,
+while `PDFReportGenerator.captureNotes(for:)` had five branches. **The
+distinction existed, the copy existed, the field was persisted, and nothing
+carried it to the artefact that makes the claim.**
+
+The diagnosis landed as a rule — *a field that records a distinction is not
+done until the artefact that would over-claim without it reads it, and "the
+artefact" is the renderer, not the model* — with the audit stated as a
+comparison anyone could run: count the rows in the lock, count the branches in
+the renderer, and if they differ the lock describes a report nobody generates.
+
+**That comparison is mechanical, so it should not be a habit.** Every other
+rule in this section that could be checked ended up as a check, for the reason
+§4c gives about counts: **a claim under something that recomputes it is safe,
+and a claim under discipline is safe until the day someone is in a hurry.**
+The rule was found three times today by three people reading carefully; that is
+the signature of work a tool should be doing.
+
+`check_note_rows_implemented` reads the copy table that OWNS the wording and
+asserts each row's string appears in the renderer. Advisory, since a new row
+legitimately lands before its code.
+
+**Deliberately narrow, and the scope matters more than the check: it matches
+the note STRING.** So it proves the copy is present and reachable in the file —
+**not** that the predicate guarding it is correct. A row guarded by `if false`
+passes. It closes "specified but never rendered" and nothing else. This is the
+same limit the symbol-citation check has: **a checkable pointer is not a
+verified claim**, and a check whose scope is not stated gets read as covering
+the claim next to it.
+
+**Two details from building it, both instances of rules already here.** Its
+table anchor warns when it locates no table, because **an anchor that silently
+finds nothing is an absence asserting a pass** (§5) — and that guard fired on
+the first run, since the real header reads `| Trigger | Note |` and the check
+looked for `Condition`. Without it the check would have reported a clean pass
+over zero rows, which is the failure it exists to prevent, in itself. And it
+was mutation-tested by replacing the motion note's string and confirming it
+names that row: **a check written to catch a defect must be shown to fail on
+it**, or it joins the class it closes.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

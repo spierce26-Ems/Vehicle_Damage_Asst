@@ -277,6 +277,11 @@ One line per photo, prefixed with the shot label and photo index.
 | `sharpnessScore == nil && sharpnessMeasurable` | Sharpness was not measured for this photograph. |
 | `qualityFlags.hasMotionBlur` | The app measured camera movement during this capture that exceeded its steadiness threshold. |
 
+*(`preflight`'s `note-rows` check now asserts every row in this table has its
+string in `PDFReportGenerator.captureNotes(for:)`, so the next row cannot go
+two rounds unrendered while this table reads as shipped. It matches the STRING,
+not the predicate — a row guarded by `if false` passes it.)*
+
 **"Measured" in the motion row carries the same constraint as rows three and
 four, and its input is coupled to them the way row five is:** the peak over the
 trailing window, never `isSteady`. `isSteady` is a live gate reading one
