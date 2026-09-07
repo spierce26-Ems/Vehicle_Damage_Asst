@@ -875,6 +875,26 @@ fix is a flow layout for the cover, in its own diff. On a second pass none of
 `drawWrapping`'s seventeen call sites shares a function with an absolute
 `y:` literal, so the cover is the only page where this applies today.
 
+**A commit that closes a class must count its own residue, and this one did
+not.** The pairing fix converted seventeen sites and stated that the twelve
+remaining were fixed literals whose length the author could measure. Grepping
+the pairing again against the landed tree returns **twenty**, and four are
+content-dependent — including one live overrun: the same motion sentences that
+had been converted on the wide page, redrawn in a half-width column where 99
+characters at 10pt take three lines against an advance of 28. **The sentence is
+fixed; the column is what makes it wrap.** So the enumeration failed the same
+way it failed for render sites, one level in: the fix followed the *string*
+rather than the pairing. **Recount the residue from the landed tree, and state
+the count as a measurement rather than as the complement of what you changed.**
+
+**And one pair cannot be settled by any measurement we make.** A striation
+exclusion's `reason` is free examiner text with no length bound anywhere — the
+input is a vertical `TextField` validated only for non-emptiness — drawn at an
+advance of 12pt in a 241pt column on the page written to be read by opposing
+counsel. **An unbounded string against a fixed advance is wrong at some length
+regardless of whose arithmetic you use**, which makes it a bound at the input,
+not a measurement at the frame: a product decision, not a layout fix.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

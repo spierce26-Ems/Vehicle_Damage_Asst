@@ -1827,6 +1827,16 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     because it is visible on the page and a truncation is not, but it is not safety.** Export a
     cover for a duplicated case and confirm the note is clear of the box. The real fix is a flow
     layout for the cover's fixed y-offsets; it has no task yet and belongs in its own diff.
+  - [ ] **`qualityScore` on a scar capture is not a claim the reticle contradicts.**
+    `ScarCaptureView` hard-codes `qualityScore: 1.0` on every live scar capture — auto *and*
+    manual-shutter — while the 30-shot path computes `evaluateQuality()`. A manual fallback taken
+    while the reticle is white persists a claim of perfect quality: the reticle and the persisted
+    score are two renders of one verdict and they can disagree. **Latent, not live** — `scarPhoto`
+    lives on `Vehicle.scarPhoto` and is never appended to `vehicle.photos`, so `bestDamagePhoto`,
+    `PhotoReviewView` and the PDF never read it. It becomes live the moment anything surfaces
+    scar-photo quality or `scarPhoto` joins `photos`. **What a manual-override capture should
+    record is a persisted-model semantics question for Sean, not a fix for us**, and it has no
+    task yet.
   - [ ] **Four of the twenty surviving pairs are not fixed literals.** `5e2a536` fixed 17
     wrapping draws and recorded that "the 12 remaining maxWidth-plus-literal-advance pairs are
     fixed string literals whose length the author could measure and did." Grepping the pairing
