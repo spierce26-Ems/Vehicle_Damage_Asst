@@ -2027,6 +2027,86 @@ def check_manifest_line_counts():
              "other's, and both are plausible integers")
 
 
+def tracked_files():
+    """Every tracked path, DEDUPED -- a set of files, not of index entries.
+
+    # remedy: fixes
+
+    NOTE(Tech Lead), 2026-09-07. sec.4c-xxxiv, Ledger's finding built.
+    `git ls-files` reports a conflicted path ONCE PER STAGE, so one
+    conflicted file counts THREE, and that call was the population of five
+    checks here. sec.4d recorded the fact for a HANDOVER FIGURE and named
+    `ls-files -u`; the rule was never given to the tool. sec.4c-xxii once
+    more, and the sharpest instance of it -- the rule was in the document
+    that these checks exist to enforce.
+
+    Deduping is necessary and NOT sufficient, which is why
+    `check_unmerged_index` gates ahead of every count: a deduped count taken
+    mid-merge is right about the number of paths and still says nothing
+    about a tree whose content is two versions at once.
+    """
+    return sorted({f for f in sh("git", "ls-files").splitlines() if f})
+
+
+def check_unmerged_index():
+    """No count may be taken while the index has unmerged entries.
+
+    # remedy: fixes
+
+    NOTE(Tech Lead), 2026-09-07. sec.4c-xxxiv. Ledger hit this rebasing a
+    patch of the Designer's onto this tree, and the laundering is the
+    finding rather than the miscount. Reproduced on a fresh clone from two
+    one-line conflicting edits, never from his broken worktree, per this
+    file's own rule that a tool's state is not the tree's:
+
+      markers present            -> `conflict-markers` FAILs, and reports
+                                    the same file THREE TIMES, the phantom
+                                    count leaking into the finding itself
+      markers stripped by hand   -> every conflict signal GONE, and
+                                    `manifest` still warns 88 against 86
+      remedy taken (regenerate,
+        then hand-edit `Totals:`)-> `clear`, rc=0, ZERO warn/FAIL lines,
+                                    with `git ls-files -u` still 3
+
+    So the last remaining signal is converted, by following its own printed
+    instruction, into a PERMANENT FALSE CLAIM in the document review
+    consults. A REMEDY THAT LAUNDERS THE DEFECT IS WORSE THAN A MISSING
+    CHECK: a missing check leaves the reader uninformed, and this one hands
+    them a wrong number with the authority of the tool that found it.
+
+    Blocking, and FIRST, on the ordering argument that put
+    `check_no_duplicate_defs` first: A COUNT TAKEN MID-CONFLICT MAKES
+    NOTHING BELOW IT A STATEMENT ABOUT THE TREE. The gate is also why the
+    manifest remedy may keep printing a number -- by the time it runs, the
+    index is known clean.
+
+    New axis, and Ledger's framing is the one to keep: the previous ten
+    hardenings asked what a guard READS, WHERE IT LIVES, and how it FINDS
+    what it reads. THIS ASKS WHETHER A GUARD'S POPULATION IS A SET OF FILES
+    OR A SET OF INDEX ENTRIES -- and `git ls-files` has always answered the
+    second.
+    """
+    out = sh("git", "ls-files", "-u")
+    paths = sorted({l.split("\t", 1)[1] for l in out.splitlines()
+                    if "\t" in l})
+    if not paths:
+        return 0
+    # remedy: fixes
+    fail("unmerged-index",
+         f"{len(paths)} path(s) unmerged in the index: "
+         f"{', '.join(paths[:5])}"
+         f"{' ...' if len(paths) > 5 else ''}",
+         "resolve the merge and `git add` each path before reading any "
+         "figure from this tool. `git ls-files` reports a conflicted path "
+         "once per STAGE, so every count above is inflated -- and removing "
+         "the conflict markers by hand clears every conflict signal while "
+         "leaving the index unmerged, at which point the manifest remedy "
+         "will instruct you to write the phantom total into the `Totals:` "
+         "prose permanently. `git ls-files -u` is the only channel that "
+         "answers whether this tree is one version or two")
+    return 1
+
+
 def check_conflict_markers():
     """No tracked text file may contain a source-control conflict marker.
 
@@ -2065,7 +2145,7 @@ def check_conflict_markers():
     pats = (re.compile(r"(?m)^" + lead + r"(?:[ \t]|$)"),
             re.compile(r"(?m)^" + mid + r"$"),
             re.compile(r"(?m)^" + tail + r"(?:[ \t]|$)"))
-    for f in sh("git", "ls-files").splitlines():
+    for f in tracked_files():
         if not f:
             continue
         p = os.path.join(REPO, f)
@@ -2245,7 +2325,7 @@ def check_swift_parses():
     NOT mean the tree compiles -- type checking, imports and the iOS SDK are
     still Xcode's job, per sec.4 clauses 4-6. It means the tree is syntax.
     """
-    swift = [f for f in sh("git", "ls-files").splitlines()
+    swift = [f for f in tracked_files()
              if f.endswith(".swift")]
     if not swift:
         return
@@ -2453,7 +2533,7 @@ def check_cited_commits():
     wrong, since plenty of shas are all letters. Shas that are also tracked
     paths are skipped.
     """
-    tracked = sh("git", "ls-files").splitlines()
+    tracked = tracked_files()
     tracked_set = set(tracked)
     pat = re.compile(r"`([0-9a-f]{7,40})`")
     dangling = []
@@ -2503,7 +2583,7 @@ def check_manifest_drift():
     Ledger's.
     """
     rel = "ios/reference/COMPLETE_FILE_MANIFEST.md"
-    tracked_paths = sh("git", "ls-files").splitlines()
+    tracked_paths = tracked_files()
     try:
         with open(os.path.join(REPO, rel), encoding="utf-8") as fh:
             text = fh.read()
@@ -3708,7 +3788,8 @@ def main():
     # defect -- and this file's whole subject today is findings that reach
     # the reader through the wrong channel. So the namespace is checked
     # before any consumer of it can crash on it.
-    if check_no_duplicate_defs() or check_no_duplicate_sections():
+    if (check_unmerged_index() or check_no_duplicate_defs()
+            or check_no_duplicate_sections()):
         # PRINT before returning. Caught by my own mutant: the first version
         # of this early exit returned 1 without reaching the reporting loop
         # at the bottom, so the collision refused the commit and printed

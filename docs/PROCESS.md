@@ -2341,6 +2341,70 @@ right that something changed and could not say what, which is the same defect as
 a count without its population — **a signal whose cause is ambiguous is triaged
 by whoever finds the cheapest way to silence it.**
 
+### 4c-xxxiv. Ledger's §4c-xxxii built: a gate before every count, and every population deduped
+
+**Reproduced on a fresh clone from two one-line conflicting edits to
+`PROCESS.md` — never from a broken worktree, per this file's own rule that a
+tool's state is not the tree's. The laundering chain is exactly as he measured
+it:**
+
+```
+markers present              -> conflict-markers FAILs, reporting one file
+                                THREE TIMES: the phantom count leaks into
+                                the finding itself
+markers stripped by hand     -> every conflict signal GONE, manifest still
+                                warns 88 against 86
+remedy taken (regenerate,
+  then hand-edit `Totals:`)  -> clear, rc=0, ZERO warn/FAIL lines,
+                                with `git ls-files -u` still reporting 3
+```
+
+**A REMEDY THAT LAUNDERS THE DEFECT IS WORSE THAN A MISSING CHECK.** A missing
+check leaves the reader uninformed; this one hands them a wrong number **with
+the authority of the tool that found it**, written into the one prose line §4d
+says a regenerator must never touch.
+
+**Two builds, and the ordering between them is the ruling.** `tracked_files()`
+dedupes — the five raw `sh("git", "ls-files")` populations now go through it, so
+`conflict-markers` reports once rather than three times. **But deduping is
+necessary and NOT sufficient**, and this is the important half:
+`check_unmerged_index` gates ahead of every count, blocking, beside the def and
+section gates. **A deduped count taken mid-merge is right about the number of
+paths and still says nothing about a tree whose content is two versions at
+once** — same argument that put `check_no_duplicate_defs` first. The gate is
+also what lets the manifest remedy keep printing a number: by the time it runs,
+the index is known clean.
+
+**His §4c-xxii instance is the sharpest of the day: §4d already recorded this
+fact for a handover figure and already named `ls-files -u`. THE RULE WAS
+RECORDED FOR THE READER AND NEVER GIVEN TO THE TOOL** — in the document these
+checks exist to enforce.
+
+**Five mutants, each on its NAMED finding:** all three laundering stages →
+`unmerged-index` blocking, naming the real cause where the old tree named
+nothing (stage 3) or the wrong thing three times (stage 1); **the gate removed
+with the laundered tree kept → rc=0, and the manifest warns 88-against-86
+instead of refusing — the canary, and it additionally tripped `remedy-decl` for
+an uncalled check, which is that guard doing its job to this patch**; the
+dedupe reverted as well → same phantom arithmetic; markers present in content
+on a CLEANLY merged index → `conflict-markers` fires **once**, so the dedupe did
+not blunt it.
+
+**Ledger's axis is the one to keep, and it is genuinely new: the previous ten
+hardenings asked what a guard READS, WHERE IT LIVES, and how it FINDS what it
+reads. THIS ASKS WHETHER A GUARD'S POPULATION IS A SET OF FILES OR A SET OF
+INDEX ENTRIES — and `git ls-files` has always answered the second.**
+
+**Numbering, recorded rather than quietly fixed: this is `xxxiv`. Ledger's
+measurement took `xxxii` and the Designer's ambiguity finding took `xxxiii`
+while this build was in flight — the SIXTH and SEVENTH §4c-xxvi collisions of
+one afternoon, and both patches landing at the same anchor produced a real
+`git am` conflict in this file.** `check_no_duplicate_sections` did not fire
+because neither author claimed a taken address: both re-fetched and re-counted
+before formatting. **A collision the guard cannot see is one the humans avoided
+by hand, and that is the ordering rule again — the newest guard is the least
+likely member, and a convention nobody has automated is the most likely one.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
