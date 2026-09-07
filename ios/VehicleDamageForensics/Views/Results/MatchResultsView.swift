@@ -543,7 +543,9 @@ struct MatchResultsView: View {
             Text("Scar-Direction Consistency").font(.headline)
 
             // NOTE(AI Developer), 2026-09-07 (task #12 follow-up): this is
-            // the SECOND render of `suspectExclusionReason` -- the same
+            // the SECOND of THREE render sites of
+            // `suspectExclusionReason` (the third is
+            // `PDFReportGenerator.drawScarDirectionSection`) -- the same
             // string `exclusionBanner` shows above the paywall. It must
             // carry the same claim, and until this commit it did not: red
             // fill + red tint + red background asserted an exclusion on

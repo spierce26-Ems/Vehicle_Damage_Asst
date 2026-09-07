@@ -332,13 +332,43 @@ struct PDFReportGenerator {
         "Scar-Direction Consistency".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
         y += 34
 
+        // NOTE(AI Developer), 2026-09-07 (task #12 follow-up). This is the
+        // THIRD render site of `suspectExclusionReason` -- the other two are
+        // `MatchResultsView.exclusionBanner` and its `scarDirectionSection`
+        // copy -- and it was the last one still asserting an exclusion the
+        // string may deny. It drew a red-filled box headed "EXCLUSION
+        // WARNING" over every one of the three strings
+        // `evaluateExclusionRule()` can return, including the task #14
+        // LiDAR path, whose text says the difference CANNOT be resolved
+        // from these photographs and to re-measure with a tape. A red box
+        // captioned EXCLUSION WARNING over "this cannot be resolved" is the
+        // same false exclusion the rejected fixed heading would have
+        // shipped, and here it is a heading AND a colour AND a fill.
+        //
+        // Worse than either screen render, because this one is the paid,
+        // shareable, printable artefact -- the copy that leaves the app and
+        // is read by someone who cannot scroll to the string's own graded
+        // consequence for context.
+        //
+        // The rule this closes: a duplicated string is only an invariant if
+        // every render carries the same claim. Two sites were audited this
+        // round and fixed; the count was never two. When a value is read in
+        // more than one place, enumerate its render sites FROM THE CODE --
+        // `grep` the symbol, do not recall the list.
+        //
+        // Neutral treatment matching both screen renders: no fill, a hairline
+        // rule, and a heading that describes the section rather than
+        // asserting its outcome. The string supplies the finding.
         if let reason = c.matchResult?.suspectExclusionReason {
             let boxRect = CGRect(x: 50, y: y, width: rect.width - 100, height: 60)
             let path = UIBezierPath(roundedRect: boxRect, cornerRadius: 8)
-            UIColor.systemRed.withAlphaComponent(0.12).setFill()
+            UIColor.systemGray6.setFill()
             path.fill()
-            "EXCLUSION WARNING".draw(at: CGPoint(x: boxRect.minX + 12, y: boxRect.minY + 8),
-                                       font: .boldSystemFont(ofSize: 12), color: .systemRed)
+            UIColor.systemGray3.setStroke()
+            path.lineWidth = 1
+            path.stroke()
+            "RULE-OUT ASSESSMENT".draw(at: CGPoint(x: boxRect.minX + 12, y: boxRect.minY + 8),
+                                       font: .boldSystemFont(ofSize: 12), color: .darkGray)
             reason.draw(at: CGPoint(x: boxRect.minX + 12, y: boxRect.minY + 26),
                         font: .systemFont(ofSize: 11), maxWidth: boxRect.width - 24, color: .darkGray)
             y += 76
