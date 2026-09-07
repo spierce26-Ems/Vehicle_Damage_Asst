@@ -927,11 +927,14 @@ where the meaning shifted.
 **Ruling: shape checks belong in the tree, and they do NOT belong under a
 `.swift` path that the manifest counts as app source.** A verification
 instrument is not app source, and the manifest's Swift total is quoted as a
-statement about the app. Land them as `scripts/shapechecks/*.swift.txt`, or
+statement about the app. Land them under a non-`.swift` extension, or
 add a manifest section that counts them separately with the `Totals:` sentence
 naming both figures explicitly — **either is acceptable; what is not acceptable
-is one number silently covering two populations.** The `.swift.txt` form keeps
-`swiftc` usable with an explicit copy step and costs the instrument nothing.
+is one number silently covering two populations.** LANDED as
+`scripts/shapechecks/*.shapecheck` with a mutation-tested `run.sh` that copies
+each to a `.swift` temp and compiles it, so `swiftc` stays usable and the
+instrument costs nothing. Recorded because the ruling offered two forms and a
+reader must not have to guess which one shipped.
 
 **Why this is a lock question and not housekeeping: the manifest's figures are
 the only counts in this repository that a recomputing check protects**, which

@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 83 tracked files, of which 42 Swift sources (21817 lines). The seven `scripts/shapechecks/` files are deliberately NOT `.swift`: the Swift count is a signal quoted in review, and a reduced model that says nothing about the app must not move it.
+Totals: 84 tracked files, of which 42 Swift sources (21817 lines). The `scripts/shapechecks/` instruments are deliberately NOT `.swift`: the Swift count is a signal quoted in review, and a reduced model that says nothing about the app must not move it. Stated without a file count on purpose -- the set grows, and a number here would go stale in the direction that reads as an oversight.
 
 ## iOS app — Xcode project
 
@@ -116,7 +116,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 1605 |
+| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 1608 |
 | `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 753 |
 | `docs/PROCESS.md` | 2830 |
 | `HANDOFF_SUMMARY.md` | 320 |
@@ -131,7 +131,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 |---|---:|
 | `ios/reference/ALGORITHM_EXPLAINER.md` | 331 |
 | `ios/reference/APP_STORE_CONNECT_SETUP.md` | 118 |
-| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 197 |
+| `ios/reference/COMPLETE_FILE_MANIFEST.md` | 198 |
 | `ios/reference/HANDOFF_TO_AI_DEVELOPER.md` | 245 |
 | `ios/reference/PAINT_ANALYSIS_KIT_FUTURE_FEATURE.md` | 146 |
 | `ios/reference/PROJECT_BRIEF.md` | 31 |
@@ -163,6 +163,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/shapechecks/README.md` | 76 |
 | `scripts/shapechecks/decline-affordance.shapecheck` | 104 |
 | `scripts/shapechecks/filtered-headline.shapecheck` | 168 |
+| `scripts/shapechecks/filtered-headline-v1.shapecheck` | 137 |
 | `scripts/shapechecks/item2-attestation.shapecheck` | 102 |
 | `scripts/shapechecks/motionblur-window.shapecheck` | 105 |
 | `scripts/shapechecks/motionmeasurable.shapecheck` | 116 |
