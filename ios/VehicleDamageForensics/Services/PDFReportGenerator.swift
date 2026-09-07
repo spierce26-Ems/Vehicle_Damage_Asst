@@ -591,10 +591,15 @@ struct PDFReportGenerator {
         // an investigation file, and gets read by people who never saw
         // the qualifying sentence underneath. The headline now always
         // carries the p-value and the chance verdict.
+        // NOTE(AI Developer), 2026-09-07 (task #12 tail): literal `y += 30`
+        // on a headline whose length moves with `pValueDisplay` and a trial
+        // count nobody has run. Not overrunning today, which is exactly the
+        // near-miss case -- a margin nobody measures is not a margin anyone
+        // is maintaining.
         if let headline = match.headlineDisplay {
-            headline.draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14),
-                          maxWidth: rect.width - 100)
-            y += 30
+            y += drawWrapping(headline, at: CGPoint(x: 50, y: y),
+                              font: .boldSystemFont(ofSize: 14),
+                              maxWidth: rect.width - 100) + 10
         }
         y += drawWrapping(match.summary, at: CGPoint(x: 50, y: y),
                           font: .systemFont(ofSize: 12), maxWidth: rect.width - 100) + 19
@@ -654,10 +659,11 @@ struct PDFReportGenerator {
 
         // NOTE(AI Developer), rewritten 2026-09 -- same change and
         // same reasoning as `drawScarFingerprintMatch` above.
+        // Same pairing and same reason as `drawScarFingerprintMatch` above.
         if let headline = comparison.headlineDisplay {
-            headline.draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 14),
-                          maxWidth: rect.width - 100)
-            y += 30
+            y += drawWrapping(headline, at: CGPoint(x: 50, y: y),
+                              font: .boldSystemFont(ofSize: 14),
+                              maxWidth: rect.width - 100) + 10
         }
         if let orientation = comparison.orientationUsed {
             let orientationLine = orientation == .reversed
@@ -704,9 +710,23 @@ struct PDFReportGenerator {
                        let reason = comparison.exclusions.first(where: {
                            $0.crossSectionID == cs.id && $0.vehicleRole == role
                        })?.reason {
-                        ("    Reason: " + reason).draw(at: CGPoint(x: x, y: cy), font: .italicSystemFont(ofSize: 9),
-                                                       maxWidth: columnWidth, color: .orange)
-                        cy += 12
+                        // NOTE(AI Developer), 2026-09-07 (task #12 tail).
+                        // `StriationExclusion.reason` is FREE EXAMINER TEXT
+                        // -- the sheet's field is `axis: .vertical`,
+                        // `lineLimit(2...4)`, validated only for
+                        // non-emptiness -- so no arithmetic of ours can
+                        // settle this pair's fit, and a literal 12pt
+                        // advance is wrong at some length whatever estimate
+                        // you use. Measuring is the FLOOR, not the fix: a
+                        // real bound belongs at the input, which is Sean's
+                        // call. Worth the floor regardless, because this is
+                        // the page read by opposing counsel and an
+                        // examiner's stated reason for excluding evidence
+                        // must not silently overlap the next probe row.
+                        cy += drawWrapping("    Reason: " + reason,
+                                           at: CGPoint(x: x, y: cy),
+                                           font: .italicSystemFont(ofSize: 9),
+                                           maxWidth: columnWidth, color: .orange) + 3
                     }
                 }
             }
@@ -1093,13 +1113,46 @@ private extension String {
         (self as NSString).draw(with: rect, options: .usesLineFragmentOrigin, attributes: attrs, context: nil)
     }
 
+    /// NOTE(AI Developer), 2026-09-07 (task #12 tail). The OTHER
+    /// unmeasured-frame shape in this file, and the pairing grep cannot
+    /// reach it: this is not a wrapping draw at all. It takes no
+    /// `maxWidth`, so it never wraps and never clips vertically. It
+    /// centres by MEASURING the string and subtracting:
+    /// `x = (rect.width - size.width) / 2`. For a string wider than the
+    /// page that arithmetic goes NEGATIVE and the text runs off BOTH
+    /// edges with its middle intact -- a value that loses its beginning
+    /// AND its end while looking deliberately centred.
+    ///
+    /// Two of the eight call sites take user text of unbounded length:
+    /// the case number (`ForensicCase.caseNumber`) and the cover
+    /// attestation (`Examiner.displayLine`, three free-text fields joined
+    /// with em-dashes). Neither is length-limited in `EditCaseSheet`. At
+    /// 12pt a 122-character attestation is about 717pt wide on a 612pt
+    /// page. The attestation is the serious one: losing the ends of
+    /// "Documented by: <name> - Badge <n> - <agency>" leaves a
+    /// plausible-looking fragment, so the failure is a MISATTRIBUTION
+    /// rather than a missing line -- and not implying an attribution the
+    /// app cannot support is the whole point of the examiner work.
+    ///
+    /// Clamped, not wrapped-and-grown: these are single-line cover
+    /// elements at fixed y-offsets, so growing downward is the collision
+    /// this page cannot absorb. `x` is floored at the 50pt margin and the
+    /// draw is bounded by the margins, so an over-long value stays on the
+    /// page and may overlap the element below it. Visible failure over
+    /// silent failure, the same trade the measured boxes made.
     func drawCenter(in rect: CGRect, y: CGFloat, font: UIFont, color: UIColor = .black) {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: color
         ]
         let size = (self as NSString).size(withAttributes: attrs)
-        let x = (rect.width - size.width) / 2
-        (self as NSString).draw(at: CGPoint(x: x, y: y), withAttributes: attrs)
+        let margin: CGFloat = 50
+        let maxWidth = rect.width - margin * 2
+        let x = max(margin, (rect.width - size.width) / 2)
+        let bounds = CGRect(x: x, y: y,
+                            width: min(size.width, maxWidth),
+                            height: .greatestFiniteMagnitude)
+        (self as NSString).draw(with: bounds, options: .usesLineFragmentOrigin,
+                                attributes: attrs, context: nil)
     }
 }
