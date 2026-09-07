@@ -123,7 +123,11 @@ run would be against exactly the parse-verified tree and no error could be
 ambiguous between new work and pre-existing state. **That stopped being true in
 five merges.** Every branch below is now an ancestor of `main` — `a0438c5`,
 `dc069a1`, `13bad3a`, `51c2611`, `f7921d8`, all on 2026-09-06 — and
-`git log origin/main -- 'ios/**/*.swift'` returns **99 commits**.
+`git log origin/main -- 'ios/**/*.swift'` returns **triple digits — run the
+command rather than reading a number here.** This line first recorded 99 and
+measured 100 one commit later, which is the point: a count of commits on a
+moving branch is stale by construction, so the method is the durable statement
+and the figure is not.
 
 **So the isolation this section describes no longer exists: Sean's first build
 is against five merged feature branches plus a day of report-layout fixes.**

@@ -120,7 +120,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | `docs/PROCESS.md` | 1423 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
-| `ios/README.md` | 1901 |
+| `ios/README.md` | 1905 |
 
 ## Reference material (`ios/reference/`)
 
