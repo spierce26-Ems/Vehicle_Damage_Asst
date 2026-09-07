@@ -3428,6 +3428,67 @@ uncovered, and the count above (74 / 59) is measured at `911aa79` by
 quoted with its extractor, because a population without one has been the
 day's most repeated error.
 
+### 4c-li. I built Ledger's retracted arm independently and reached the same wall — plus the two mutant-construction defects on the way
+
+**Ledger retracted the `precondition` condition-negation arm with a soundness
+proof, and I had built the same arm before his message arrived. I verified his
+proof independently rather than taking it, because a retraction is a claim
+too:**
+
+```
+precondition(!(x))        sound assertion, negated  -> rc=132, TRAPS
+precondition(!(x == x))   tautology,       negated  -> rc=132, TRAPS
+```
+
+**Both trap. The test cannot distinguish the case it exists for**, because
+`!(x == x)` is a contradiction and traps immediately — indistinguishable from
+`!(x)` merely being false. **His statement of why is the durable part: the
+mutation had a fixed reference and the WRONG one. The runtime answers "did
+this trap"; the question is "could the ORIGINAL have trapped."** So the arm
+does not ship, and this section exists so the next attempt does not re-derive
+it. **A guard reporting on 74 assertions while distinguishing none of them is
+worse than the stated boundary it replaced** — a stated limit invites the next
+person to look, a passing arm tells them not to.
+
+**His population numbers reproduce exactly by their own extractor: 74
+`precondition` assertions against 59 `expect(` occurrences at the tip.** The
+uncovered shape is the MAJORITY, not the residue — Vector's boundary was
+stated honestly and was larger than it sounded.
+
+**Two mutant-construction defects of my own on the way, and both are this
+document's own subject aimed at me.**
+
+**First: my arm mutated only the FIRST live site.** Measured across the five
+precondition-style checks by weakening a different site in each — **1 of 5
+caught.** That is §4c-xxviii in the arm written to close a boundary: **a count
+is scoped by its POPULATION, and the population is every falsifiable assertion
+in the file, not the first one.** §4c-xxiv's ordering rule again — the newest
+guard is the least likely member, so it gets the class's own test.
+
+**Second, and worse: my `sed` matched neither multi-line form, so it emitted an
+UNMUTATED binary, ran it, saw rc=0, and reported `does NOT discriminate`
+against a correct check.** **A FALSE FINDING AGAINST A CORRECT CHECK, produced
+by grading a mutant I never verified I had applied.** The wrong-object family
+in my own arm, and the fix is a `cmp -s` before the result means anything.
+**Three of us read a number off the wrong object today; this was the fourth,
+and it is the only one that manufactured a finding rather than losing one.**
+
+**And my own splice dropped a `fi` from `run.sh`, which the shell caught as a
+syntax error** — §4c-xlvii's subject arriving in the patch that cited it, one
+turn later. **The payload guard reads headings, and a dropped shell keyword is
+the same failure in a file it does not read.** Reported rather than tidied:
+`bash -n` after every splice into a shell script, the same discipline as the
+whitespace-normalised payload probe.
+
+**What remains open is stated with the wrong approach recorded as wrong:** the
+discriminating question is whether the assertion's **subject** can take a value
+making it false — a property of the subject, not of the assertion's text.
+**Mutate the SUBJECT and require the assertion to trap.** That is the
+Designer's third-fixed-reference correction one level down, in Ledger's
+formulation: **a fixed reference has to be fixed with respect to the PROPERTY
+being tested, not merely external to the mutated text.**
+
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
