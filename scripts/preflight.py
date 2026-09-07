@@ -675,6 +675,39 @@ def check_shapecheck_anchors():
              "obituary")
 
 
+def swift_code_only(src):
+    """A Swift file's CODE: block, whole-line and trailing comments removed.
+
+    NOTE(Designer), 2026-09-07. Named once because three text-matching guards
+    in this file read the same renderer and the comment-stripping fix reached
+    them one at a time, over four hops, each time by someone auditing the
+    guard they had just touched.
+
+    The Tech Lead's own sec.4c-xxiv ordering rule is the argument for a
+    helper rather than a fourth clause: A DEFECT CLASS IS A PROPERTY OF A
+    TECHNIQUE, SO ITS AUDIT IS SCOPED BY THE TECHNIQUE, NEVER BY THE DIFF.
+    A shared view makes the technique one object that can be audited once;
+    three private copies make it three, and the two written first are the
+    ones nobody re-reads. Measured on `efe6d0a`: his clause strips `//`
+    lines and trailing comments but not BLOCK comments, so a correct ternary
+    parked in a `/* */` above a negated live one left `variant-binding`
+    silent -- the mutant was caught only by Vector's anchor-seq, through a
+    different instrument than the one named for the defect. That is the
+    coverage-by-accident sec.4c-xxii refuses to accept, and it survived the
+    patch written FOR this class.
+
+    String literals are preserved deliberately: every locked variant these
+    checks match IS a string literal, so stripping them would blind the
+    guards to their own subject. `strip_trailing_comment` is reused rather
+    than re-derived -- it is already literal-aware, and a duplicated helper
+    is two predicates that must agree.
+    """
+    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    return "\n".join(
+        "" if ln.strip().startswith("//") else strip_trailing_comment(ln)
+        for ln in src.splitlines())
+
+
 def check_locked_variant_conditions():
     """The DOCUMENT's stated condition must be the renderer's condition.
 
@@ -791,17 +824,7 @@ def check_locked_variant_conditions():
     # from the `let motionUnmeasured = photos.contains { ... }` binding, and
     # requiring EQUALITY there rather than containment anywhere.
     gen_src = open(gen).read()
-    gen_code = re.sub(r"/\*.*?\*/", "", gen_src, flags=re.S)
-    # TRAILING comments too, per Ledger's sec.4c-xxiii: a whole-line test
-    # distinguishes a comment LINE from a code line, not code from
-    # commentary, so `!$0.motionMeasurable  // was <the correct selector>`
-    # is a code line wearing its own history. Without this the correct
-    # expression leaks into the extracted selector and the diagnosis names
-    # the right defect for the wrong reason -- it fired here only because
-    # the comment text landed inside the captured group.
-    gen_code = "\n".join(
-        "" if ln.strip().startswith("//") else strip_trailing_comment(ln)
-        for ln in gen_code.splitlines())
+    gen_code = swift_code_only(gen_src)
     flat = " ".join(gen_code.split())
     m = re.search(r"let motionUnmeasured = photos\.contains \{(.+?)\}", flat)
     selector = " ".join(m.group(1).split()) if m else None
@@ -820,8 +843,7 @@ def check_locked_variant_conditions():
                      "satisfied a containment test -- the check could not "
                      "fail on the one input it exists to catch. Read which "
                      "side moved before editing either")
-            continue
-        if want not in flat:
+        elif want not in flat:
             # remedy: fixes
             warn("variant-condition",
                  f"`{key}`'s declared condition `{want}` does not appear in "
@@ -854,9 +876,17 @@ def check_locked_variant_conditions():
             # reference and part of the searched text, which is the
             # mutate-the-fixture member of the wrong-object family arriving
             # inside my own check.
-            window = " ".join(
-                l for l in lines[max(0, i - 6):i + 1]
-                if not re.search(r"<!--\s*CONDITION:", l))
+            # Ledger's sec.4c-xxiii one syntax level down, and the third
+            # instance of this defect in my own check: dropping declaration
+            # LINES distinguishes a comment line from a prose line and NOT
+            # prose from commentary. A trailing `<!-- ... -->` on the emit
+            # instruction ITSELF is a prose line carrying the correct
+            # expression, so it vouched for a v1 instruction on the same
+            # line. Strip the comment CONTENT: a declaration must never be
+            # able to vouch for the prose beside it, wherever it sits.
+            window = re.sub(r"<!--.*?-->", " ",
+                            " ".join(lines[max(0, i - 6):i + 1]),
+                            flags=re.S)
             if "motionMeasurable == false" in window and want not in window:
                 # remedy: fixes
                 warn("variant-condition",
@@ -937,9 +967,12 @@ def check_variant_output_binding():
     # variant on every report. Vector's anchor-seq catches that mutant
     # incidentally through the anchor path; this check, which is the
     # instrument NAMED as the guard on the sign, reported clear alone.
-    flat = " ".join(" ".join(
-        "" if ln.strip().startswith("//") else strip_trailing_comment(ln)
-        for ln in open(gen).read().splitlines()).split())
+    # Via the shared view, which additionally strips BLOCK comments: the
+    # local version here missed `/* */`, so a correct ternary parked in a
+    # block above a negated live one left this check silent and the mutant
+    # was caught only by the anchor-seq -- a different instrument than the
+    # one named for this defect.
+    flat = " ".join(swift_code_only(open(gen).read()).split())
     # The QUALIFIED variant is the second blockquote in sec.2.3 -- taken from
     # the document rather than written here, so the check cannot drift into
     # asserting its own copy of a locked string. That is the
