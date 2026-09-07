@@ -468,6 +468,41 @@ def check_default_valued_predicates():
                  "-- never a second flag that happens to agree today")
 
 
+def strip_trailing_comment(line):
+    """Drop a trailing `//` comment, respecting string literals.
+
+    Ledger's sec.4c-xxiii: `all(...startswith("//"))` separates a comment
+    LINE from a code line and NOT code from commentary, so a regressed line
+    carrying the correct expression in a trailing comment keeps every guard
+    green while getting quieter each time somebody documents it.
+
+    String-literal aware because sec.2.3's locked variants contain `//`
+    nowhere today, but a URL in a locked string would be silently truncated
+    by a naive split -- a guard that corrupts its own haystack is the
+    wrong-object family again.
+    """
+    out, i, in_str, esc = [], 0, False, False
+    while i < len(line):
+        c = line[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            out.append(c)
+        elif c == '"':
+            in_str = True
+            out.append(c)
+        elif c == "/" and i + 1 < len(line) and line[i + 1] == "/":
+            break
+        else:
+            out.append(c)
+        i += 1
+    return "".join(out).rstrip()
+
+
 def check_shapecheck_anchors():
     """A shape check must be ANCHORED to the tree line it models.
 
@@ -542,7 +577,15 @@ def check_shapecheck_anchors():
         text = open(os.path.join(d, name), encoding="utf-8").read()
         anchors = re.findall(r"^//\s*anchor:\s*(\S+)\s+(.+?)\s*$",
                              text, re.M)
-        if not anchors:
+        # `// anchor-seq: <path> :: frag :: frag :: ...` -- Ledger's sec.4c-xix
+        # limit, closed for the sign-and-pairing case. An `anchor:` binds a
+        # substring's PRESENCE, so anything expressible BETWEEN two anchored
+        # tokens is outside it. A seq binds the fragments in ORDER and
+        # ADJACENT modulo whitespace, putting the RELATION inside the binding
+        # rather than between two members of it.
+        seqs = re.findall(r"^//\s*anchor-seq:\s*(\S+)\s+::\s*(.+?)\s*$",
+                          text, re.M)
+        if not anchors and not seqs:
             missing.append(name)
             continue
         for rel, needle in anchors:
@@ -562,6 +605,42 @@ def check_shapecheck_anchors():
             if all(ln.strip().startswith("//") for ln in hits):
                 prose.append(f"{name} -> {rel} (`{needle[:60]}` resolves "
                              f"only in a comment)")
+        for rel, spec in seqs:
+            target = os.path.join(REPO, rel)
+            if not os.path.exists(target):
+                broken.append(f"{name} -> {rel} (no such file)")
+                continue
+            raw = open(target, encoding="utf-8").read()
+            frags = [f.strip() for f in spec.split("::") if f.strip()]
+            # The Tech Lead's sec.4c-xx rule, carried DELIBERATELY because a
+            # seq is a second code path and inherits nothing from the fix he
+            # made to the first. And BLOCK comments as well as line comments:
+            # my first version stripped `//` only, and a `/* ... */`
+            # reproducing the whole relation defeated the seq entirely --
+            # found by mutation, not by reading. A `//` prefix is
+            # non-whitespace and so already broke adjacency; a block
+            # comment's body is whitespace-adjacent verbatim code, which
+            # makes a seq MORE exposed to commentary than a single anchor,
+            # not less.
+            code = re.sub(r"/\*.*?\*/", "", raw, flags=re.S)
+            code = "\n".join(
+                "" if ln.strip().startswith("//")
+                else strip_trailing_comment(ln)
+                for ln in code.splitlines())
+            pattern = r"\s*".join(re.escape(f) for f in frags)
+            if not re.search(pattern, code):
+                absent = next((f for f in frags if f not in code), None)
+                if absent is not None:
+                    why = (f"`{absent[:50]}` absent from code"
+                           + (" (present only in a comment)"
+                              if absent in raw else ""))
+                else:
+                    why = ("all fragments present in code but NOT in this "
+                           "order and adjacency -- the RELATION changed, not "
+                           "the members: a swapped arm, an inserted "
+                           "negation, or a rebinding between the condition "
+                           "and its arms")
+                broken.append(f"{name} -> {rel} seq: {why}")
     if missing:
         # remedy: fixes
         fail("shapecheck-anchors",
@@ -686,9 +765,62 @@ def check_locked_variant_conditions():
         return
     if not declared:
         return
-    flat = " ".join(open(gen).read().split())
+    # Code only, and the declaration compared against the SELECTOR's own
+    # expression rather than against the whole file.
+    #
+    # NOTE(Vector), 2026-09-07. Two holes measured in this comparison, both
+    # of which let the v1 selector -- the one condition this check exists to
+    # catch -- pass silently.
+    #
+    # (1) SUBSTRING. `!$0.motionMeasurable` IS a substring of
+    #     `$0.motionMeasurementAttempted && !$0.motionMeasurable`, so
+    #     `want not in flat` can never fire when the declaration regresses to
+    #     v1. Measured: corrupted the declaration to the v1 form and preflight
+    #     stayed clear at rc=0. The Designer's own rule names it exactly --
+    #     an assertion that cannot fail is not an assertion -- and here the
+    #     input it cannot fail on is the defect, not an edge case.
+    # (2) COMMENTS. `flat` was the whole file, and line ~1037 of the renderer
+    #     quotes `contains { !$0.motionMeasurable }` in prose explaining what
+    #     was replaced. That is the Tech Lead's sec.4c-xx defect -- a check
+    #     that reads a file as text cannot distinguish the code from the
+    #     commentary about the code -- arriving in the third instrument in a
+    #     row. Its general form now has three independent instances, which
+    #     makes it the rule and not the exception for grep-strength checks.
+    #
+    # Fixed by narrowing the haystack to the selector's own expression, taken
+    # from the `let motionUnmeasured = photos.contains { ... }` binding, and
+    # requiring EQUALITY there rather than containment anywhere.
+    gen_src = open(gen).read()
+    gen_code = re.sub(r"/\*.*?\*/", "", gen_src, flags=re.S)
+    # TRAILING comments too, per Ledger's sec.4c-xxiii: a whole-line test
+    # distinguishes a comment LINE from a code line, not code from
+    # commentary, so `!$0.motionMeasurable  // was <the correct selector>`
+    # is a code line wearing its own history. Without this the correct
+    # expression leaks into the extracted selector and the diagnosis names
+    # the right defect for the wrong reason -- it fired here only because
+    # the comment text landed inside the captured group.
+    gen_code = "\n".join(
+        "" if ln.strip().startswith("//") else strip_trailing_comment(ln)
+        for ln in gen_code.splitlines())
+    flat = " ".join(gen_code.split())
+    m = re.search(r"let motionUnmeasured = photos\.contains \{(.+?)\}", flat)
+    selector = " ".join(m.group(1).split()) if m else None
     for key, expr in declared:
         want = " ".join(expr.split())
+        if key == "allclear.partial" and selector is not None:
+            if want != selector:
+                # remedy: fixes
+                fail("variant-condition",
+                     f"`{key}`'s declared condition does not EQUAL the "
+                     f"renderer's selector: document says `{want}`, "
+                     f"renderer computes `{selector}`",
+                     "one of the two moved. Containment was not enough: the "
+                     "v1 form `!$0.motionMeasurable` is a SUBSTRING of the "
+                     "correct selector, so a declaration regressed to v1 "
+                     "satisfied a containment test -- the check could not "
+                     "fail on the one input it exists to catch. Read which "
+                     "side moved before editing either")
+            continue
         if want not in flat:
             # remedy: fixes
             warn("variant-condition",

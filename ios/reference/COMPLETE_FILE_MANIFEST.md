@@ -155,7 +155,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/build_pbxproj.py` | 143 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 312 |
-| `scripts/preflight.py` | 3210 |
+| `scripts/preflight.py` | 3342 |
 | `scripts/check_doc_drift.py` | 555 |
 | `scripts/regen_manifest.py` | 110 |
 | `scripts/check_remedies.py` | 311 |
@@ -168,7 +168,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/shapechecks/motionblur-window.shapecheck` | 112 |
 | `scripts/shapechecks/motionmeasurable.shapecheck` | 124 |
 | `scripts/shapechecks/rowfive-proxy.shapecheck` | 91 |
-| `scripts/shapechecks/allclear-variant-selector.shapecheck` | 129 |
+| `scripts/shapechecks/allclear-variant-selector.shapecheck` | 132 |
 | `scripts/shapechecks/run.sh` | 80 |
 
 ## Repo root
