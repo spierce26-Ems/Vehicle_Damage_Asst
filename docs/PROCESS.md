@@ -2693,6 +2693,22 @@ made against themselves.** A self-criticism is an artefact like any other, and
 this thread has been saying all round that an artefact stating its own limits
 still needs its limits checked.
 
+**THE THIRD SHARE IS DISTINCT FROM BOTH MEASUREMENT ERRORS, so it is recorded
+separately: REPRODUCE A CORRECTION BEFORE ACTING ON IT, EXACTLY AS YOU WOULD A
+BUG REPORT** (the UI/UX Designer's, about her own rewrite). Three different
+failures fed one false conclusion — one agent **measured** wrong, one
+**verified the wrong version**, and one **rewrote a working instrument without
+reproducing the defect at all.** Only the third is available to the person
+being corrected, and it is the one the reflex to accept criticism produces.
+**A correction is a claim, and one aimed at you is not thereby verified.**
+
+**And the reason the round's own instincts gave no protection here:** every
+other defect made something **absent look fine**, so *distrust the all-clear*
+was the correct reflex all day. **This one made something fine look absent, and
+that reflex pointed the wrong way.** A reflex is calibrated to a failure
+direction, so **the one correction that runs backwards arrives with every habit
+endorsing it.**
+
 **AND MY OWN "INDEPENDENT VERIFICATION" WAS THE WORST LINK IN THAT CHAIN, which
 is the part that indicts the process rather than any one of us.** I compiled and
 ran a shape check to test the independence claim and reported that it held — but
@@ -2746,6 +2762,56 @@ absence is what let a green headline through a review that read every word —
 the `confirm.no` glyph class, one channel out. **A check scoped to one channel
 cannot see a contradiction between channels**, so the relation has to be
 asserted directly rather than implied by both halves passing.
+
+**A FILE'S EXTENSION IS PART OF A COUNTED POPULATION, SO ADDING A FILE CAN MOVE
+A NUMBER NOBODY EDITED.** The manifest's totals check counts every tracked
+`.swift` with no scoping; `tracked_swift()` — the "42/42 parsed" population —
+is scoped to `ios/VehicleDamageForensics`. **The two have been the same 42 in
+every handover, so a `.swift` verification instrument would have made them
+diverge while both stayed correct**, and every past "42/42, 42 Swift sources"
+would read as two claims rather than one. Instruments land as `.shapecheck`,
+and the reason lives in the `Totals:` prose rather than in anyone's memory.
+**Two agents quoting the same figure from different populations is that defect
+one level out** — one had been counting unscoped all day and would have
+reported 43/43 where the check reported 42/42. **Name the population, not just
+the number.**
+
+**AND ONE FOUND BY RUNNING THE RUNNER BARE, WHICH IS OWED RATHER THAN FIXED
+HERE: `run.sh` returns rc=2 for TWO different conditions** — "no shape checks
+found" and "no `swiftc` on PATH". The printed lines distinguish them correctly;
+the **exit code does not**, and an exit code is what a caller reads. **A missing
+toolchain and an empty directory are opposite problems** — one means the
+instruments could not be run, the other means there are none to run — and
+reporting them identically makes "the checks did not execute" indistinguishable
+from "there is nothing to execute". **Give the absent-toolchain case its own
+code**, so a wrapper cannot treat an unrun suite as an empty one. Third
+instance of the shape the runner was built to prevent, in the runner: **the
+diagnostic is right and the channel a caller reads is not.**
+
+**MEASURING THE WRONG OBJECT PRODUCES A CONFIDENT NUMBER, AND THE ROUND
+PRODUCED THREE OF THEM.** Mutating a **pattern** that matches two guards
+measures a double revert. Mutating the **fixture** the guard reads moves what
+"correct" means. And reading `bash run.sh | tail; echo RC=$?` reports **`tail`'s
+exit status, not the runner's** — which showed rc=0 on a deliberately broken
+check and nearly published a working runner as broken. **All three return a
+plausible integer with no error anywhere**, which is why none of them is caught
+by looking harder at the result. **Name the object you are measuring, then
+check that the command's output is about that object:** mutate one line by
+number and assert exactly one difference; run a process bare and read its own
+rc; never take a status through a pipe. Same family as reading a verdict
+through a pipe (§4c above) and as quoting a count without its population — **the
+tool answered exactly what it was asked, and the question was about something
+else.**
+
+**A RUNNER THAT REPORTS CLEAR OVER NOTHING IS THE INSTRUMENT COMMITTING THE
+DEFECT IT HUNTS**, and the empty-directory case failed the **wrong way** on the
+first attempt: without `nullglob` the glob fell through as a literal filename,
+the loop ran once, and it printed *"1 shape check, 1 failing"* — **a real
+failure reported as the wrong one, which is worse than silence because it sends
+a reader to fix a file that does not exist.** Found by reading what the runner
+PRINTED on a mutant rather than what it was written to print. Empty is now
+rc=2 and names the condition; a non-compiling check is rc=1, because **a check
+that no longer compiles is not a passing check.**
 
 **VERIFY A DIAGNOSTIC BY READING ITS EMITTED TEXT ON A MUTANT, NOT ITS SOURCE**
 (Vector's, from two edits to a warning string that silently no-oped). The check
