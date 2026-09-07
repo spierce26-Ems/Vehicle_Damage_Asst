@@ -130,8 +130,36 @@ struct PDFReportGenerator {
     }
 
     /// Draws `MatchResult.disclaimerText` inside a bordered box.
+    /// NOTE(AI Developer), measured 2026-09-07 (task #12 tail). This box was
+    /// a literal `height: 130` with its body at +32 -- the second unmeasured
+    /// frame in this file, found by Ledger while verifying the first. It fits
+    /// `MatchResult.disclaimerText` today at 520 characters (about six lines
+    /// at 10pt, ~72pt in ~86pt of body space), so it was not clipping; it was
+    /// one edit of locked copy away from clipping, with nothing to say so.
+    ///
+    /// Measured rather than left as a near-miss, because a near-miss and an
+    /// overrun are the same defect at different content lengths, and this is
+    /// the one piece of report copy whose truncation is a liability rather
+    /// than an inconvenience: it is what stops the document reading as a
+    /// certified forensic identification. A clipped disclaimer is a report
+    /// that claims more than the algorithm can support.
+    ///
+    /// The box now grows to its content, so a longer disclaimer moves the
+    /// frame instead of falling out of it. Returns nothing -- the cover
+    /// page's layout is absolute, and the only caller draws nothing below.
     private func drawDisclaimerBox(rect: CGRect, y: CGFloat) {
-        let boxRect = CGRect(x: 50, y: y, width: rect.width - 100, height: 130)
+        let bodyFont = UIFont.systemFont(ofSize: 10)
+        let bodyWidth = rect.width - 100 - 32
+        let bodyHeight = ceil(
+            (MatchResult.disclaimerText as NSString).boundingRect(
+                with: CGSize(width: bodyWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: [.font: bodyFont],
+                context: nil
+            ).height
+        )
+        let boxRect = CGRect(x: 50, y: y, width: rect.width - 100,
+                             height: 32 + bodyHeight + 16)
         let path = UIBezierPath(roundedRect: boxRect, cornerRadius: 8)
         UIColor.systemGray5.setFill()
         path.fill()
@@ -143,8 +171,8 @@ struct PDFReportGenerator {
                           font: .boldSystemFont(ofSize: 12), color: .darkGray)
         MatchResult.disclaimerText.draw(
             at: CGPoint(x: boxRect.minX + 16, y: boxRect.minY + 32),
-            font: .systemFont(ofSize: 10),
-            maxWidth: boxRect.width - 32,
+            font: bodyFont,
+            maxWidth: bodyWidth,
             color: .darkGray
         )
     }
@@ -178,8 +206,8 @@ struct PDFReportGenerator {
             "  License: \(c.suspectVehicle?.licensePlate ?? "—")"
         ] + (c.suspectVehicle.map { impactProfileLines(for: $0) } ?? [])
         for line in lines {
-            line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
-            y += 18
+            y += drawWrapping(line, at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 12), maxWidth: rect.width - 100) + 3
         }
     }
 
@@ -219,8 +247,8 @@ struct PDFReportGenerator {
                                 f.factor.displayName, f.weight * 100, f.rawScore, f.weightedScore)
             header.draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 13))
             y += 18
-            f.notes.draw(at: CGPoint(x: 60, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 120)
-            y += 36
+            y += drawWrapping(f.notes, at: CGPoint(x: 60, y: y),
+                              font: .systemFont(ofSize: 11), maxWidth: rect.width - 120) + 23
         }
     }
 
@@ -414,16 +442,16 @@ struct PDFReportGenerator {
         y += 22
 
         if let narrative = check.scenarioNarrative {
-            narrative.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
-            y += 40
+            y += drawWrapping(narrative, at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 12), maxWidth: rect.width - 100) + 25
         }
         if let vDesc = check.victimMotionDescription {
-            "Victim: \(vDesc)".draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
-            y += 18
+            y += drawWrapping("Victim: \(vDesc)", at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 11), maxWidth: rect.width - 100) + 5
         }
         if let sDesc = check.suspectMotionDescription {
-            "Suspect: \(sDesc)".draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
-            y += 18
+            y += drawWrapping("Suspect: \(sDesc)", at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 11), maxWidth: rect.width - 100) + 5
         }
         if let delta = check.reciprocityDeltaDegrees {
             String(format: "Reciprocity deviation: %.1f°", delta)
@@ -542,8 +570,8 @@ struct PDFReportGenerator {
                           maxWidth: rect.width - 100)
             y += 30
         }
-        match.summary.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
-        y += 34
+        y += drawWrapping(match.summary, at: CGPoint(x: 50, y: y),
+                          font: .systemFont(ofSize: 12), maxWidth: rect.width - 100) + 19
 
         let columnWidth = (rect.width - 100 - 30) / 2
         let leftX: CGFloat = 50
@@ -612,8 +640,8 @@ struct PDFReportGenerator {
             orientationLine.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), color: .darkGray)
             y += 18
         }
-        comparison.summary.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
-        y += 34
+        y += drawWrapping(comparison.summary, at: CGPoint(x: 50, y: y),
+                          font: .systemFont(ofSize: 12), maxWidth: rect.width - 100) + 19
 
         let columnWidth = (rect.width - 100 - 30) / 2
         let leftX: CGFloat = 50
@@ -681,8 +709,8 @@ struct PDFReportGenerator {
             y += 20
         }
         if let filteredSummary = comparison.filteredSummary {
-            filteredSummary.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
-            y += 48
+            y += drawWrapping(filteredSummary, at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 11), maxWidth: rect.width - 100) + 35
         }
         "Exclusions recorded for this comparison:".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 11))
         y += 16
@@ -765,8 +793,8 @@ struct PDFReportGenerator {
                     ctx.beginPage()
                     y = 50
                 }
-                line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
-                y += 16
+                y += drawWrapping(line, at: CGPoint(x: 50, y: y),
+                                  font: .systemFont(ofSize: 11), maxWidth: rect.width - 100) + 3
             }
         }
     }
@@ -809,8 +837,8 @@ struct PDFReportGenerator {
             "in the source case file for documentation and audit purposes."
         ]
         for line in header {
-            line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 12), maxWidth: rect.width - 100)
-            y += 18
+            y += drawWrapping(line, at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 12), maxWidth: rect.width - 100) + 3
         }
 
         // NOTE(AI Developer): Chain-of-custody audit trail per Sean's
@@ -830,8 +858,8 @@ struct PDFReportGenerator {
             }
             let line = "\(Self.dateFormatter.string(from: entry.timestamp))  —  \(entry.action.displayName)"
                 + (entry.detail.map { ": \($0)" } ?? "")
-            line.draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100)
-            y += 15
+            y += drawWrapping(line, at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 10), maxWidth: rect.width - 100) + 3
             // NOTE(AI Developer), added 2026-09 for task #11 per the
             // Tech Lead: "an audit trail that records what happened but
             // not who did it is barely an audit trail." Printed for
@@ -927,16 +955,13 @@ struct PDFReportGenerator {
         "Analysis Provenance".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
         y += 28
 
-        result.algorithmVersionDisplay
-            .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 13), maxWidth: rect.width - 100)
-        y += 24
+        y += drawWrapping(result.algorithmVersionDisplay, at: CGPoint(x: 50, y: y),
+                          font: .boldSystemFont(ofSize: 13), maxWidth: rect.width - 100) + 8
 
-        "Analysis run: \(Self.dateFormatter.string(from: result.analysisDate))"
-            .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11), maxWidth: rect.width - 100)
-        y += 18
-        "Analysis ID: \(result.analysisID.uuidString)"
-            .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
-        y += 26
+        y += drawWrapping("Analysis run: \(Self.dateFormatter.string(from: result.analysisDate))", at: CGPoint(x: 50, y: y),
+                          font: .systemFont(ofSize: 11), maxWidth: rect.width - 100) + 5
+        y += drawWrapping("Analysis ID: \(result.analysisID.uuidString)", at: CGPoint(x: 50, y: y),
+                          font: .systemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray) + 14
 
         guard let version = result.algorithmVersion else {
             ("This result was produced before analysis version stamping was introduced, so the "
@@ -947,23 +972,18 @@ struct PDFReportGenerator {
             return
         }
 
-        ("The values below were in force when this analysis ran and determine what its scores "
-         + "mean. They are printed here so this report remains interpretable if the algorithm "
-         + "changes later.")
-            .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray)
-        y += 34
+        y += drawWrapping(("The values below were in force when this analysis ran and determine what its scores " + "mean. They are printed here so this report remains interpretable if the algorithm " + "changes later."), at: CGPoint(x: 50, y: y),
+                          font: .italicSystemFont(ofSize: 10), maxWidth: rect.width - 100, color: .darkGray) + 22
 
         for constant in version.constants {
             if y > rect.height - 80 {
                 ctx.beginPage()
                 y = 50
             }
-            "\(constant.name): \(constant.value)"
-                .draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 11), maxWidth: rect.width - 100)
-            y += 16
-            constant.explanation
-                .draw(at: CGPoint(x: 62, y: y), font: .systemFont(ofSize: 10), maxWidth: rect.width - 124, color: .darkGray)
-            y += 26
+            y += drawWrapping("\(constant.name): \(constant.value)", at: CGPoint(x: 50, y: y),
+                              font: .boldSystemFont(ofSize: 11), maxWidth: rect.width - 100) + 3
+            y += drawWrapping(constant.explanation, at: CGPoint(x: 62, y: y),
+                              font: .systemFont(ofSize: 10), maxWidth: rect.width - 124, color: .darkGray) + 14
         }
     }
 
@@ -987,6 +1007,55 @@ struct PDFReportGenerator {
 }
 
 // MARK: - String drawing helpers
+
+/// Draws wrapping text and returns the height it actually consumed, so the
+/// caller advances `y` by what was drawn rather than by a guessed line count.
+///
+/// NOTE(AI Developer), added 2026-09-07 (task #12 tail). `91c9d1c` measured
+/// the rule-out callout box, which had assumed its content was two lines when
+/// the three engine strings run 99, 235 and 715 characters. The defect was
+/// never that box: it is a PAIRING -- a wrapping draw
+/// (`String.draw(at:font:maxWidth:color:)`, which wraps to as many lines as
+/// the content needs and reports nothing back) followed by a LITERAL `y +=`,
+/// which encodes a line count the author guessed.
+///
+/// Grepping the PAIRING rather than the symbol found 17 more live instances
+/// in this file, every one on content whose length the caller does not
+/// control: engine narratives and motion descriptions, per-factor notes,
+/// impact-profile lines, fingerprint and tool-mark summaries, audit-trail
+/// lines, examiner text, and the algorithm-constant explanations. All predate
+/// this round.
+///
+/// An under-guess overlaps the element below; an over-guess leaves a gap.
+/// Neither is visible in a diff and neither is reachable by any check we own
+/// -- and in this generator the overlap silently destroys the element it
+/// lands on, which is why the callout's overrun went unnoticed from 2026-07
+/// until a hairline border drew the boundary it crossed.
+///
+/// The rule this closes, which is the counting clause applied to layout: when
+/// a defect is a pairing of two constructs, fixing the instance you were
+/// shown leaves every other instance live. Grep the pairing, not the symbol.
+///
+/// Use this for any string whose length the caller does not fix. A frame or
+/// an advance that cannot fit the real string is a layout defect, never a
+/// licence to shorten locked copy.
+private func drawWrapping(
+    _ text: String,
+    at point: CGPoint,
+    font: UIFont,
+    maxWidth: CGFloat,
+    color: UIColor = .black
+) -> CGFloat {
+    text.draw(at: point, font: font, maxWidth: maxWidth, color: color)
+    return ceil(
+        (text as NSString).boundingRect(
+            with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font],
+            context: nil
+        ).height
+    )
+}
 
 private extension String {
     func draw(at point: CGPoint, font: UIFont, maxWidth: CGFloat = 500, color: UIColor = .black) {
