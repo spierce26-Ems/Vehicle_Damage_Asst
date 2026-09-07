@@ -526,8 +526,20 @@ struct PDFReportGenerator {
                     cy += 16
                 }
                 if let motion = side.motionDescription {
-                    motion.draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 10), maxWidth: columnWidth, color: .darkGray)
-                    cy += 28
+                    // NOTE(AI Developer), 2026-09-07 (task #12 tail). The one
+                    // LIVE overrun in the pairing residue. These are the same
+                    // two sentences `scoreScarDirectionConsistency` puts in
+                    // `victimMotionDescription`/`suspectMotionDescription`,
+                    // which were converted on the wide single-column page --
+                    // but here they render in a HALF-WIDTH column, where 99
+                    // and 94 characters at 10pt take about three lines and
+                    // two against an advance of 28. The FORWARD form overran;
+                    // REVERSING did not. The sentence is fixed; the COLUMN is
+                    // what makes it wrap, which is why following the string
+                    // rather than the pairing missed it.
+                    cy += drawWrapping(motion, at: CGPoint(x: x, y: cy),
+                                       font: .systemFont(ofSize: 10),
+                                       maxWidth: columnWidth, color: .darkGray) + 8
                 }
             } else {
                 "No scar line marked".draw(at: CGPoint(x: x, y: cy), font: .systemFont(ofSize: 11), color: .darkGray)
