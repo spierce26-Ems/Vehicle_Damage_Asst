@@ -155,7 +155,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/build_pbxproj.py` | 143 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 312 |
-| `scripts/preflight.py` | 2879 |
+| `scripts/preflight.py` | 2906 |
 | `scripts/check_doc_drift.py` | 555 |
 | `scripts/regen_manifest.py` | 110 |
 | `scripts/check_remedies.py` | 311 |

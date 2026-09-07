@@ -2842,7 +2842,34 @@ def main():
     scope = ("whole tree" if whole_tree
              else "staged changes" if DIFF_BASE is None
              else f"changes since {DIFF_BASE}")
-    print(f"\npreflight: clear ({len(warnings)} advisory) -- {scope}.")
+    # WORDING, not severity. Ledger's ruling, and his measurement is what
+    # makes it necessary: a shape check can FAIL, `check_shapechecks_run` can
+    # name the right file with no backtrace noise, and the summary still ends
+    # in the word `clear`. Three readers each read a different non-text
+    # channel -- the exit code, the summary line, a piped status -- and the
+    # finding, which lived only in the text, reached none of them.
+    #
+    # `clear` is a claim about the tree. It must not be made while any
+    # instrument reported anything. A finding not yet triaged is neither
+    # `clear` nor `blocking`, and this file had no third word for it, so the
+    # aggregate borrowed the wrong one. It has one now.
+    #
+    # Severity is deliberately UNCHANGED, on this file's own rule: a blocking
+    # check needs more scoping care than an advisory one, because its failure
+    # mode is somebody reaching for `--no-verify`, which silences every check
+    # at once. rc=1 here would also be environment-dependent -- a property of
+    # the pair, never of the commit.
+    #
+    # Necessary and NOT sufficient, which is why `--strict` above exists: the
+    # word fixes what a READER sees, and the exit code is what a verifier
+    # SCRIPTS against. Both channels or neither.
+    headline = ("clear" if not warnings
+                else f"{len(warnings)} advisory, nothing blocking")
+    print(f"\npreflight: {headline} -- {scope}.")
+    if warnings:
+        print("NOT 'clear': every advisory above is a finding that has not "
+              "been triaged. Read the warn lines -- an advisory is not an "
+              "absence, and this summary is not a verdict on the tree.")
     print("This means 'worth compiling'. It does not mean it compiles -- "
           "PROCESS.md sec.4 clauses 4-6 still need Xcode and a device.")
     # `--strict`: exit 4 when advisories are present but nothing is blocking.
