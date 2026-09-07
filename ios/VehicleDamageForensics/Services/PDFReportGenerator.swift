@@ -767,15 +767,28 @@ struct PDFReportGenerator {
         // icon, no colour, no ranking of the three states.
         for exclusion in comparison.exclusions {
             let stamp = DateFormatter.localizedString(from: exclusion.timestamp, dateStyle: .short, timeStyle: .short)
-            ("• " + exclusion.displaySummary + " (recorded \(stamp))")
-                .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 10),
-                      maxWidth: rect.width - 100, color: .darkGray)
-            y += 14
-            ("    " + exclusion.orderingSummary(
-                firstScoreDisplayedAt: comparison.firstScoreDisplayedAt))
-                .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 9),
-                      maxWidth: rect.width - 100, color: .darkGray)
-            y += 13
+            // NOTE(AI Developer), 2026-09-07. `displaySummary`
+            // (`ToolMarkAnalysis:665`) INTERPOLATES the same unbounded
+            // `StriationExclusion.reason` as the per-probe draw on the
+            // tool-mark page, and here it also carries a `(recorded <stamp>)`
+            // suffix -- so an 80-character reason is already two lines
+            // against a literal 14pt advance, destroying the ordering line
+            // drawn directly below it.
+            //
+            // This is the accessor route, not the value route: grepping
+            // `reason` finds the tool-mark draw and none of these. The
+            // ordering line beneath it is fixed copy but shares the same `y`,
+            // so it is measured too -- an overlap needs only one of the two
+            // to be wrong.
+            y += drawWrapping("• " + exclusion.displaySummary + " (recorded \(stamp))",
+                              at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 10),
+                              maxWidth: rect.width - 100, color: .darkGray) + 2
+            y += drawWrapping("    " + exclusion.orderingSummary(
+                                  firstScoreDisplayedAt: comparison.firstScoreDisplayedAt),
+                              at: CGPoint(x: 50, y: y),
+                              font: .italicSystemFont(ofSize: 9),
+                              maxWidth: rect.width - 100, color: .darkGray) + 2
         }
         y += 6
         "Each exclusion above was made by the investigator after reviewing the photographs, and is also recorded in this case's chain-of-custody audit log. Because the excluded probes were chosen after the full similarity figure was available, statistical significance is not established for a filtered subset; the unfiltered figure above was computed without any selection and is the more defensible of the two. Both are reported here so this result can be assessed independently."
@@ -914,10 +927,27 @@ struct PDFReportGenerator {
             // examiner named at the top of the page recorded every
             // event, which is precisely the inference this field exists
             // to stop being guesswork.
-            ("      Recorded by: " + entry.attributionSummary)
-                .draw(at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 9),
-                      maxWidth: rect.width - 100, color: .darkGray)
-            y += 13
+            // NOTE(AI Developer), 2026-09-07. THIRD member of the unbounded
+            // free-text class, and the one not reachable from
+            // `StriationExclusion.reason`: `attributionSummary` returns
+            // `examinerName`, typed into `EditCaseSheet`'s "Examiner name"
+            // TextField, which has no length bound either -- `.textContentType`
+            // is a keyboard hint, not a limit. At a literal 13pt advance on
+            // the custody page, a long name destroys the audit line below it.
+            //
+            // It was missed by every pass so far because the searches followed
+            // ONE free-text value through its accessors. There are two
+            // unbounded fields, not one, and the second reaches the page under
+            // a name that shares no substring with it. The rule generalises:
+            // enumerate the FREE-TEXT INPUTS, then find their draws -- going
+            // the other way finds only the value you already knew about.
+            //
+            // Measured as the floor. The fix is a bound at the input, for both
+            // fields, and that is Sean's call.
+            y += drawWrapping("      Recorded by: " + entry.attributionSummary,
+                              at: CGPoint(x: 50, y: y),
+                              font: .systemFont(ofSize: 9),
+                              maxWidth: rect.width - 100, color: .darkGray) + 2
         }
 
         drawAttestationBlock(ctx: ctx, rect: rect, case: c, y: &y)
