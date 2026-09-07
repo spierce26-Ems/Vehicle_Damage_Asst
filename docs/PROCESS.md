@@ -1915,6 +1915,23 @@ a pass. **A canary is the mutation-testing form of confirming that a reduced
 shape fails when the property under test is removed** — the check checked
 through itself rather than through the thing it wraps.
 
+Run here and confirmed in both directions: all four mutants killed with the
+canary reported as a no-op, and then — deleting the defaulted-argument
+precondition from the harness — `flip-default` **survives** and the runner
+exits non-zero naming it. **A runner that only ever prints green is the thing
+it was built to detect**, so the second run is the one that establishes it
+works.
+
+**One portability note, and it is an instance of this section's own subject.**
+The runner resolves `swiftc` from a fixed default path, which happens to
+resolve in this sandbox only because of a convenience symlink pointing at a
+version-specific directory. **A missing compiler makes the baseline check fail
+loudly, which is the right direction** — but the toolchain path is exactly the
+kind of per-environment fact that made the same commit report two different
+`check_doc_drift` results today. **A tool that verifies claims about a tree
+should say which compiler it used**, for the same reason its probe says
+"executed" rather than "parsed".
+
 **Naming an interaction correctly and mis-routing it is its own failure, and
 it is the one that keeps a defect open.** The row-five interaction was reported
 in the same message as the patch that caused it — described accurately, as a
