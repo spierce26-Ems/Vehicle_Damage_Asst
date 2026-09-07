@@ -512,11 +512,20 @@ enum QualityLabel: String {
 
 /// Specific quality issues detected at capture time
 struct QualityFlags: Codable, Equatable {
-    // NOTE(AI Developer), audited 2026-09-07 (task #12 tail). FOUR of these
-    // seven are never assigned anywhere in the app: `isBlurry`, `isTooFar`,
-    // `isTooClose` and `hasMotionBlur`. `CameraService.buildQualityFlags`
-    // sets exposure and roll only, so those four decode, type-check, and
-    // always read `false`.
+    // NOTE(AI Developer), audited 2026-09-07 (task #12 tail), UPDATED in the
+    // same commit that closed half of it. FOUR of these seven were never
+    // assigned anywhere in the app: `isBlurry`, `isTooFar`, `isTooClose` and
+    // `hasMotionBlur`. `CameraService.buildQualityFlags` sets exposure and
+    // roll only, so those four decoded, type-checked, and always read
+    // `false`.
+    //
+    // Task #4 assigns TWO of them -- `isBlurry` and `isTooFar`, from live
+    // gate state on the scar path -- and `isTooClose` and `hasMotionBlur`
+    // remain never assigned, on every path. The per-field markers below are
+    // the current state; this paragraph is the history. Both are stated
+    // because a count written as "four" here and two live assignments in
+    // `ScarCaptureView` is exactly the stale-row failure the audit was
+    // written about.
     //
     // A field that exists and always reads `false` is a worse disguise than
     // an absent one: grep resolves the name, the compiler is satisfied, and
@@ -539,12 +548,12 @@ struct QualityFlags: Codable, Equatable {
     //
     // Verifying a spec against the tree means checking each condition is
     // ASSIGNED, not that its identifier resolves.
-    var isBlurry: Bool = false            // NEVER ASSIGNED -- task #4
+    var isBlurry: Bool = false            // set on the scar path (task #4); NOT on the 30-shot path
     var isUnderexposed: Bool = false      // set by buildQualityFlags
     var isOverexposed: Bool = false       // set by buildQualityFlags
-    var isTooFar: Bool = false            // NEVER ASSIGNED -- task #4
-    var isTooClose: Bool = false          // NEVER ASSIGNED -- task #4
-    var hasMotionBlur: Bool = false       // NEVER ASSIGNED -- task #4
+    var isTooFar: Bool = false            // set on the scar path (task #4); NOT on the 30-shot path
+    var isTooClose: Bool = false          // STILL NEVER ASSIGNED -- no gate measures it
+    var hasMotionBlur: Bool = false       // STILL NEVER ASSIGNED -- no gate measures it
     var isOffAngle: Bool = false          // set by buildQualityFlags
 
     /// NOTE(AI Developer), 2026-09-07: currently reports only exposure and

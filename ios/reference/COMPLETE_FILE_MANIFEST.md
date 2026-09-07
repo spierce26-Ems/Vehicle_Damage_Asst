@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 74 tracked files, of which 42 Swift sources (20362 lines).
+Totals: 74 tracked files, of which 42 Swift sources (20922 lines).
 
 ## iOS app — Xcode project
 
@@ -30,11 +30,11 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 584 |
+| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 680 |
 | `ios/VehicleDamageForensics/Models/Case.swift` | 851 |
 | `ios/VehicleDamageForensics/Models/MatchResult.swift` | 709 |
 | `ios/VehicleDamageForensics/Models/PaintSampleKit.swift` | 140 |
-| `ios/VehicleDamageForensics/Models/Vehicle.swift` | 922 |
+| `ios/VehicleDamageForensics/Models/Vehicle.swift` | 952 |
 
 ## ViewModels — @ObservableObject (MVVM)
 
@@ -52,8 +52,8 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Views/Capture/CaptureFlowView.swift` | 423 |
 | `ios/VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift` | 537 |
 | `ios/VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift` | 212 |
-| `ios/VehicleDamageForensics/Views/Capture/PhotoReviewView.swift` | 329 |
-| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1350 |
+| `ios/VehicleDamageForensics/Views/Capture/PhotoReviewView.swift` | 359 |
+| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1514 |
 | `ios/VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift` | 189 |
 | `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift` | 596 |
 | `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift` | 319 |
@@ -70,9 +70,9 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Services/CameraService.swift` | 1000 |
 | `ios/VehicleDamageForensics/Services/HeadingProvider.swift` | 60 |
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
-| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1188 |
+| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1284 |
 | `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
-| `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 461 |
+| `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 605 |
 | `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
 
 ## Utilities — pure-function analysis algorithms
