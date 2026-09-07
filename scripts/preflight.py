@@ -2751,8 +2751,30 @@ def check_decoder_completeness(files):
         if not by_hand:
             continue
         try:
-            with open(os.path.join(REPO, f), encoding="utf-8") as fh:
-                lines = fh.read().split("\n")
+            # Through the shared code view, per sec.4c-xxiv: this check reads
+            # the decoder body as TEXT, so a decode DISABLED in place --
+            #     motionMeasurementAttempted = false  // <the real decode>
+            # -- left the field's name present and the check silent, while
+            # DELETING the same decode was reported correctly. It told a
+            # DELETED decode from a PRESENT one and could not tell a DISABLED
+            # one from either.
+            #
+            # Worse here than at the note rows, because the failure is silent
+            # at RUNTIME too: `encode(to:)` stays synthesized, so the value is
+            # still WRITTEN to disk and only reverts to its default on load.
+            # The disabled decode reads as parked work, keeps a green build,
+            # and this guard is the only thing that was going to object.
+            #
+            # Measured line-count neutral on Ledger's rule (one line in, one
+            # out): `--strict` clear at rc=0 with ZERO warn/FAIL lines, so the
+            # manifest advisories are not mistaken for the finding.
+            #
+            # Eighth member, and it is the oldest BLOCKING instrument in the
+            # file. The audit reached the newest guards first and this one
+            # last, which is the ordering rule's own point.
+            lines = swift_code_only(
+                open(os.path.join(REPO, f), encoding="utf-8").read()
+            ).split("\n")
         except OSError:
             continue
 
