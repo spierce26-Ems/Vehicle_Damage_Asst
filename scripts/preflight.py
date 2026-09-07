@@ -1365,11 +1365,26 @@ def check_note_rows_implemented():
     # A check with one population and two homes has to say which home it is
     # asking about -- "the string exists" and "the string exists WHERE IT IS
     # RENDERED" are different claims, and only the second is the requirement.
-    report_flat = " ".join(open(gen).read().split())
+    # CODE only, via the shared view. sec.4c-xxv: this is the OLDEST
+    # grep-strength instrument in the file -- written a full day before the
+    # class had a name -- and it was still reading whole files. Comment out a
+    # note row's `notes.append("...")` and leave the string in the disabled
+    # line, which is what a careful author does when parking code, and this
+    # check reported NOTHING while deleting the same emit reported it
+    # correctly. So it told a DELETED note from a PRESENT one and could not
+    # tell a DISABLED one from either -- the worst of the three, because
+    # disabling is the reversible-looking option a reviewer waves through,
+    # and the appendix specifies a RENDERED string while a disabled emit
+    # renders nothing. Found by aiming the audit at the oldest instrument
+    # rather than the newest, per the Tech Lead's ordering rule; fixed
+    # through the Designer's shared view rather than a fourth private copy,
+    # which is the same rule applied to the remedy.
+    report_flat = " ".join(swift_code_only(open(gen).read()).split())
     tree_flat = ""
     for f in tracked_swift():
         try:
-            tree_flat += " " + " ".join(open(os.path.join(REPO, f)).read().split())
+            tree_flat += " " + " ".join(swift_code_only(
+                open(os.path.join(REPO, f)).read()).split())
         except OSError:
             continue
     missing = []
