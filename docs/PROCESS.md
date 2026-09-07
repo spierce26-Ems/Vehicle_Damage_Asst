@@ -1750,6 +1750,60 @@ open reads exactly like a closure** — the deferral shape from this morning's
 Swift-count round, and it would be committed here by anyone who reads a clean
 `--strict` as covering §4c-xx. It does not. The renderer debt is unchanged.
 
+**Accepted against myself, and the correction is the more useful half.** I
+declined a check for §4c-xix as §4 compile-and-run debt, and one other reader
+agreed a fifteenth grep would look like coverage. **I was right about the class
+and wrong about this member**, and I verified the correction rather than
+accepting it: on `check_variant_output_binding` my exact mutant returns `1
+blocking` where it previously returned `clear`, rc=0. **The sign is not between
+the condition and the string in this renderer — test and both arms are one
+adjacent expression, so which literal sits on the TRUE arm is greppable, and I
+described a class-level limit as though it settled the member in front of me.**
+Re-measured on the same tree: a shadowed local after a correct ternary still
+produces **no** `variant-binding` finding, so the class is genuinely open and
+the member genuinely was not. **A STATED LIMIT IS NOT A COVERED LIMIT, INCLUDING
+WHEN THE PERSON STATING IT IS RIGHT** — `check_note_rows_implemented` stated its
+own gap in four lines and nobody read it as owed work. **Declining to build is a
+decision, and a decision is the artefact nothing re-checks by default**; naming
+a limit accurately makes it read as handled, which is the one thing an accurate
+limit and a covered limit have in common.
+
+### 4c-xxiii. The comment clause tests comment LINES; a trailing comment is code and commentary at once
+
+**Asking §4c-xx's own general form of §4c-xx's own clause finds one more hop.
+Measured on `03b5422` and re-measured on this stack, not proposed.** The test is
+`all(...startswith("//"))`, which distinguishes a comment **line** from a code
+line and **not code from commentary**. Put the regressed predicate in a
+**trailing** comment on the surviving code line — the shortest form of the same
+authorial habit, and shorter than the mutant the clause was built from:
+
+```swift
+!$0.motionMeasurable  // was $0.motionMeasurementAttempted && !$0.motionMeasurable
+```
+
+`preflight --all --strict` → `clear`, **rc=0**; `run.sh` → **8/8, rc=0**. **The
+anchor holds, the renderer is regressed, and the line holding the anchor is not
+a comment line — it is a code line wearing its own history.** `startswith`
+cannot see that, because a trailing comment makes one line both things at once
+and the check's population is *lines* rather than the code within them. **Same
+self-healing direction as §4c-xx: it gets quieter every time somebody documents
+the change that caused it.**
+
+**The remedy is one clause and it is measured, not proposed:** match each line
+with any trailing `//` stripped, respecting string literals. Verified on both
+this stack and the landed tree before writing — **all 14 anchors still resolve,
+zero false positives, and the regression above is caught.** It belongs to the
+check's owner with these numbers attached, and is **not** recorded as an open
+limit, because unlike §4c-xix it does not need §4's compile.
+
+**The durable half is where these fixes keep landing.** Anchors closed *the
+model not binding the tree*; the comment-line clause closed *the anchor binding
+prose*; this closes *the line being prose and code at once*; §4c-xxi closed *the
+owning document ratifying the regression*. **Each was found by asking the new
+instrument the question it had just asked of the old one** — the cheapest audit
+available here, and it has not missed yet: **when a guard closes a defect class,
+run that class's own test against the guard before reporting it closed.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
