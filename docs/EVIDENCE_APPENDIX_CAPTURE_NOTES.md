@@ -422,6 +422,68 @@ population helper the notes use, never a second enumeration, for the reason
 that helper's own comment gives. **Both literals are locked (§4.1) and go in
 verbatim.**
 
+#### 2.3.1 CORRECTION — that selector makes the qualified variant the only reachable one
+
+**Measured against the tree before this entry was believed, and it inverts the
+variant it selects.** The population helper is the right choice. The predicate
+is not.
+
+`motionMeasurable` is written on exactly ONE capture path —
+`ScarCaptureView.performCapture` — and `false` is the struct default
+everywhere else. `CameraService` captures **twelve** `closeupDamage` /
+`paintTransfer` protocol steps, every one of them an analysis shot by
+`PhotoType.isAnalysisShot`, and its `CapturedPhoto` initialiser passes no
+`motionMeasurable` at all. **So every protocol analysis shot is permanently
+`!motionMeasurable`, is in `captureConditionPhotos(in:)`, and satisfies the
+selector.**
+
+**The qualified variant therefore fires on every report that contains any
+protocol analysis shot, which is every real case, and the plain form becomes
+dead.** That is the always-firing qualification this section spent four
+paragraphs forbidding — arriving through the SELECTOR rather than through the
+wording. The wording defence is sound and it defends the wrong door.
+
+**A variant count of two under a predicate that can only pick one is a
+one-variant section that reads as two.** The Tech Lead's row-count check
+passes it, Vector's `check_note_rows_implemented` passes it, and both are
+correct to: counting rows against branches does not check that each branch is
+REACHABLE. **A row with no branch and a branch with no reachable population
+are the same defect at opposite ends of the pipe, and the count is blind to
+the second.**
+
+**Why the predicate is wrong and not merely too broad: on the protocol camera
+`!motionMeasurable` is not a member missing a check.** That camera measures no
+motion and claims none, so there is no check that failed to run — the honest
+reading is `nil`'s, "never asked", which §2.2 row two and the
+`frameConfirmedClear` tri-state both forbid from producing output. **The
+selector must be scoped to the photographs for which motion measurement was
+ATTEMPTED, not to every analysis shot.**
+
+**And the tempting narrow fix is a proxy of exactly the kind §1.1 removed.**
+`contains { !$0.motionMeasurable && $0.sharpnessMeasurable }` works today only
+because `sharpnessMeasurable` happens to mark the one screen that measures —
+the same "two fields agreeing today is not one field meaning the other" that
+put a permanent four-notes-per-vehicle defect in row five. **Recording it as
+owed rather than as correct.** The honest repair is a per-path capability
+field, the way `motionMeasurable` itself replaced `frameConfirmedClear != nil`:
+either the protocol camera writes `motionMeasurable` truthfully, or the
+population helper gains an "attempted motion measurement" filter stated by the
+capture path.
+
+**Until that exists this section stays on the single plain variant.**
+`allclear.partial` remains locked and unemitted, which is an honest missing
+claim; shipping it under this selector would be a wrong one on every report —
+§4.2's failure direction, applied to a qualification instead of to a note.
+
+**The reusable half, and it is the one I got wrong myself: "defaults `false`
+everywhere else" is a POPULATION STATEMENT, not a safety note.** This section
+already contained that sentence, written as reassurance that the trigger reads
+from the persisted model rather than from a gate. Read as a population
+statement it says the trigger is true for almost every photograph in the app.
+**Same words, opposite conclusion, and the reassuring reading is the one a
+reviewer reaches for.** Before a default-valued field becomes a predicate,
+count how much of the population carries the default.
+
 **The general form of the Tech Lead's check, which is the reusable part:
 count the variants a locked section specifies and count the branches that
 emit them.** A lock protects the words; nothing protects the claim that
@@ -518,9 +580,20 @@ whole report already operates under (`MatchResult.disclaimerText`):
   only reason it is a latent problem rather than a live one. **If anything
   ever surfaces it to a user or a report, it needs §2.2's wording, not its
   own** — and note the second defect in it: an empty result reads as "no
-  problems found" when it can equally mean "not measured", because
-  `isTooClose` and `hasMotionBlur` are written on no path. **A list of
+  problems found" when it can equally mean "not measured". **A list of
   problems cannot express "unmeasured" by being short.**
+  **Correction, 2026-09-07 — the reason here went stale and the defect did
+  not.** This bullet blamed the emptiness on `isTooClose` and `hasMotionBlur`
+  being written on no path. `hasMotionBlur` IS written now, from the measured
+  trailing-window peak. Re-counted from the tree: of the seven flags
+  `issueDescriptions` reads, `isTooClose` is still written nowhere, and
+  `isUnderexposed`, `isOverexposed` and `isOffAngle` are written only by
+  `CameraService.buildQualityFlags` — so on a scar photograph, which
+  `ScarCaptureView` constructs directly, four of the seven are structurally
+  `false`. **The absence still asserts the clean case; the fields named as
+  dead changed underneath the sentence naming them.** A citation by FIELD NAME
+  goes stale exactly the way a citation by line number does, and here the
+  surrounding argument survived intact — which is why nobody re-read it.
 - **Attribute every claim.** Either the app measured it or the examiner
   attested it. Never leave the reader guessing which.
 - **Never imply the examiner did something wrong.** `gateOverridden` documents a
