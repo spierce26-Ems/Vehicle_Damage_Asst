@@ -778,6 +778,28 @@ matched, so they belong as a list.
 Three ways this was got wrong in one round, by three people, each covered by
 one step.
 
+**A remedy has to be chosen by failure direction, and the two directions want
+opposite things.** A check that degrades toward *refusing* is loud by
+construction: it costs an hour and what it needs is a note telling the next
+person not to panic — which is why the refspec advisory and the partial clone
+are documented above rather than instrumented. A defect that degrades toward
+*looking fine* is silent by construction: it costs a shipped artefact, and the
+only remedy is that someone goes and looks. **The third render site is the
+proof.** `suspectExclusionReason` is read in three places — the free-tier
+banner, its `scarDirectionSection` copy, and `PDFReportGenerator`'s callout —
+and the third drew a red-filled box headed `EXCLUSION WARNING` over a string
+that may deny an exclusion. Ten commits and three independent 0-advisory
+verifications passed over it, because no check reads the composition of a
+sentence and its frame. It was found by someone re-reading code they had
+already signed off.
+
+**So the rule, in its counted form: a duplicated string is only an invariant
+if EVERY render carries the same claim — and the render count is whatever
+`grep` says.** Two sites were audited this round because two were remembered.
+When a value is read in more than one place, enumerate its render sites from
+the code and write the count into a comment at each site, so the next reader
+inherits the count instead of the recollection.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
