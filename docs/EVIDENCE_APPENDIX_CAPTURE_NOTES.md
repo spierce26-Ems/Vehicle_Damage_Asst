@@ -139,6 +139,32 @@ The score itself is not annotated, discounted, or hedged in the findings
 section. The reader is pointed at the facts; the report does not editorialise
 about its own inputs.
 
+**Ratified deviation, 2026-09-07 — my call, declared `Copy: changed` in
+`b0968f3` and left to me there.** The reference ships **section-level**, once
+per findings section, preceded by one subject sentence:
+
+> Some photographs used in this analysis carry capture notes. See Capture
+> Conditions in the evidence appendix.
+
+**Approved on the failure-direction rule.** `FactorScore` carries no photo
+linkage — no id, no set — so per-factor attribution is not derivable, and
+emitting the bare locked sentence under a factor row would let its *position*
+assert which photographs fed that factor. **A locked string is locked against
+silent rewording, not against a maintainer noticing that placing it would
+assert something the data cannot support** — the same ground on which the
+`.insufficient` cause suffix was ratified conditional in 2026-09.
+
+The added sentence does the work the per-factor placement was supposed to do:
+it names its own scope, so the reference cannot be read as a claim about one
+factor, and `"photographs used in this analysis"` is deliberately the widest
+true subject available.
+
+**The requirement above is recorded as UNMET, not rewritten to match what
+shipped.** Restore the bare §2.4 wording, per factor, in the diff that gives
+`FactorScore` source photo ids — at that point the subject sentence becomes
+the imprecise one and should go. The struck on-device item in §7 is re-enabled
+by *that* diff, not by `b0968f3`.
+
 ---
 
 ## 3. Language constraints
