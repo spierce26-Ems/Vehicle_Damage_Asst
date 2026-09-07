@@ -1967,6 +1967,62 @@ kind of per-environment fact that made the same commit report two different
 should say which compiler it used**, for the same reason its probe says
 "executed" rather than "parsed".
 
+**Done, and fixing it produced two more instances of the same class — both
+found by running the fix rather than reading it.** The runner now resolves a
+compiler in order (`$SWIFTC`, then `PATH`, then the known toolchain path),
+prints the binary, its `--version` and the host before doing anything, and
+repeats them in the verdict line. Then:
+
+- **An explicitly-set `SWIFTC` was not validated.** A typo'd override reached
+  the baseline step and reported `BASELINE DOES NOT COMPILE` — which reads as
+  *the code under test is broken* when the truth is *the path is wrong*. **A
+  diagnostic that misattributes its own failure is worse than no diagnostic**,
+  because it sends the reader to the wrong file. It now refuses with exit 2 and
+  says which path it was given.
+- **The reverse-direction run appeared to exit 0.** Piping the runner into
+  `tail` to read the verdict returned the *pipe's* status, so the deliberately
+  broken assertion set looked like a pass in the terminal. The runner was
+  correct — `$?` on the unpiped invocation is `1` — but the transcript said
+  otherwise. **A harness that is right and reports through a lossy channel is
+  indistinguishable from one that is wrong**, which is the same failure as an
+  exit status collapsing differ/build/fail into one bit, one layer further out.
+
+Neither is exotic and both were invisible to reading. The pattern worth
+carrying: **a verification tool needs its own failure modes exercised on
+purpose** — wrong compiler, missing compiler, broken assertion set — and each
+must be distinguishable in its output. Three distinct exit codes (`0` pass,
+`1` a mutant survived, `2` cannot run) rather than pass/fail, for the reason
+`preflight`'s "worth compiling" disclaimer exists: **the useful distinction is
+not between good and bad news, it is between a result and the absence of
+one.**
+
+**A surviving mutant tells you an assertion set has a hole; it does not tell
+you where, and the obvious reading can be wrong.** The decline affordance's
+leak test survived its mutant, and the diagnosis recorded with it was that the
+test used the *decline* path, which self-clears after its capture, so nothing
+was left to leak — the affirmative being the only state that can leak. Run
+against a reduced shape, that is not what defuses it: a decline followed
+immediately by a reference shot still holds `false` and **does** kill the
+mutant, because the post-capture reset has not run yet. What defuses the test
+is the **capture sitting between the answer and the reference shot** —
+`answerNo(); afterCapture(); isAnalysisShot = false` passes identically with
+the guard and without it.
+
+So the property is **ordering, not which answer was used**, and the corrected
+rule is more general than the original: **a negative test is only a test while
+its precondition survives to the moment of the assertion.** Any step between
+setup and assertion that can reset the state under test — a post-capture
+cleanup, a lifecycle hook, a teardown — silently converts the test into a
+tautology. The affirmative case is worth adding because it *cannot* be reset,
+which makes it the robust one; but stating the reason as "use the affirmative"
+would leave a reader with a rule that fails the moment the reset moves.
+
+Both readings produce the same patch here, which is exactly why this is worth
+recording: **a fix can be right while the reason attached to it is wrong, and
+the reason is what gets generalised.** Verify the diagnosis the same way the
+finding was verified — by constructing the case the diagnosis predicts and
+confirming it behaves as claimed.
+
 **Naming an interaction correctly and mis-routing it is its own failure, and
 it is the one that keeps a defect open.** The row-five interaction was reported
 in the same message as the patch that caused it — described accurately, as a
