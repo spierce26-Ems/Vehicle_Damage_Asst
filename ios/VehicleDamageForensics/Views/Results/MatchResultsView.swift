@@ -15,12 +15,15 @@ struct MatchResultsView: View {
     @StateObject private var viewModel: AnalysisViewModel
     @State private var showShareSheet = false
     @State private var showEditCase = false
-    /// NOTE(AI Developer), added 2026-07 per Sean's monetization decision:
-    /// the composite score above stays free/instant (gives every user a
-    /// reason to convert -- "you scored 78/100, unlock the full
-    /// breakdown"), while the per-factor breakdown, recommendations, and
-    /// PDF export are the actual actionable deliverable, gated behind
-    /// `PaywallView`. See `AnalysisViewModel.isUnlocked`.
+    /// NOTE(AI Developer), 2026-07 monetization decision, AMENDED by
+    /// Sean's free-tier decision (2026-09-07). Free: the composite score,
+    /// the correlation-strength level, and the rule-out assessment banner
+    /// -- the engine's most decision-relevant output is never gated. Gated
+    /// behind `PaywallView`: the per-factor evidence, the investigative
+    /// recommendations, and the PDF report. The 2026-07 wording of this
+    /// note ("unlock the full breakdown") described the pre-2026-09 split
+    /// and is superseded. See `AnalysisViewModel.isUnlocked`,
+    /// `exclusionBanner` and `lockedSection`.
     @State private var showPaywall = false
 
     /// NOTE(AI Developer), added 2026-09 for item #4 of Sean's 5-item
@@ -46,6 +49,9 @@ struct MatchResultsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                if viewModel.suspectExclusionReason != nil {
+                    exclusionBanner
+                }
                 verdictCard
                 disclaimerCard
                 if viewModel.isDuplicatedCase {
@@ -145,13 +151,31 @@ struct MatchResultsView: View {
     // MARK: Locked section (pre-purchase)
 
     /// Shown in place of the factor breakdown / recommendations / report
-    /// sections until this case is unlocked. Offers a fast path to spend
+    /// sections until this case is unlocked.
+    ///
+    /// NOTE(AI Developer), heading re-worded 2026-09-07 per Sean's
+    /// free-tier decision. The BODY needed no change and did not get one:
+    /// it already names the three gated things (per-factor breakdown,
+    /// recommendations, PDF) and already avoids implying the finding is
+    /// locked. The spec asked for a rewrite on the premise that this copy
+    /// "sells the breakdown", which was true of an older string, not this
+    /// one -- Ledger checked the file rather than the spec. Only the
+    /// heading was wrong: with the claim, the correlation strength and the
+    /// rule-out assessment all free, "Full Report Locked" overstated the
+    /// gate. The report is locked; the result is not.
+    ///
+    /// The two buttons keep their labels deliberately -- they name the
+    /// purchase, which is still the full report -- and their
+    /// bordered/borderedProminent split must not be collapsed into a
+    /// ternary (see the Xcode 26.6 type-unification note below).
+    ///
+    /// Offers a fast path to spend
     /// an already-purchased case credit (common for a Pro user who bought
     /// a 5-pack and is unlocking case #2, say) before falling back to the
     /// full paywall for a new purchase.
     private var lockedSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("Full Report Locked", systemImage: "lock.fill")
+            Label("Report and Evidence Locked", systemImage: "lock.fill")
                 .font(.headline)
             Text("The per-factor breakdown, investigative recommendations, and shareable PDF report are part of the full report. Unlock this case to view them.")
                 .font(.subheadline)
@@ -205,6 +229,135 @@ struct MatchResultsView: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
+    // MARK: Rule-out assessment banner (free)
+
+    /// NOTE(AI Developer), added 2026-09 per Sean's free-tier decision
+    /// (2026-09-07): `suspectExclusionReason` previously rendered only
+    /// inside `scarDirectionSection`, which sits behind `isUnlocked` -- so a
+    /// user who had not purchased was never told the engine had ruled the
+    /// suspect vehicle out. That is the single most decision-relevant
+    /// output the engine produces and it is now never gated. Deliberately
+    /// placed ABOVE `verdictCard`: a rule-out assessment outranks the score
+    /// it bears on.
+    ///
+    /// The identical warning ALSO remains in `scarDirectionSection` on
+    /// purpose -- this banner is the free headline, the in-section copy is
+    /// where a paying user reads it beside the check that produced it.
+    /// Moving rather than duplicating would leave the paid view with less
+    /// information than the free one.
+    ///
+    /// THREE THINGS THIS BANNER DELIBERATELY DOES NOT DO, each of which was
+    /// in an earlier draft of this view and each of which would have put a
+    /// false claim above the paywall:
+    ///
+    /// 1. It adds NO consequence sentence of its own. All three strings
+    ///    `evaluateExclusionRule()` can return already carry their own, and
+    ///    they are three GRADED findings, not one: "should be ruled out"
+    ///    (L514), "Consider ruling out ... pending further review" (L568),
+    ///    and "Re-measure both heights with a tape measure to resolve it"
+    ///    (L544) -- that last being the `ruleOutCapable == false` path,
+    ///    which is explicitly NOT an exclusion (task #14: the standalone
+    ///    height rule-out excluded an innocent vehicle on LiDAR noise,
+    ///    which is why that path exists). A summary line above copy that
+    ///    already carries its own consequence can only agree or contradict,
+    ///    and it contradicts on the path its author read least.
+    ///
+    /// 2. It does NOT classify the paths by matching the reason prose. The
+    ///    engine string is copy under the copy lock; a view that predicates
+    ///    on its wording breaks silently the next time it is reworded, and
+    ///    the break would be a wrong heading, not a missing one. Per-path
+    ///    headings ("Exclusion indicated" / "Exclusion not established")
+    ///    are better copy and wait for a real discriminator on
+    ///    `MatchResult` -- added when something else needs it, never as a
+    ///    second exclusion signal, and never a scoring-path change for
+    ///    wording alone.
+    ///
+    /// 3. It does NOT use red or a warning border. Styling is a claim here,
+    ///    not decoration: red asserts the exclusion the L544 string denies.
+    ///    Without a discriminator the neutral material treatment is the
+    ///    only honest one, and the heading plus the string carry the
+    ///    weight. `exclamationmark.triangle` (not `.fill`) in secondary
+    ///    tint marks it as significant without asserting a finding.
+    ///
+    /// The heading is the one line this view supplies, and "Rule-out
+    /// assessment" is true on all three paths: two reach a rule-out, one
+    /// reports that it cannot be reached from these photographs.
+    private var exclusionBanner: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Rule-out assessment", systemImage: "exclamationmark.triangle")
+                .font(.headline)
+            if let reason = exclusionReasonWithoutPlacementClause {
+                Text(reason)
+                    .font(.subheadline.bold())
+            }
+            if !viewModel.isUnlocked {
+                Text("The per-factor evidence behind this finding is part of the full report.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// INTERIM, 2026-09-07. All three `suspectExclusionReason` strings
+    /// (`MatchScoreCalculator.swift` L515/L545/L568 @ 84aa2a9) END by
+    /// promising the reader the factor breakdown: "The full factor
+    /// breakdown is still shown for reference", "The full factor breakdown
+    /// below is unaffected", "the rest of the factor breakdown below is
+    /// still shown for reference". Those sentences were true of the surface
+    /// they were written for -- inside `scarDirectionSection`, which only a
+    /// paying user sees. This banner renders above the paywall, where the
+    /// breakdown is NOT shown, so rendering them raw would put a false
+    /// sentence on screen, and L515's "not a reason to hide the evidence"
+    /// would be contradicted by the lock icon directly beneath it.
+    ///
+    /// The rule to keep: a string that narrates its own placement cannot be
+    /// relocated. Moving it across a visibility boundary falsifies it while
+    /// the diff shows no change to the string at all.
+    ///
+    /// The permanent fix is Ledger's approved engine-string commit, which
+    /// removes the placement clause from all three and leaves their own
+    /// consequence sentences untouched. DELETE THIS PROPERTY WHEN THAT
+    /// LANDS and render `viewModel.suspectExclusionReason` directly.
+    ///
+    /// This is prose-dependent, which point 2 above rejects for the
+    /// heading -- the difference is the failure mode, and it is the whole
+    /// reason this one is acceptable and that one is not. A reworded engine
+    /// string makes this drop nothing and render the reason unchanged: a
+    /// stale placement clause, which is the status quo. The same rewording
+    /// would make a prose classifier assert the wrong finding. It also
+    /// never returns empty -- if the strip consumed everything, the
+    /// unmodified reason is rendered.
+    private var exclusionReasonWithoutPlacementClause: String? {
+        guard let reason = viewModel.suspectExclusionReason else { return nil }
+        let marker = "factor breakdown"
+
+        func stripTrailingClauses(_ text: String, separator: Character) -> String {
+            var parts = text.split(separator: separator, omittingEmptySubsequences: false)
+                .map { String($0) }
+            while let last = parts.last,
+                  last.lowercased().contains(marker),
+                  parts.count > 1 {
+                parts.removeLast()
+            }
+            return parts.joined(separator: String(separator))
+        }
+
+        // Sentences first (L515 and L545 carry the clause as its own
+        // sentence), then semicolon clauses inside whatever sentence is now
+        // last (L568 carries it after a semicolon).
+        var kept = stripTrailingClauses(reason, separator: ".")
+        kept = stripTrailingClauses(kept, separator: ";")
+        var trimmed = kept.trimmingCharacters(in: .whitespacesAndNewlines)
+        while let last = trimmed.last, last == "." || last == ";" || last == "," {
+            trimmed.removeLast()
+            trimmed = trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return trimmed.isEmpty ? reason : trimmed + "."
+    }
+
     // MARK: Correlation card
 
     private var verdictCard: some View {
@@ -219,7 +372,7 @@ struct MatchResultsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let conf = viewModel.forensicCase.matchResult?.confidence {
-                Label(conf.displayName, systemImage: conf.systemImageName)
+                Label(correlationStrengthLabel(conf), systemImage: conf.systemImageName)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -227,6 +380,50 @@ struct MatchResultsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    /// NOTE(AI Developer), added 2026-09 per Sean's free-tier decision
+    /// (2026-09-07) and NARROWED twice before landing. The standing rule is
+    /// that a figure never travels without what makes it readable, and
+    /// `verdictCard` rendered `conf.displayName` alone.
+    ///
+    /// The spec asked for "the data-quality reason -- the same input
+    /// `skippedShotsSummary` already reports". That source is wrong, and
+    /// Ledger caught it: `skippedShotsSummary` counts skipped capture
+    /// protocol shots, while `ConfidenceLevel.from(score:factorCount:)`
+    /// reads the composite score and the count of factors whose
+    /// `dataQuality != .unavailable` (`MatchScoreCalculator.swift:208-221`).
+    /// A skipped shot and an unavailable factor correlate but are different
+    /// quantities -- a case can skip shots and still score all seven
+    /// factors. Printing one as the driver of the other would be a figure
+    /// travelling with the WRONG explanation, which is worse than the bare
+    /// level it replaced.
+    ///
+    /// So this appends a reason for exactly one level. `.insufficient` has
+    /// a single cause in that function -- `factorCount < 3` -- and it is
+    /// worth stating. The other four are score bands, and the honest reason
+    /// for those is the band itself, which `scoreRangeLabel` already
+    /// renders one line above; appending anything there would be inventing
+    /// a driver. No model change, no scoring-path touch.
+    ///
+    /// The usable-factor count is recomputed here from the persisted
+    /// `factors` array rather than stored, so it reads the same input the
+    /// calculator did through the same property. That makes it a second
+    /// site computing one quantity: if `DataQuality` ever grows a case that
+    /// should also be excluded from the count, this is where it goes stale
+    /// first, and the failure is a wrong number in a parenthetical rather
+    /// than a wrong level.
+    private func correlationStrengthLabel(_ conf: ConfidenceLevel) -> String {
+        guard conf == .insufficient else { return conf.displayName }
+        guard let factors = viewModel.forensicCase.matchResult?.factors else {
+            return conf.displayName
+        }
+        let usable = factors.filter { $0.dataQuality != .unavailable }.count
+        // Only state the cause when the count actually is the cause. Above
+        // the threshold, `.insufficient` came from somewhere this property
+        // does not model, and the bare level is the honest render.
+        guard usable < 3 else { return conf.displayName }
+        return "\(conf.displayName) — fewer than 3 factors had usable data"
     }
 
     // MARK: Disclaimer
