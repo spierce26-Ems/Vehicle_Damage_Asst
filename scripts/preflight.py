@@ -555,7 +555,28 @@ def check_note_rows_implemented():
     # emitting it would make the qualified form the only reachable variant --
     # the always-firing qualification the lock forbids, arriving through the
     # selector instead of the wording.
+    # HELD_UNEMITTED: locked strings deliberately NOT rendered, each with the
+    # reason. Empty is the correct state right now and that is worth saying:
+    # sec.4.3.1's `attest.body` was held here while it was RULED-and-owed, and
+    # 40e4709 built it -- so the hold became obsolete rather than stale, which
+    # this check cannot tell apart from a hold whose string drifted. Both
+    # report the same way and both mean "re-read the row"; that is the
+    # honest limit of a declaration mechanism.
+    #
+    # sec.2.3's `allclear.partial` is NOT held here and must not be: its
+    # locked wording is absent from the tree by DESIGN pending a per-path
+    # capability field, and it is declared in the appendix section itself
+    # where a reader meets it. A hold declared in two places is the
+    # duplicate-with-diverging-claims defect aimed at a checker.
     HELD_UNEMITTED = {
+        # sec.2.3 `allclear.partial`: locked and deliberately NOT rendered.
+        # Its owed selector -- `contains { !$0.motionMeasurable }` -- is true
+        # on every real report, because the field is written on one path and
+        # `false` is the struct default, so emitting it would make the
+        # qualified form the ONLY reachable variant. Waiting on a per-path
+        # capability field. Declared once, here, rather than also in the
+        # appendix: a hold recorded in two places is the
+        # duplicate-with-diverging-claims defect aimed at a checker.
         "All analysis photographs met the app's capture-quality checks that "
         "could be run at the time of capture. Camera movement was not "
         "measured for every photograph.",
@@ -588,24 +609,125 @@ def check_note_rows_implemented():
              if " ".join(v.split()) not in
              {" ".join(h.split()) for h in HELD_UNEMITTED}]
 
-    text = open(gen).read()
-    # Renderer literals wrap across source lines, so compare with whitespace
-    # collapsed -- a naive substring test reports a present string as absent.
-    flat = " ".join(text.split())
-    missing = [(c, n) for c, n in rows
-               if n not in text and " ".join(n.split()) not in flat]
+    # THE LEDGER TABLE IS THE POPULATION. Third widening, and the Tech Lead's
+    # point is that this one is the whole class rather than another member:
+    # sec.2.2's rows and sec.2.3's blockquotes are two places locked strings
+    # happen to live, while the ledger table (date, key, was, now, why) is the
+    # artefact that OWNS every locked string in this document. `attest.body`
+    # and sec.6.1's filtered wording were both locked, both recorded as owed,
+    # and neither was in the population -- so the two strings most likely to
+    # be forgotten were the two nothing recomputed.
+    #
+    # NOTE(Vector), 2026-09-07. This is sec.4c-xi committed twice by the same
+    # check: scoped to a table, widened to blockquotes, and still enumerating
+    # PLACES rather than naming the population. Widening to "one more shape"
+    # is what a member-shaped fix looks like; the set-shaped fix is to read
+    # the register.
+    #
+    # `Now` cells carrying markdown annotation rather than a rendered string
+    # (`*(text unchanged; ...)*`) are skipped: a ledger row recording that a
+    # string's MEANING moved without a diff has no literal to find, and
+    # reporting it would be the check inventing an absence.
+    ledger = []
+    for i, l in enumerate(lines):
+        if l.startswith("|") and "| Key |" in l and "| Now |" in l:
+            for row in lines[i + 2:]:
+                if not row.startswith("|"):
+                    break
+                cells = [c.strip() for c in row.strip("|").split("|")]
+                if len(cells) >= 4 and cells[1] and cells[3]:
+                    ledger.append((cells[1], cells[3]))
+            break
+    held = {" ".join(h.split()) for h in HELD_UNEMITTED}
+    # A HELD declaration is a COPY of a locked string, so it goes stale the
+    # way every duplicate in this repository does -- and it fails silently in
+    # the dangerous direction: the copy stops matching, the row reports as
+    # owed, and it reads as an oversight rather than as a stale hold. This
+    # caught itself once already: sec.4.3.1's wording was re-ruled into first
+    # person after the declaration was written.
+    ledger_flat = {" ".join(re.sub(r"\s*\*\(.*?\)\*\s*", " ", n).split())
+                   for _, n in ledger}
+    for h in sorted(held):
+        if h not in ledger_flat:
+            # remedy: fixes
+            warn("note-rows",
+                 "a HELD_UNEMITTED declaration matches no ledger row -- the "
+                 "hold is stale and is protecting nothing",
+                 "re-copy the string from the ledger row it is holding, or "
+                 "drop the declaration if the row is gone. A hold that no "
+                 "longer matches reports its row as owed, which reads as an "
+                 "oversight rather than as a decision")
+    for key, now in ledger:
+        # A `Now` cell may carry an italic ANNOTATION after the string --
+        # `Tape measure out of frame? *(text unchanged; now a question ...)*`.
+        # Strip it: the annotation is the ledger's note to a reader, not part
+        # of the rendered copy, and matching it whole reported a string that
+        # IS in the tree at two call sites as absent. A checker that includes
+        # the commentary in the thing being checked reports a documentation
+        # style as a code defect.
+        now = re.sub(r"\s*\*\(.*?\)\*\s*", " ", now).strip()
+        # A locked TEMPLATE is not a locked SENTENCE -- the Tech Lead's
+        # caution, arriving as a real false positive. sec.6.1's row carries
+        # `NN%` / `M of N` placeholders that a format string fills at runtime,
+        # so no literal can ever match it. Compare only the placeholder-free
+        # SENTENCES of such a row: the claim is in those, and the figure is
+        # the part the code is supposed to substitute.
+        if re.search(r"\bNN%|\bM of N\b", now):
+            sentences = [t.strip() for t in re.split(r"(?<=\.)\s+", now)
+                         if t.strip() and not re.search(r"\bNN%|\bM of N\b", t)]
+            if not sentences:
+                continue
+            now = " ".join(sentences)
+        # A row whose entire cell is annotation records a string whose MEANING
+        # moved without a diff (`confirm.arm`'s first row). There is no
+        # literal to find, and reporting it would be the check inventing an
+        # absence -- the failure sec.5 forbids, committed by the checker.
+        if not now:
+            continue
+        if " ".join(now.split()) in held:
+            continue
+        rows.append((f"ledger {key}", now))
+
+    # Two different populations need two different search scopes, and
+    # conflating them was the first version of this widening's bug: sec.2.2's
+    # notes and sec.2.3's all-clears are REPORT copy and live only in
+    # PDFReportGenerator, while a ledger row may be BUTTON copy
+    # (`confirm.yes`, `confirm.arm`) that correctly appears nowhere near the
+    # report. Searching the whole tree for the first group would let a note
+    # satisfy the check from a comment; searching one file for the second
+    # reported four present strings as absent.
+    #
+    # A check with one population and two homes has to say which home it is
+    # asking about -- "the string exists" and "the string exists WHERE IT IS
+    # RENDERED" are different claims, and only the second is the requirement.
+    report_flat = " ".join(open(gen).read().split())
+    tree_flat = ""
+    for f in tracked_swift():
+        try:
+            tree_flat += " " + " ".join(open(os.path.join(REPO, f)).read().split())
+        except OSError:
+            continue
+    missing = []
+    for label, note in rows:
+        haystack = tree_flat if label.startswith("ledger ") else report_flat
+        if " ".join(note.split()) not in haystack:
+            missing.append((label, note))
     if missing:
         names = "; ".join(c for c, _ in missing)
         # remedy: fixes
         warn("note-rows",
              f"the appendix specifies {len(rows)} rendered strings "
-             f"(sec.2.2 note rows + sec.2.3 all-clear variants, excluding "
-             f"any declared as held); {len(missing)} have no literal in "
-             f"PDFReportGenerator.swift ({names})",
-             "add the row to captureNotes(for:) with the note copied VERBATIM "
-             "from the table, guarded by the recorded flag and never by a live "
-             "gate -- or, if the row is intentionally not implemented yet, say "
-             "so in the table so a reader does not read it as shipped")
+             f"(sec.2.2 note rows, sec.2.3 all-clear variants and ledger "
+             f"rows, excluding any declared as held); {len(missing)} have no "
+             f"literal where they are rendered ({names})",
+             "copy the string VERBATIM into the surface that renders it -- a "
+             "note or all-clear into PDFReportGenerator.captureNotes(for:) / "
+             "drawCaptureConditions guarded by the recorded flag and never by "
+             "a live gate, a ledger row into whichever surface owns it "
+             "(report copy vs button copy). If the string is deliberately "
+             "NOT built, declare it in this check's HELD_UNEMITTED with the "
+             "reason -- a hold that is not declared is indistinguishable from "
+             "an oversight in this output")
 
 
 def check_cited_doc_copy():

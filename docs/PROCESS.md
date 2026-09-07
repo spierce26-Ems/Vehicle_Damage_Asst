@@ -1305,6 +1305,66 @@ wrong condition is what this closes; a branch with a subtly wrong VALUE
 remains invisible to every check here** — and the filtered-`headlineDisplay`
 divergence is exactly that third kind.
 
+### 4c-xiii. Widening to one more shape is a member-shaped fix
+
+`check_note_rows_implemented` was scoped to §2.2's note table, widened to
+§2.3's blockquotes, and still blind to `attest.body` and §6.1's filtered
+wording — **the two strings just recorded as owed were the two nothing
+recomputed.** Both widenings enumerated PLACES.
+
+**The ledger table is the population.** A string is locked *because* it has a
+ledger row, so §4.1's table — date, key, was, now, why — owns every locked
+string, and §2.2's rows and §2.3's blockquotes are two places such strings
+happen to live. §4.1's scope was widened three times and settled by rescoping
+to the table itself whatever its length; this is that move inside a check.
+**Widening to "one more shape" is what a member-shaped fix looks like: it
+closes the instance and leaves the class.**
+
+Five findings from doing it, each a way a checker is **wrong** rather than
+silent.
+
+*One population, two homes — say which home you are asking about.* Notes and
+all-clears are REPORT copy living only in `PDFReportGenerator`; `confirm.yes` /
+`confirm.arm` are BUTTON copy that correctly appear nowhere near the report.
+Searching one file for the second group reported four present strings absent;
+searching the whole tree for the first would let a note satisfy the check from
+a **comment**. "The string exists" and "the string exists *where it is
+rendered*" are different claims, and only the second is the requirement.
+
+*A locked TEMPLATE is not a locked SENTENCE* — the Tech Lead's caution
+arriving as a real false positive. §6.1's row carries `NN%` / `M of N`
+placeholders a format string fills at runtime, so no literal can match it
+whole. The check compares only the placeholder-free sentences: **the claim is
+in those, and the figure is the part the code substitutes.**
+
+*Do not include the commentary in the thing checked.* A `Now` cell may carry an
+italic annotation. Matching it whole reported a string present at two call
+sites as missing — **a documentation style reported as a code defect** — and a
+cell that is *entirely* annotation records a meaning that moved without a diff,
+so reporting it would be the check inventing an absence.
+
+*A stale message is a wrong reading.* Two edits to the warning text silently
+no-oped because the strings had drifted, so the check fired correctly while
+naming the old population and the wrong file. **A diagnostic that misattributes
+its own finding sends the reader to the wrong place.** Verified by reading the
+EMITTED text on a mutant, not the source.
+
+*And a HELD declaration is a copy, so it goes stale like every other
+duplicate — in the dangerous direction.* §4.3.1's wording was re-ruled into
+first person after the hold was written; the copy stopped matching, and the row
+then reported as **owed**, which reads as an oversight rather than as a stale
+hold. There is now a check for it: **a hold that matches no ledger row is
+protecting nothing.**
+
+**Its honest limit, found immediately after: that check cannot tell a stale
+hold from an OBSOLETE one.** `attest.body` was held while it was
+ruled-and-owed, and `40e4709` built it — so the declaration became obsolete
+rather than mismatched, and both report identically. Both mean "re-read the
+row", which is the most a declaration mechanism can offer: **it converts a
+silent omission into a prompt, not into a diagnosis.** And a hold must be
+declared in exactly one place — recording it in the check and in the appendix
+section is the duplicate-with-diverging-claims defect aimed at a checker.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
