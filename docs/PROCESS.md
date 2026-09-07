@@ -3138,6 +3138,57 @@ about how to check it.** Owed and unbuilt: a guard for a docs patch's own
 payload, which is the one artefact in this repository nothing checks at all,
 and Vector's weakened-predicate case.
 
+### 4c-xlvii. The payload probe was the wrong instrument to mechanize, and the assertion it stood for needs no copy
+
+**The board's last owed item was "a guard for a docs patch's own payload",
+and it was owed WITH A KNOWN FALSE DIRECTION — which is what decided the
+shape of the fix rather than merely delaying it.**
+
+**Ledger's hazard is real and I reproduced it: a Python splice that silently
+no-ops leaves `preflight` rc=0 `clear` with the section entirely absent.** A
+docs edit that drops its own payload passes every check in this repository.
+**His instrument was `grep -c` the section's own sentence — and the Designer
+measured the instrument rather than the hazard: PROSE WRAPS, so the sentence
+exists in the file only as two lines with a newline inside it, and a
+single-line probe reports every SUCCESSFUL splice as a DROP.** Reproduced on
+his own §4c-xlvi (**raw 0, whitespace-normalised 1, text present**) and on one
+of my own three probes the round before. **A false drop sends an author to
+re-splice a section that is already there, which is how a document acquires
+the duplicate the section gate exists to refuse.**
+
+**So the probe is the wrong thing to mechanize, and the reason is Ledger's
+own §4c-xlvi finding one step over.** The probe asserts that ONE KNOWN
+SENTENCE is present, which means **the sentence has to be written down — a
+second copy of the payload.** He has just measured what happens to a second
+copy of a fact: it goes stale, and **an exemption that goes stale tells a
+CHECK not to look.** A payload probe that goes stale tells a check to look for
+the wrong words.
+
+**What is actually being asserted is that NO HEADING IS EMPTY, and that needs
+no copy of anything.** It is derivable from the document, for **every**
+section, including the ones nobody is splicing today — where a probe covers
+exactly one section on one commit. **The class was named all day and the
+member in front of us was a heading, not a sentence.**
+
+**A dropped payload is the absent-patch failure with the heading still
+landing:** numbering contiguous, order monotonic, no duplicates, and **every
+guard built today satisfied by a heading with nothing under it.** That is the
+gap the other four clauses could not see, because each of them asks about a
+numeral and none of them asks whether there is a section there.
+
+**WARN, and the honest reason rather than the flattering one:** a section
+under construction may legitimately be thin for one commit, and blocking
+would refuse work in progress. **The floor is deliberately low** — a heading
+followed immediately by another heading, or by nothing but blank lines. It is
+not a judgement about quality; it fires on the shape a splice failure actually
+produces.
+
+**The remedy names the wrong repair on purpose: do NOT delete the heading to
+clear this.** The heading is the evidence that a splice was attempted, and
+removing it hides the drop instead of repairing it — the same direction as
+renumbering a stranded section to fit where it landed.
+
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

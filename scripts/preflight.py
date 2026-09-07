@@ -3888,6 +3888,84 @@ def _roman(s):
     return total
 
 
+def check_section_bodies():
+    """A sec.4c heading must be followed by a BODY, not just a heading.
+
+    # remedy: fixes
+
+    NOTE(Tech Lead), 2026-09-07. The last owed item on the board, and it is
+    owed with a KNOWN FALSE DIRECTION -- which is why it is built as a
+    property of the document rather than as the payload probe everyone has
+    been running by hand.
+
+    Ledger's rule was: after splicing a section, `grep -c` its own sentence,
+    because a Python splice that silently no-ops leaves `preflight` rc=0
+    `clear` with the section entirely absent. A DOCS EDIT THAT DROPS ITS OWN
+    PAYLOAD PASSES EVERY CHECK IN THIS REPOSITORY. He was right about the
+    hazard. Then the Designer measured the instrument and it fails in the
+    FALSE direction: PROSE WRAPS, so a sentence exists in the file only as
+    two lines with a newline inside it, and a single-line probe reports every
+    successful splice as a DROP. Reproduced on Ledger's own sec.4c-xlvi
+    (raw 0, whitespace-normalised 1, text present) and on one of my own three
+    probes last round. A FALSE DROP SENDS AN AUTHOR TO RE-SPLICE A SECTION
+    THAT IS ALREADY THERE, which is how a document acquires the duplicate the
+    section gate exists to refuse.
+
+    So the probe is the wrong instrument to mechanize: it asserts that ONE
+    KNOWN SENTENCE is present, which means it needs the sentence written down
+    -- a second copy of the payload, and Ledger's sec.4c-xlvi just measured
+    what happens to a second copy of a fact (it goes stale, and an exemption
+    that goes stale tells a CHECK not to look). WHAT IS ACTUALLY BEING
+    ASSERTED IS THAT NO HEADING IS EMPTY, and that needs no copy of anything:
+    it is derivable from the document, for EVERY section, including the ones
+    nobody is splicing today.
+
+    A dropped payload is the absent-patch failure with the heading still
+    landing -- the numbering stays contiguous, the order stays monotonic,
+    there are no duplicates, and every existing guard is satisfied by a
+    heading with nothing under it. That is sec.4c-xxii once more: the class
+    was named all day and the member in front of us was a heading, not a
+    sentence.
+
+    WARN, and the honest reason: a section under active construction may
+    legitimately be thin for one commit, and blocking would refuse work in
+    progress. The floor is deliberately low -- a heading followed immediately
+    by another heading, or by nothing but blank lines, is not a judgement
+    about quality. It fires on the shape a splice failure actually produces.
+    """
+    doc = os.path.join(REPO, "docs", "PROCESS.md")
+    if not os.path.exists(doc):
+        return 0
+    lines = open(doc, encoding="utf-8").read().split("\n")
+    heads = [(i, m.group(1)) for i, m in
+             ((i, re.match(r"^###\s+(4c-[ivxlc]+)\.", l))
+              for i, l in enumerate(lines)) if m]
+    empty = []
+    for i, name in heads:
+        body = 0
+        for l in lines[i + 1:]:
+            if re.match(r"^#{2,4}\s", l):
+                break
+            if l.strip():
+                body += 1
+                break
+        if not body:
+            empty.append(f"{name} (line {i + 1})")
+    if empty:
+        # remedy: fixes
+        warn("section-bodies",
+             f"{len(empty)} sec.4c heading(s) with no body in "
+             f"docs/PROCESS.md: {'; '.join(empty)}",
+             "a heading with nothing under it is a docs patch that dropped "
+             "its own payload -- the numbering stays contiguous, the order "
+             "stays monotonic, there are no duplicates, and every other "
+             "guard here is satisfied. Re-apply the section's prose. Do NOT "
+             "delete the heading to clear this: the heading is the evidence "
+             "that a splice was attempted, and removing it hides the drop "
+             "instead of repairing it")
+    return 0
+
+
 def main():
     args = sys.argv[1:]
     if "--install-hook" in args:
@@ -4143,6 +4221,10 @@ def main():
     # check_unmerged_index has already refused, so a conflicted tree never
     # reaches it. SCANNED, not parsed -- her distinction, applied on arrival.
     check_section_order()
+    # Beside the order check because it is the same subject read the same
+    # way -- SCANNED, so it carries the Designer's sec.4c-xl phantom
+    # mid-conflict, and check_unmerged_index has already refused by then.
+    check_section_bodies()
     check_cited_doc_copy()
     check_shapecheck_anchors()
     check_variant_output_binding()
