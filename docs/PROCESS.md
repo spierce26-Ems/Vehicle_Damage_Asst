@@ -917,6 +917,30 @@ it unconditionally; each chip row matches its own service, and deduplicating
 them would erase a real distinction. Check whether the two sites read the same
 *value* before concluding they render the same *claim*.
 
+**A grep for a pairing finds the shape you named, and the file held a second
+one the grep cannot reach.** `drawCenter` is not a wrapping draw at all: it
+takes no `maxWidth`, so it never wraps and never clips. It centres by measuring
+the string and subtracting — `x = (rect.width - size.width) / 2` — which goes
+**negative** for a string wider than the page, running the text off *both*
+edges with its middle intact. **A value that loses its beginning and its end
+while looking deliberately centred is the worst failure in this family**, and
+two of its call sites take unbounded user text: the case number and the cover
+attestation. Losing the ends of "Documented by: <name> — Badge <n> — <agency>"
+leaves a plausible fragment, so that failure is a *misattribution*, not a
+missing line — and not implying an attribution the app cannot support is the
+entire point of the examiner work. **So a pairing grep is a lower bound on its
+class, not a census of it:** it enumerates the shape you already understood.
+Ask what *else* consumes the same unbounded input, in the other direction.
+
+**Which is why the remedy for unbounded text is a bound at the input.** The
+same free examiner `reason` reaches two draws in two files — the tool-mark
+column and, through `displaySummary`, the audit page — and the same
+unlength-limited case and examiner fields reach eight `drawCenter` sites. A
+measurement at each frame fixes none of them properly: it converts each into a
+different visible failure, one site at a time, forever. **One validated bound
+at the field fixes every consumer, including the ones nobody has enumerated
+yet.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
