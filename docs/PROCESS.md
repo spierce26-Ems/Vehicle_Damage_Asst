@@ -1050,6 +1050,22 @@ successes is precisely the artefact this section is about. And **a citation is
 provenance only while its destination can be opened** — six references to a
 spec absent from the repository read as authority for a month, so landing the
 document is not enough: the citing artefact has to name the path.
+
+**And a row that is amended each time it is checked accretes into its own
+failure.** The task #4 entry was correct at every edit and ended as one
+paragraph asserting both that §2.4 had zero references and that §2.4 was built
+— two accurate edits landing minutes apart, producing a row a reader cannot
+act on. **Append-only is not a safe default for a status row**; separate what
+is true now from how it was found, and put the current state first. The same
+applies to a decision tick whose safety condition changes state: the tick
+records what was chosen, a sentence beside it records what the tree does, and
+they are different claims that must be updated independently.
+
+**A copy decision recorded only in the document that made it is misplaced, by
+the same test as a finding recorded only in §4c.** The reader of a copy
+deviation is whoever next edits a locked string, and they look at the lock —
+so the ratification belongs there, not in the spec section that reasoned about
+it. **Ask which artefact the reader opens, then write it there.**
 **And a count of commits on a moving branch cannot be written down.** A row
 documenting the lapsed isolation guarantee recorded 99 Swift commits and
 measured 100 one commit later — the very failure the row exists to describe,

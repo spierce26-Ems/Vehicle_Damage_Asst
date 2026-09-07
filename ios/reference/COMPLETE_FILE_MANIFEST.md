@@ -118,10 +118,10 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 740 |
 | `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 569 |
-| `docs/PROCESS.md` | 1511 |
+| `docs/PROCESS.md` | 1527 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
-| `ios/README.md` | 1905 |
+| `ios/README.md` | 1911 |
 
 ## Reference material (`ios/reference/`)
 
