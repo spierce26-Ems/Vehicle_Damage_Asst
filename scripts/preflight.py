@@ -666,19 +666,19 @@ def check_note_rows_implemented():
     # capability field, and it is declared in the appendix section itself
     # where a reader meets it. A hold declared in two places is the
     # duplicate-with-diverging-claims defect aimed at a checker.
-    HELD_UNEMITTED = {
-        # sec.2.3 `allclear.partial`: locked and deliberately NOT rendered.
-        # Its owed selector -- `contains { !$0.motionMeasurable }` -- is true
-        # on every real report, because the field is written on one path and
-        # `false` is the struct default, so emitting it would make the
-        # qualified form the ONLY reachable variant. Waiting on a per-path
-        # capability field. Declared once, here, rather than also in the
-        # appendix: a hold recorded in two places is the
-        # duplicate-with-diverging-claims defect aimed at a checker.
-        "All analysis photographs met the app's capture-quality checks that "
-        "could be run at the time of capture. Camera movement was not "
-        "measured for every photograph.",
-    }
+    # NOTE(Designer), 2026-09-07. EMPTY, and sec.2.3's hold is LIFTED
+    # because the blocker is gone: `CapturedPhoto.motionMeasurementAttempted`
+    # is a per-path capability field, so the selector can now distinguish
+    # "attempted and unavailable" from "never claimed" and both all-clear
+    # variants are reachable. `allclear.partial` is rendered.
+    #
+    # Left as an empty dict rather than deleted. Vector's bound on this
+    # mechanism is why: a declaration cannot tell a STALE hold from an
+    # OBSOLETE one, and both report identically -- so an obsolete entry left
+    # here would read as a live decision. Removing the ENTRY while keeping the
+    # structure records that the mechanism is still wanted and nothing is
+    # currently held.
+    HELD_UNEMITTED: set[str] = set()
     variants = []
     buf = []
     in_23 = False

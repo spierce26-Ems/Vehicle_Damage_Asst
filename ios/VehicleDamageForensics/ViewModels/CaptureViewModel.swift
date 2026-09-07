@@ -437,7 +437,12 @@ final class CaptureViewModel: ObservableObject {
             cameraSettings: CameraSettings(),
             sequenceIndex: index + 1,
             annotationNotes: "Imported from photo library (replaces earlier slot content)",
-            wasImported: true
+            wasImported: true,
+            // No live frame, so no per-frame answer.
+            motionMeasurable: false,
+            // Library import: no live frame, so no motion measurement was
+            // attempted. See `CapturedPhoto.motionMeasurementAttempted`.
+            motionMeasurementAttempted: false
         )
 
         func apply(to vehicle: inout Vehicle) {
@@ -644,7 +649,12 @@ final class CaptureViewModel: ObservableObject {
             cameraSettings: CameraSettings(),
             sequenceIndex: currentShotIndex + 1,
             annotationNotes: "Imported from photo library",
-            wasImported: true
+            wasImported: true,
+            // No live frame, so no per-frame answer.
+            motionMeasurable: false,
+            // Library import: no live frame, so no motion measurement was
+            // attempted. See `CapturedPhoto.motionMeasurementAttempted`.
+            motionMeasurementAttempted: false
         )
         switch captureRole {
         case .victim:

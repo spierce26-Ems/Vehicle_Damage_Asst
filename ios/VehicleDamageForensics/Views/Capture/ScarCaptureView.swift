@@ -774,7 +774,15 @@ struct ScarCaptureView: View {
                 // the answer. Without it `hasMotionBlur == false` cannot
                 // distinguish "measured, steady" from "never measured",
                 // and the report reads the first while the second is true.
-                motionMeasurable: camera.motionMeasurable
+                motionMeasurable: camera.motionMeasurable,
+                // This screen ATTEMPTS motion measurement on every frame, so
+                // the capability is `true` unconditionally here while
+                // `motionMeasurable` stays per-photograph. That pairing is
+                // the point: `true` + `false` is "we tried and could not",
+                // which is the only state sec.2.3's qualified all-clear is
+                // about. Hardcoded like `sharpnessMeasurable` above, because
+                // it is a fact about this code path and not about the frame.
+                motionMeasurementAttempted: true
             )
             camera.resetAutoCaptureStreak()
             camera.stopSession()
@@ -884,7 +892,15 @@ struct ScarCaptureView: View {
                 photoType: .paintTransfer,
                 qualityScore: 0.0,
                 annotationNotes: "Scar photo (imported from photo library)",
-                wasImported: true
+                wasImported: true,
+                // No live frame, so no per-frame answer: `false` paired with
+                // `motionMeasurementAttempted: false` is "never claimed".
+                motionMeasurable: false,
+                // A library import has no live frame and no gyro window, so
+                // nothing was attempted -- "never asked", not "tried and
+                // failed". `false` here is what keeps an imported photograph
+                // out of the qualified all-clear's population.
+                motionMeasurementAttempted: false
                 // Item 2's three fields are deliberately left at their
                 // defaults (nil / false / nil): there was no live camera
                 // frame to measure and no honest moment to ask "was the

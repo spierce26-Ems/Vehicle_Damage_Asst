@@ -1,0 +1,118 @@
+// Shape check: does sec.2.3's all-clear selector reach BOTH variants once a
+// per-path capability field exists?
+//
+// Reduced shape. Encodes only facts read from the tree at e685c06 + this patch:
+//   - `PhotoType.requiredCaptureProtocol` is 2 closeupDamage + 2 paintTransfer
+//     per vehicle; closeupDamage/paintTransfer are analysis shots.
+//   - `CameraService` passes motionMeasurementAttempted: false (no gyro window).
+//   - `ScarCaptureView.performCapture` passes true; its import path false.
+//   - `captureConditionPhotos` filters on isAnalysisShot.
+// Says nothing about the tree beyond that. No SwiftUI body is typechecked.
+//
+// The v1 selector `contains { !$0.motionMeasurable }` is kept below and
+// asserted BROKEN, so this check fails if anyone reintroduces it.
+
+enum PhotoType {
+    case wideAngle, closeupDamage, paintTransfer, heightMeasurement
+    case licenseDetail, lidarReference, contextShot
+    var isAnalysisShot: Bool {
+        switch self {
+        case .closeupDamage, .paintTransfer: return true
+        default: return false
+        }
+    }
+}
+
+struct Photo {
+    var photoType: PhotoType
+    /// Did this photograph's capture PATH attempt motion measurement.
+    var motionMeasurementAttempted: Bool
+    /// Did THIS frame get one.
+    var motionMeasurable: Bool
+    var hasNote: Bool = false
+}
+
+let requiredProtocol: [PhotoType] = [
+    .wideAngle, .wideAngle, .closeupDamage, .closeupDamage,
+    .paintTransfer, .paintTransfer, .heightMeasurement, .heightMeasurement,
+    .licenseDetail, .lidarReference
+]
+
+// CameraService: attempts nothing, answers nothing.
+func protocolShots() -> [Photo] {
+    requiredProtocol.map { Photo(photoType: $0, motionMeasurementAttempted: false, motionMeasurable: false) }
+}
+// ScarCaptureView.performCapture: always attempts; per-frame answer varies.
+func scarShot(measured: Bool) -> Photo {
+    Photo(photoType: .paintTransfer, motionMeasurementAttempted: true, motionMeasurable: measured)
+}
+// ScarCaptureView / CaptureViewModel import: no live frame.
+func importedScar() -> Photo {
+    Photo(photoType: .paintTransfer, motionMeasurementAttempted: false, motionMeasurable: false)
+}
+
+func population(_ all: [Photo]) -> [Photo] { all.filter { $0.photoType.isAnalysisShot } }
+
+// LANDED selector.
+func qualified(_ all: [Photo]) -> Bool {
+    population(all).contains { $0.motionMeasurementAttempted && !$0.motionMeasurable }
+}
+// The selector sec.2.3 originally OWED, kept as a regression target.
+func qualifiedV1(_ all: [Photo]) -> Bool {
+    population(all).contains { !$0.motionMeasurable }
+}
+
+var failures = 0
+func expect(_ label: String, _ got: Bool, _ want: Bool) {
+    if got == want { print("  ok   \(label)") }
+    else { print("  FAIL \(label): got \(got), want \(want)"); failures += 1 }
+}
+
+let ideal    = protocolShots() + [scarShot(measured: true)]
+let noGyro   = protocolShots() + [scarShot(measured: false)]
+let imported = protocolShots() + [importedScar()]
+let protocolOnly = protocolShots()
+
+print("The all-clear branch is only reached when NO photograph carried a note,")
+print("i.e. the quiet case sec.2.3 exists for.\n")
+
+print("1. Attempted AND unavailable -- a member missing a check. Qualified is correct.")
+expect("gyro-less scar photo selects QUALIFIED", qualified(noGyro), true)
+
+print("\n2. Attempted and available -- every check that exists ran. Plain is the")
+print("   stronger claim and sec.2.3 says a reader seeing it is told it truthfully.")
+expect("fully-measured case selects PLAIN", qualified(ideal), false)
+
+print("\n3. Never claimed is not a missing check. sec.2.2 row two forbids output")
+print("   for 'never asked', and the protocol camera claims no motion measurement.")
+expect("protocol-only case selects PLAIN", qualified(protocolOnly), false)
+expect("library-imported scar selects PLAIN", qualified(imported), false)
+
+print("\n4. BOTH variants reachable on cases containing the v1 required protocol.")
+var reach = Set<String>()
+for c in [ideal, noGyro, imported, protocolOnly] {
+    reach.insert(qualified(c) ? "qualified" : "plain")
+}
+print("   variants reachable: \(reach.sorted()) (count: \(reach.count))")
+expect("two locked variants, two reachable", reach.count == 2, true)
+
+print("\n5. REGRESSION: the originally-owed selector is broken and must stay out.")
+var v1reach = Set<String>()
+for c in [ideal, noGyro, imported, protocolOnly] {
+    v1reach.insert(qualifiedV1(c) ? "qualified" : "plain")
+}
+print("   v1 variants reachable: \(v1reach.sorted()) (count: \(v1reach.count))")
+expect("v1 selector fires on a fully-measured case (the defect)", qualifiedV1(ideal), true)
+expect("v1 selector can reach only ONE variant", v1reach.count == 1, true)
+
+print("\n6. The capability field is load-bearing: drop it and v1's defect returns.")
+// Same predicate with the attempted term forced true -- i.e. pretending every
+// path claims a measurement, which is what a single default-valued field does.
+func qualifiedNoCapability(_ all: [Photo]) -> Bool {
+    population(all).contains { true && !$0.motionMeasurable }
+}
+expect("without the capability term, the ideal case wrongly qualifies",
+       qualifiedNoCapability(ideal), true)
+expect("with it, the ideal case does not", qualified(ideal), false)
+
+print("\n\(failures) failing assertion(s).")

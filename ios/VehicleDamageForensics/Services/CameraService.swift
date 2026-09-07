@@ -595,7 +595,23 @@ final class CameraService: NSObject, ObservableObject {
             sequenceIndex: sequenceIndex,
             annotationNotes: step.instruction,
             frameConfirmedClear: frameConfirmedClear,
-            gateOverridden: gateOverridden
+            gateOverridden: gateOverridden,
+            // No gyro window here, so no per-frame answer either: `false`
+            // paired with `motionMeasurementAttempted: false` is "never
+            // claimed", which produces no note and no qualification.
+            motionMeasurable: false,
+            // This camera runs no gyro window and computes no motion term,
+            // so it CLAIMS no motion measurement. Stated rather than left to
+            // a default: with a default `false` this camera's photographs
+            // were indistinguishable from scar photographs whose measurement
+            // was attempted and unavailable, which made the qualified
+            // all-clear fire on every report that contains a protocol shot.
+            // Four analysis shots per vehicle land here
+            // (`PhotoType.requiredCaptureProtocol`: 2 closeupDamage + 2
+            // paintTransfer) -- counted from the list the capture loop reads,
+            // never from `CaptureProtocolStep.fullProtocol`, which is
+            // coaching metadata and warns against exactly that reading.
+            motionMeasurementAttempted: false
         )
 
         // NOTE(AI Developer), fixed 2026-07 per Sean's on-device report

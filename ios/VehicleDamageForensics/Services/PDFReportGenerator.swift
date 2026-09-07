@@ -1028,8 +1028,58 @@ struct PDFReportGenerator {
         }
 
         if !anyNotes {
-            // sec.2.3. Emitted rather than omitted, on purpose.
-            _ = drawWrapping("All analysis photographs met the app's capture-quality checks at the time of capture.",
+            // sec.2.3. Emitted rather than omitted, on purpose: a silent
+            // section is indistinguishable from one never generated.
+            //
+            // NOTE(Designer), 2026-09-07. `allclear.partial` is BUILT, and
+            // the selector is not the one sec.2.3 originally owed.
+            //
+            // The owed selector was `contains { !$0.motionMeasurable }`. That
+            // is true on every real report: `motionMeasurable` is written on
+            // one path, `false` is the struct default, and every protocol
+            // analysis shot carries the default -- so the qualified form was
+            // the ONLY reachable variant and the plain sentence was dead. The
+            // always-firing qualification sec.2.3 forbids in four paragraphs
+            // of wording, arriving through the selector instead.
+            //
+            // The distinction the predicate needs is "a check was ATTEMPTED
+            // and could not run", not "this field is false". So it reads BOTH
+            // fields: `motionMeasurementAttempted` says the path claimed a
+            // measurement, `motionMeasurable` says whether this frame got
+            // one. `true && !false` -- attempted and unavailable -- is a
+            // member missing a check. The protocol camera's `false && false`
+            // is "never asked", which sec.2.2 row two forbids from producing
+            // output, and a library import is the same.
+            //
+            // Same population helper the notes use, never a second
+            // enumeration: a second enumeration is how the all-clear came to
+            // exclude `scarPhoto` in the first place, so the set the sentence
+            // is computed over is the set the notes were computed over BY
+            // CONSTRUCTION rather than by agreement.
+            //
+            // Per-SET and not per-photograph: sec.1's motion row has no "not
+            // measured" line deliberately, and stating this per photograph on
+            // a gyro-less device annotates every one of them and destroys the
+            // note's meaning for the photograph that needed it. Ask whether
+            // the claim's subject is the set or the member, and qualify at
+            // that level.
+            //
+            // Both literals are locked (sec.4.1) and go in verbatim.
+            //
+            // No `!hasMotionBlur` term, deliberately: this branch is
+            // `!anyNotes`, so every photograph here already produced no note,
+            // and `hasMotionBlur` is necessarily false for all of them. A
+            // clause that cannot change the result is an assertion that
+            // cannot fail -- it reads as extra rigour while testing nothing,
+            // and it would have hidden the day a note stopped implying its
+            // flag. The `!anyNotes` guard is where that fact is stated.
+            let motionUnmeasured = photos.contains {
+                $0.motionMeasurementAttempted && !$0.motionMeasurable
+            }
+            let allClear = motionUnmeasured
+                ? "All analysis photographs met the app's capture-quality checks that could be run at the time of capture. Camera movement was not measured for every photograph."
+                : "All analysis photographs met the app's capture-quality checks at the time of capture."
+            _ = drawWrapping(allClear,
                              at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11),
                              maxWidth: rect.width - 100)
         }

@@ -264,7 +264,53 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     /// Same asymmetry as `gateOverridden` versus `frameConfirmedClear` --
     /// `false` is TRUE of an old photo, because there was no measurement
     /// to have taken.
-    var motionMeasurable: Bool = false
+    ///
+    /// NO DEFAULT, changed 2026-09-07 (Designer). It had one, and Vector's
+    /// `default-predicate` check named the consequence precisely: the field
+    /// defaults `false`, is negated inside a set predicate, and four of six
+    /// initialiser call sites passed no value. That is the shape that made
+    /// the qualified all-clear unreachable-by-default in the first place, and
+    /// leaving the default while adding a capability field would have fixed
+    /// the selector and kept the trap loaded for the next predicate.
+    var motionMeasurable: Bool
+
+    /// Whether the capture path this photograph came from ATTEMPTS motion
+    /// measurement at all -- a property of the path, not of this frame.
+    ///
+    /// NOTE(Designer), 2026-09-07. This is the per-path capability field the
+    /// `allclear.partial` selector was blocked on, and the distinction it
+    /// carries is the one `motionMeasurable` cannot:
+    ///
+    ///   `motionMeasurable == false` on the scar path means a measurement was
+    ///   ATTEMPTED and unavailable -- no gyro, or readings stale before the
+    ///   shutter. That is a member missing a check, and sec.2.3's qualified
+    ///   all-clear is about exactly those photographs.
+    ///
+    ///   `motionMeasurable == false` on the 30-shot protocol camera or a
+    ///   library import means NOTHING WAS EVER CLAIMED. That camera measures
+    ///   no motion and says so; there is no check that failed to run. It is
+    ///   `nil`'s reading -- "never asked" -- which sec.2.2 row two and the
+    ///   `frameConfirmedClear` tri-state both forbid from producing output.
+    ///
+    /// Without this field those two are the same `false`, so the selector
+    /// `contains { !$0.motionMeasurable }` is satisfied by every protocol
+    /// analysis shot and the qualified variant becomes the only reachable
+    /// one -- the always-firing qualification sec.2.3 forbids in its wording,
+    /// arriving through the selector. Measured, not argued: `false` is the
+    /// struct default and `CameraService` passes it not at all.
+    ///
+    /// **NO DEFAULT VALUE, deliberately, and this is the whole mechanism.**
+    /// `motionMeasurable` defaults `false` and that default is what made a
+    /// population statement readable as a safety note -- "defaults `false`
+    /// everywhere else" is true, and the same words say the predicate holds
+    /// for nearly every photograph in the app. A capability claim must be
+    /// STATED by each capture path, so the compiler asks the question at
+    /// every construction site rather than answering it silently. Same
+    /// pattern as `sharpnessMeasurable` below, for the same reason.
+    ///
+    /// Rule this came from: before a default-valued field becomes a
+    /// predicate, count how much of the population carries the default.
+    var motionMeasurementAttempted: Bool
 
     var sharpnessMeasurable: Bool
 
@@ -296,7 +342,11 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         gateOverridden: Bool = false,
         sharpnessScore: Double? = nil,
         sharpnessMeasurable: Bool = false,
-        motionMeasurable: Bool = false
+        motionMeasurable: Bool,
+        // No default: every capture path states whether it attempts motion
+        // measurement. See the property's doc comment -- a silent default is
+        // what let the previous field's population go uncounted.
+        motionMeasurementAttempted: Bool
     ) {
         self.id = id
         self.imageData = imageData
@@ -324,6 +374,7 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.sharpnessScore = sharpnessScore
         self.sharpnessMeasurable = sharpnessMeasurable
         self.motionMeasurable = motionMeasurable
+        self.motionMeasurementAttempted = motionMeasurementAttempted
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -407,6 +458,15 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         //     `keyNotFound` makes every existing case file unopenable, and
         //     where the case file IS the evidence that is data loss.
         motionMeasurable = try c.decodeIfPresent(Bool.self, forKey: .motionMeasurable) ?? false
+        //   `motionMeasurementAttempted` -> false, and this is the ONE place
+        //   the field takes a default, because a decode is not a capture
+        //   path. Every photograph saved before this field existed came from
+        //   a path that claimed no motion measurement, so `false` is the
+        //   truthful decode. `decodeIfPresent ?? false` per the
+        //   persisted-model rule -- a `keyNotFound` makes every existing case
+        //   file unopenable, and where the case file IS the evidence that is
+        //   data loss.
+        motionMeasurementAttempted = try c.decodeIfPresent(Bool.self, forKey: .motionMeasurementAttempted) ?? false
     }
 
     // MARK: Duplication (item #5)
@@ -458,7 +518,11 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
             gateOverridden: gateOverridden,
             sharpnessScore: sharpnessScore,
             sharpnessMeasurable: sharpnessMeasurable,
-            motionMeasurable: motionMeasurable
+            motionMeasurable: motionMeasurable,
+            // Carried, not reset: what this photograph's capture path
+            // attempted is a fact about the photograph, unchanged by copying
+            // it into a case about a different suspect.
+            motionMeasurementAttempted: motionMeasurementAttempted
         )
     }
 
