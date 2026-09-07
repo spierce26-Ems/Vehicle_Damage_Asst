@@ -2192,6 +2192,24 @@ displayed. (Found on a run whose verdict I first
 read through a pipe, and so first read as passing — the pipe-masking failure
 recorded above, hit in the course of using the rule that names it.)
 
+**A copy lock covers words; a UI asserts in channels a lock cannot see.** The
+attestation's two answers passed the lock byte-for-byte and still broke the
+rule the lock exists to enforce: the decline shipped with an
+`exclamationmark.circle` and a dimmed capsule opposite a blue primary one, so
+**an exclamation mark and a colour said what the words were written not to
+say.** No diff of the strings shows it, and no reviewer comparing text against
+the inventory would catch it.
+
+So when copy carries a constraint — attribution, neutrality, symmetry — **check
+the icon, the colour, the weight, and the order against the same constraint**,
+because each is a channel that can carry the adjective the words omit.
+Concretely for a symmetric pair: identical typography and no glyph on either,
+rather than a matched pair of glyphs, since any mark on the adverse option
+reads as severity and a mark on only the favourable one restores the
+hierarchy. And hold the symmetry **structurally** — one shared label builder,
+not two call sites that currently agree, for the same reason
+`captureNotes(for:)` is the single source of the note conditions.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.

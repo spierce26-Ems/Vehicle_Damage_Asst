@@ -538,7 +538,7 @@ struct ScarCaptureView: View {
     /// file beats a missing one, and an answer that costs the examiner
     /// their shot is an answer nobody gives twice.
     ///
-    /// Answer labels are NEW strings and need Ledger's lock entry;
+    /// Answer labels are locked as `confirm.yes` / `confirm.no`;
     /// `confirm.arm` above them is locked and verbatim.
     private var attestationAnswerRow: some View {
         VStack(spacing: 8) {
@@ -546,26 +546,41 @@ struct ScarCaptureView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
             HStack(spacing: 10) {
+                // NOTE(Designer), 2026-09-07, corrected same day -- see
+                // `CaptureCameraView.attestationAnswerRow` for the full
+                // reasoning. A warning glyph is a warning adjective that
+                // no copy lock can see: `confirm.no` passed the lock
+                // byte-for-byte while an exclamation mark beside it, and
+                // a blue primary capsule opposite a dimmed one, said
+                // "you are about to do something wrong" in a channel the
+                // lock does not cover. Identical styling on both now;
+                // the labels alone distinguish them.
                 Button {
                     pendingFrameClear = true
                     camera.armAutoCapture()
                 } label: {
-                    scarReadyLabel("Yes — clear")
+                    scarAnswerLabel("Yes — clear")
                 }
                 Button {
                     pendingFrameClear = false
                     camera.armAutoCapture()
                 } label: {
-                    Label("No — not clear", systemImage: "exclamationmark.circle")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.black.opacity(0.55), in: Capsule())
-                        .foregroundStyle(.white)
+                    scarAnswerLabel("No — not clear")
                 }
             }
         }
         .padding(.horizontal, 8)
+    }
+
+    /// One label style for both answers -- symmetry held structurally,
+    /// not by two call sites agreeing.
+    private func scarAnswerLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.black.opacity(0.55), in: Capsule())
+            .foregroundStyle(.white)
     }
 
     private func scarReadyLabel(_ text: String) -> some View {

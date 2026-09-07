@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 75 tracked files, of which 42 Swift sources (21532 lines).
+Totals: 75 tracked files, of which 42 Swift sources (21573 lines).
 
 ## iOS app — Xcode project
 
@@ -48,12 +48,12 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift` | 753 |
+| `ios/VehicleDamageForensics/Views/Capture/CaptureCameraView.swift` | 779 |
 | `ios/VehicleDamageForensics/Views/Capture/CaptureFlowView.swift` | 423 |
 | `ios/VehicleDamageForensics/Views/Capture/ImpactMarkerView.swift` | 537 |
 | `ios/VehicleDamageForensics/Views/Capture/PaintReferenceMarkerView.swift` | 212 |
 | `ios/VehicleDamageForensics/Views/Capture/PhotoReviewView.swift` | 359 |
-| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1613 |
+| `ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift` | 1628 |
 | `ios/VehicleDamageForensics/Views/Capture/SensorGuidanceOverlay.swift` | 189 |
 | `ios/VehicleDamageForensics/Views/Dashboard/DashboardView.swift` | 596 |
 | `ios/VehicleDamageForensics/Views/Dashboard/EditCaseSheet.swift` | 319 |
@@ -116,9 +116,9 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 990 |
+| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 1010 |
 | `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 722 |
-| `docs/PROCESS.md` | 2218 |
+| `docs/PROCESS.md` | 2236 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1913 |

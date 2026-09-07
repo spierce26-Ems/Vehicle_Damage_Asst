@@ -131,6 +131,26 @@ The two answer strings (`confirm.yes`, `confirm.no`) are now **locked** —
 see §4.2.1 for their entries and for which words in them carry a constraint
 on the data behind them.
 
+Two new answer strings, `confirm.yes` / `confirm.no`, carry the same
+attribution constraint as row two: both name the **frame's** state, never the
+examiner's diligence. "I checked / I didn't check" would break §3's rule by
+making the note a claim about a person.
+
+**And a lock over words does not cover the channels beside them.** Both answers
+first shipped with a warning glyph on the decline and a primary-styled capsule
+on the affirmative — the strings passed byte-for-byte while an exclamation mark
+and a colour said "you are about to do something wrong". **A warning glyph is a
+warning adjective the lock cannot see**, and so is a button hierarchy. Both are
+now identically styled with no icon on either; the labels alone distinguish
+them. So the constraint is: **`confirm.no` must not be marked as the adverse
+choice in any channel — wording, icon, colour, weight, or order.** An answer
+that reads as a confession is an answer nobody gives twice, and that loses the
+finding rather than recording it.
+
+`confirm.no` must also not drift toward "skip", "later" or "not sure": each
+turns a recorded decline into a **deferral**, which is `nil`'s meaning and must
+stay unreachable from a button.
+
 **The general rule: never infer a defect from a field's absence.**
 
 ### 1.2 No code path can record a decline, so row two cannot fire

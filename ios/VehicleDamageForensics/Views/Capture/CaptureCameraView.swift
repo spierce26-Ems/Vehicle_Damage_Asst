@@ -401,8 +401,8 @@ struct CaptureCameraView: View {
     ///
     /// Copy: `confirm.arm` is locked and reproduced verbatim as the
     /// question above the row. The two ANSWER labels are new strings and
-    /// need Ledger's lock entry -- "Yes — clear" / "No — not clear" is
-    /// the recommendation, symmetrical so neither reads as the default,
+    /// are locked as `confirm.yes` / `confirm.no`, symmetrical so
+    /// neither reads as the default,
     /// and naming the frame's state rather than the examiner's diligence.
     /// Do not word the decline as a fault: sec.2.2's row two describes
     /// what a person did or did not do, and a button that reads as an
@@ -414,31 +414,57 @@ struct CaptureCameraView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
             HStack(spacing: 10) {
+                // NOTE(Designer), 2026-09-07, corrected same day. These
+                // two shipped with an `exclamationmark.circle` icon and a
+                // dimmer capsule on the decline, and both were wrong for
+                // the reason the lock states about words: no warning
+                // adjective, and symmetrical so neither reads as the
+                // default.
+                //
+                // A WARNING GLYPH IS A WARNING ADJECTIVE THAT NO COPY
+                // LOCK CAN SEE. `confirm.no`'s text passes the lock
+                // byte-for-byte while an exclamation mark beside it says
+                // "you are about to do something wrong", and a blue
+                // primary capsule against a dimmed one says the same in
+                // layout. Both restore the confession the wording was
+                // written to avoid -- and an answer that reads as an
+                // admission is an answer nobody gives twice, which loses
+                // the finding rather than recording it.
+                //
+                // So: identical typography, padding, capsule and weight;
+                // the labels alone distinguish them. No icon on either,
+                // rather than a matched pair, because any glyph on the
+                // decline is read as a severity mark and a checkmark on
+                // the affirmative alone reintroduces the asymmetry.
                 Button {
                     pendingFrameClear = true
                     armAfterAttestation()
                 } label: {
-                    Label("Yes — clear", systemImage: "checkmark.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Color.blue, in: Capsule())
-                        .foregroundStyle(.white)
+                    attestationAnswerLabel("Yes — clear")
                 }
                 Button {
                     pendingFrameClear = false
                     armAfterAttestation()
                 } label: {
-                    Label("No — not clear", systemImage: "exclamationmark.circle")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(.black.opacity(0.55), in: Capsule())
-                        .foregroundStyle(.white)
+                    attestationAnswerLabel("No — not clear")
                 }
             }
         }
         .padding(.horizontal, 8)
+    }
+
+    /// One label style for BOTH answers, so symmetry is structural
+    /// rather than maintained by two call sites agreeing. Two independent
+    /// label builders would drift the moment someone restyled one --
+    /// the same duplicated-claim reasoning as `captureNotes(for:)`
+    /// being the single source of the note conditions.
+    private func attestationAnswerLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(.black.opacity(0.55), in: Capsule())
+            .foregroundStyle(.white)
     }
 
     private func readyLabel(_ text: String) -> some View {
