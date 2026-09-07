@@ -146,7 +146,21 @@ struct PDFReportGenerator {
     ///
     /// The box now grows to its content, so a longer disclaimer moves the
     /// frame instead of falling out of it. Returns nothing -- the cover
-    /// page's layout is absolute, and the only caller draws nothing below.
+    /// page's layout is absolute.
+    ///
+    /// ONE CONSEQUENCE, recorded because measuring changed the failure
+    /// mode rather than removing it. The cover DOES draw below this box:
+    /// the duplicated-case note sits at a literal `y: 574`, and this box
+    /// is drawn at `y: 430`, so it has 144pt of headroom. Today's text
+    /// renders in about 120pt, which is why nothing collides. But the box
+    /// now GROWS where the literal used to clip, so a disclaimer past
+    /// roughly 144pt would overlap that note instead of falling out of
+    /// its own frame. That is the better failure -- an overlap is visible
+    /// on the page and a truncation is not -- and it is deliberately not
+    /// "fixed" here, because the honest fix is a flow layout for the
+    /// cover's fixed y-offsets, which is a separate diff. The measurement
+    /// converted a silent clip into a visible collision; it did not make
+    /// the cover safe for arbitrary copy.
     private func drawDisclaimerBox(rect: CGRect, y: CGFloat) {
         let bodyFont = UIFont.systemFont(ofSize: 10)
         let bodyWidth = rect.width - 100 - 32
