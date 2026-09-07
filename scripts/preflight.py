@@ -927,7 +927,19 @@ def check_variant_output_binding():
     doc = os.path.join(REPO, "docs", "EVIDENCE_APPENDIX_CAPTURE_NOTES.md")
     if not os.path.exists(gen) or not os.path.exists(doc):
         return
-    flat = " ".join(open(gen).read().split())
+    # sec.4c-xxiv (Tech Lead). Flatten the CODE only, reusing Vector's
+    # `strip_trailing_comment` rather than a second copy of it. This check
+    # reads a file as text, so it inherits the prose-does-not-fail defect
+    # exactly as the anchors did: `re.search` takes the FIRST match, so a
+    # commented copy of the CORRECT ternary parked above a negated live one
+    # satisfied the check that exists to catch the negated live one --
+    # measured at `clear`, rc=0, with the renderer emitting the wrong
+    # variant on every report. Vector's anchor-seq catches that mutant
+    # incidentally through the anchor path; this check, which is the
+    # instrument NAMED as the guard on the sign, reported clear alone.
+    flat = " ".join(" ".join(
+        "" if ln.strip().startswith("//") else strip_trailing_comment(ln)
+        for ln in open(gen).read().splitlines()).split())
     # The QUALIFIED variant is the second blockquote in sec.2.3 -- taken from
     # the document rather than written here, so the check cannot drift into
     # asserting its own copy of a locked string. That is the

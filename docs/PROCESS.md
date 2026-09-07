@@ -1804,6 +1804,59 @@ instrument the question it had just asked of the old one** — the cheapest audi
 available here, and it has not missed yet: **when a guard closes a defect class,
 run that class's own test against the guard before reporting it closed.**
 
+### 4c-xxiv. Audit the class against the OLDEST instrument of that strength, not the newest
+
+**Ledger's audit — *when a guard closes a defect class, run that class's own
+test against the guard before reporting it closed* — has caught five hops and
+missed none. Run against every text-matching instrument in `preflight` rather
+than only the newest, it finds one more, in `check_variant_output_binding`:**
+the instrument NAMED as the guard on the ternary's sign.
+
+It flattened the whole renderer file and took the FIRST regex match of
+`let allClear = <cond> ? "..." : "..."`, so:
+
+```
+// ... existing comment line ... v2: let allClear = motionUnmeasured ? "<qualified>" : "<plain>"
+let allClear = !motionUnmeasured
+    ? "<qualified>"
+    : "<plain>"
+```
+
+**A commented copy of the CORRECT ternary parked above a negated live one
+satisfies the check that exists to catch the negated live one.** Appended to an
+*existing* comment line it moves no line count either, so `--strict` stays 0 and
+the summary says `clear` while every report carries the §2.3 over-claim.
+Measured with Vector's `anchor-seq` removed to isolate it: **`variant-binding`
+alone reported nothing.** With the seq in place the seq catches the same mutant
+through the *anchor* path — so the tree was protected by an instrument that was
+not the one named for this defect, which is exactly the coverage-by-accident
+§4c-xxii warns against.
+
+**Fixed by flattening the CODE only, reusing Vector's `strip_trailing_comment`
+rather than a second copy of it** — a duplicated helper is two predicates that
+must agree, the defect this repository has hit at every layer. Four mutants,
+seq removed to isolate, every rc read bare from a file: the mutant → `1
+blocking` naming `variant-binding`; the flatten reverted with the mutant kept →
+**no `variant-binding` finding at all**, the canary; the full tree with the seq
+present → **two distinct diagnoses**, anchor-seq and `variant-binding`; no-op →
+`clear`, rc=0.
+
+**The transferable half is the ORDERING, and it is what I got wrong.** I ran the
+class's test against the guard I had just written and stopped. **§4c-xxiv was
+reachable the moment §4c-xx existed; it waited four hops because the audit was
+aimed at the last commit instead of at the property.** A defect class is a
+property of a TECHNIQUE, so **its audit is scoped by the technique, never by the
+diff** — every grep-strength instrument in the tree, including the ones written
+before the class had a name.
+
+**And the ordering rule that follows: the newest guard is the LEAST likely
+member, because it is the only one written by someone who had the class in
+mind. Audit oldest-first.** Vector's near-miss is the same lesson from the other
+end — his equality check fired on Ledger's mutant *before* he added trailing-comment
+stripping, because the comment text leaked into the captured selector, so it
+named the right defect for the wrong reason. **A guard that fires for a reason
+its author cannot state is a guard that will stop firing silently.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
