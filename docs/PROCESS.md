@@ -1214,6 +1214,38 @@ show.** The "sharpness was not measured" note is the *negative case* for the two
 That coupling is what made the defect disprovable from one document; recording
 it is what lets the next editor inherit the check instead of rediscovering it.
 
+**And the same "not in the type" blindness has a SwiftUI form: for a computed
+property on an `ObservableObject`, ask what its inputs are published as, not
+whether the property compiles.** `var x: Bool { a && b }` is correct,
+observable, or neither, and the type says nothing about which.
+`measuredNotSharp` and `measuredNotCloseEnough` read `sharpnessSatisfied` and
+`framingMeasured`, **neither of which is `@Published`**, so a `body` reading
+either computed property would not be invalidated when its inputs change.
+Harmless only because the sole readers today are two imperative call sites in
+`performCapture(auto:)` — **the moment either is surfaced as a chip or a review
+badge, the input has to become `@Published` or the UI silently will not
+refresh.** A stale view with no error anywhere is the same failure family as an
+absence asserting the clean case: nothing is wrong, nothing is reported, and
+the reader draws the wrong conclusion. Verified as a two-instance class rather
+than assumed — the only other computed-from-unpublished pair in the tree is
+`SensorData.pitchDegrees`/`rollDegrees`, and `SensorData` is a `struct` with no
+observation in it at all, so it is a false positive. **A sweep for this has to
+check that the declaring type is an `ObservableObject` before it reports
+anything**, which is the phantom lesson from the never-written census in its
+own domain.
+
+**Closing a flagged caveat can be evidence rather than a green tick, and the
+discriminating step is what makes the difference.** The isolation question on
+those two properties could not be typechecked in-tree — no iOS SDK — so it was
+answered on a reduced shape carrying the same isolation structure, under
+`-strict-concurrency=complete`. **The step that made it evidence was checking
+that the reduced shape FAILS when the isolation is removed.** A check that
+passes both ways proves nothing; that is the same discrimination question as
+verifying a gate through the gate rather than through the thing it wraps.
+Reduced-shape typechecking is a tool for any SDK-blocked isolation or generics
+question, and it is not a substitute for a real build: it says nothing about
+the rest of the file.
+
 **A missing checklist item is the mirror of an unpassable one.** An unpassable
 item converts a tester's effort into false evidence; a missing item leaves a
 disprovable claim untested. The contradiction here was demonstrable by one
