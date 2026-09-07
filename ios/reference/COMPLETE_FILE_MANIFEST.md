@@ -168,7 +168,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/shapechecks/motionblur-window.shapecheck` | 112 |
 | `scripts/shapechecks/motionmeasurable.shapecheck` | 124 |
 | `scripts/shapechecks/rowfive-proxy.shapecheck` | 91 |
-| `scripts/shapechecks/allclear-variant-selector.shapecheck` | 132 |
+| `scripts/shapechecks/allclear-variant-selector.shapecheck` | 139 |
 | `scripts/shapechecks/run.sh` | 80 |
 
 ## Repo root

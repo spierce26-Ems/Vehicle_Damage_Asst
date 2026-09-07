@@ -7,6 +7,13 @@
 // anchor-seq binds the condition-to-ARM pairing, not just the condition.
 // Comment lines AND /* */ blocks are stripped before matching.
 // anchor-seq: ios/VehicleDamageForensics/Services/PDFReportGenerator.swift :: let allClear = motionUnmeasured :: ? "All analysis photographs met the app's capture-quality checks that could be run at the time of capture. :: Camera movement was not measured for every photograph." :: : "All analysis photographs met the app's capture-quality checks at the time of capture."
+// The computed value must REACH the renderer. Ledger's sec.4c-xxv: keep the
+// ternary correct and inline the unqualified literal at the call site, and every
+// other guard is satisfied while every report prints the over-claim. His class
+// statement is that absence of a consumer is not a substring -- true, but the
+// required CONSUMER is one, and binding presence of the right one is what makes
+// a competing literal at that argument position break the seq.
+// anchor-seq: ios/VehicleDamageForensics/Services/PDFReportGenerator.swift :: _ = drawWrapping(allClear, :: at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11),
 // anchor: ios/VehicleDamageForensics/Models/CapturedPhoto.swift var motionMeasurementAttempted: Bool
 // anchor: ios/VehicleDamageForensics/Views/Capture/ScarCaptureView.swift motionMeasurementAttempted: true
 // anchor: ios/VehicleDamageForensics/Services/CameraService.swift motionMeasurementAttempted: false
