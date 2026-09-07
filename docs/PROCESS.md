@@ -2226,6 +2226,52 @@ addresses in `PROCESS.md`, exactly the check `check_no_duplicate_defs` is for
 the module namespace.** Built below; measured at 18 sections, zero duplicates,
 and the mutant that reintroduces `xxx` twice is named by number.
 
+### 4c-xxxii. Every count in the verification standard is a count of INDEX entries, and the aggregate says `clear` mid-conflict (Ledger)
+
+**Found by hitting it, not by looking for it.** Rebasing the Designer's
+round-trip patch onto `36cd84b` left `scripts/preflight.py` unmerged in the
+index. `preflight --all --strict` reported **88 tracked (42 Swift)** against
+the manifest's 86, and its remedy line told me to **hand-edit the `Totals:`
+sentence to say 88** — which would have written the index's arithmetic into
+the one prose sentence §4d says a regenerator must never touch.
+
+**`git ls-files` reports a conflicted path once per stage, so one conflicted
+file counts THREE.** §4d already records this for a handover figure and names
+`git ls-files -u` as the way to see it. Two things it does not say, and both
+are the reason this is a section rather than a note:
+
+1. **`sh("git", "ls-files")` is the population of five checks in
+   `preflight.py`, not just the manifest total** — the cited-commit sweep, the
+   `.pyc` sweep, the doc sweep and the Swift filter all read it, and none of
+   them deduplicates or calls `ls-files -u`. **A rule recorded for the reader
+   was never given to the tool.** §4c-xxii, one more time: a stated limit is
+   not a covered limit.
+2. **The state SURVIVES the markers.** With markers present,
+   `conflict-markers` FAILs — and reports the same file three times, which is
+   the count leaking into the finding. Remove the markers by hand and leave
+   the path unmerged, and every conflict signal disappears while the phantom
+   count stays. Fix the `Totals:` sentence to 88 as the remedy instructs, run
+   `regen_manifest.py`, and the aggregate is **`clear`, rc=0, zero warn/FAIL
+   lines of any kind, with `git ls-files -u` still reporting 3.**
+   Reproduced on a fresh full clone of `301e779` by merging two one-line
+   edits to `docs/PROCESS.md`, and re-confirmed at `79ba1db`.
+
+**So this is not a wrong number: it is a REMEDY THAT LAUNDERS THE DEFECT.**
+The manifest warning is the only instrument that notices an unmerged index at
+all, it names no cause, and following its instruction converts the last
+remaining signal into a permanent false claim in the document review consults.
+**Same family as the day's other findings and one axis further out: the ten
+hardenings asked what a guard reads, where it lives, and how it FINDS what it
+reads — this asks whether the guard's POPULATION is a set of files or a set of
+index entries, and `git ls-files` has always answered the second.**
+
+Owed, in this order: **`ls-files -u` as a blocking gate before any count
+runs** (a count taken mid-conflict is not a count of the tree, so nothing
+below it is a statement about the tree — the same ordering argument that put
+`check_no_duplicate_defs` first); dedupe every `ls-files` population; and the
+manifest remedy must not name a number it took from a conflicted index.
+**Not built — this is the measurement and the ruling on where the fix goes,
+per the rule that a stated limit is not a covered limit.**
 ### 4c-xxxiii. §4c-xxxi's defect, READ OFF THE TREE
 
 **Vector's §4c-xxxi proves the mechanism and the Tech Lead measured its
