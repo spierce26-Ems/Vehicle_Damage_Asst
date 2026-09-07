@@ -425,14 +425,47 @@ enum QualityLabel: String {
 
 /// Specific quality issues detected at capture time
 struct QualityFlags: Codable, Equatable {
-    var isBlurry: Bool = false
-    var isUnderexposed: Bool = false
-    var isOverexposed: Bool = false
-    var isTooFar: Bool = false
-    var isTooClose: Bool = false
-    var hasMotionBlur: Bool = false
-    var isOffAngle: Bool = false
+    // NOTE(AI Developer), audited 2026-09-07 (task #12 tail). FOUR of these
+    // seven are never assigned anywhere in the app: `isBlurry`, `isTooFar`,
+    // `isTooClose` and `hasMotionBlur`. `CameraService.buildQualityFlags`
+    // sets exposure and roll only, so those four decode, type-check, and
+    // always read `false`.
+    //
+    // A field that exists and always reads `false` is a worse disguise than
+    // an absent one: grep resolves the name, the compiler is satisfied, and
+    // every consumer silently takes the clean branch. That is what let
+    // `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` §1's third note condition --
+    // "`qualityFlags.isBlurry` or `.isTooFar`, set from live gate state at
+    // capture time" -- read as built for a month. It is not set from
+    // anything.
+    //
+    // The consequence is not a missing note. `issueDescriptions` below is
+    // the user-visible claim, and with these four dead it reports a photo as
+    // having no blur, no motion blur and no framing problem -- an ABSENCE
+    // ASSERTING THE CLEAN CASE, which is the failure this project has now
+    // hit from several directions. `hasIssues` inherits it.
+    //
+    // Left in place rather than deleted: task #4 (UI/UX Designer, reopened
+    // by the Tech Lead) is scoped to wire all four, and removing them would
+    // discard the spec's own vocabulary. The audit is here so the next
+    // reader inherits the count instead of the names.
+    //
+    // Verifying a spec against the tree means checking each condition is
+    // ASSIGNED, not that its identifier resolves.
+    var isBlurry: Bool = false            // NEVER ASSIGNED -- task #4
+    var isUnderexposed: Bool = false      // set by buildQualityFlags
+    var isOverexposed: Bool = false       // set by buildQualityFlags
+    var isTooFar: Bool = false            // NEVER ASSIGNED -- task #4
+    var isTooClose: Bool = false          // NEVER ASSIGNED -- task #4
+    var hasMotionBlur: Bool = false       // NEVER ASSIGNED -- task #4
+    var isOffAngle: Bool = false          // set by buildQualityFlags
 
+    /// NOTE(AI Developer), 2026-09-07: currently reports only exposure and
+    /// angle problems, because four of the seven flags it reads are never
+    /// assigned (see the audit on `QualityFlags` above). It cannot report a
+    /// blurred, too-far, too-close or motion-blurred photograph, and an
+    /// empty result here reads as "no problems found" rather than "not
+    /// measured". Zero readers today; task #4 wires the four flags.
     var issueDescriptions: [String] {
         var issues: [String] = []
         if isBlurry { issues.append("Out of focus") }

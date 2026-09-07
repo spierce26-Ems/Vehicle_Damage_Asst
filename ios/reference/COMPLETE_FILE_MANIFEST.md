@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 74 tracked files, of which 42 Swift sources (20329 lines).
+Totals: 74 tracked files, of which 42 Swift sources (20362 lines).
 
 ## iOS app — Xcode project
 
@@ -30,7 +30,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 
 | File | Lines |
 |---|---:|
-| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 551 |
+| `ios/VehicleDamageForensics/Models/CapturedPhoto.swift` | 584 |
 | `ios/VehicleDamageForensics/Models/Case.swift` | 851 |
 | `ios/VehicleDamageForensics/Models/MatchResult.swift` | 709 |
 | `ios/VehicleDamageForensics/Models/PaintSampleKit.swift` | 140 |
