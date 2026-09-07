@@ -495,6 +495,21 @@ struct MatchScoreCalculator {
         // serious for pointing the other way.
         if let heights, heights.ruleOutCapable, MeasurementHelpers.heightsRuleOut(heights.v, heights.s) {
             let diff = abs(heights.v - heights.s)
+            // NOTE(AI Developer), 2026-09-07 (task #12): the trailing
+            // "the full factor breakdown is still shown for reference"
+            // clause was removed from this string, and from the other
+            // two this function returns, when the free tier began
+            // rendering `suspectExclusionReason` above the paywall. The
+            // clause narrated the layout the string used to sit in --
+            // below an always-visible breakdown -- and the breakdown is
+            // now gated while this sentence is not, so it asserted
+            // something false to exactly the reader who cannot see it.
+            // A string that narrates its own placement cannot be
+            // relocated: the move falsifies it while the diff shows no
+            // change to the string. The pointer to what IS gated lives
+            // in the banner, where it can be conditioned on
+            // `isUnlocked`. The graded consequence sentence below stays
+            // -- it is this path's finding, not a claim about layout.
             // NOTE(AI Developer), 2026-09-06: this string deliberately
             // does NOT cite "ALGORITHM_EXPLAINER §2", though an earlier
             // draft did. Per PROCESS.md §4.0, a document the app names
@@ -512,8 +527,7 @@ struct MatchScoreCalculator {
                 "Height Alignment rule-out: %@ differ by %.1f\", more than the %.0f\" maximum at which "
                 + "two damage points can physically have contacted each other. "
                 + "On height evidence alone this suspect vehicle should be ruled out, independently of every "
-                + "other factor below. The full factor breakdown is still shown for reference — this is a "
-                + "strong negative finding layered on top of it, not a reason to hide the evidence.",
+                + "other factor below.",
                 heights.note, diff, MeasurementHelpers.heightRuleOutInches)
         }
 
@@ -542,7 +556,7 @@ struct MatchScoreCalculator {
                 + "support ruling a vehicle out on its own. A difference this size may be a genuine "
                 + "impossibility or a measurement artefact, and these photographs cannot tell them apart. "
                 + "Re-measure both heights with a tape measure to resolve it; a manual measurement is precise "
-                + "enough to support an exclusion. The full factor breakdown below is unaffected.",
+                + "enough to support an exclusion.",
                 heights.note, diff, MeasurementHelpers.heightRuleOutInches)
         }
 
@@ -565,7 +579,7 @@ struct MatchScoreCalculator {
         // itself is what belongs in the sentence; the attribution stays
         // in the doc comment on `evaluateExclusionRule`, where it
         // records design intent for maintainers.
-        return "Height Alignment mismatch (\(heights.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of the combined exclusion rule are met. Consider ruling out this suspect vehicle pending further review; the rest of the factor breakdown below is still shown for reference."
+        return "Height Alignment mismatch (\(heights.note)) AND Scar-Direction Consistency conflict (reciprocity Δ=\(deltaText)) — both conditions of the combined exclusion rule are met. Consider ruling out this suspect vehicle pending further review."
     }
 
     /// Builds the `scenarioNarrative` sentence Sean explicitly requested:
