@@ -871,6 +871,36 @@ enum PhotoType: String, Codable, CaseIterable {
         }
     }
 
+    /// NOTE(AI Developer), added 2026-09 for Item 2 (no-ruler guidance).
+    /// True when this shot's PIXELS are read by the analysis engine, so
+    /// anything non-vehicle in frame -- ruler ticks, trim, an adjacent
+    /// panel -- becomes false signal: `ColorAnalysis` reads a tape
+    /// measure's colour as transferred paint and `ToolMarkAnalysis` /
+    /// `ScarFingerprintAnalysis` read its printed ticks as scar
+    /// striations.
+    ///
+    /// The design insight this property exists to enforce: the ruler is
+    /// NOT contraband. `CaptureProtocolStep.fullProtocol` id 4 is
+    /// literally "Height reference: ruler or tape measure at damage
+    /// center", and that shot is legitimate, wanted evidence -- it is how
+    /// the report establishes scale and bumper height. So the guidance is
+    /// PER-SHOT, never a blanket "no rulers": told that once, a user
+    /// drops the height reference and the case loses scale entirely.
+    ///
+    /// Exhaustive `switch` on purpose, with no `default`. A future
+    /// `PhotoType` case must FAIL TO COMPILE here rather than silently
+    /// defaulting to "safe to have a ruler in it" -- the safe-looking
+    /// default is the wrong one, because a new analysis shot that
+    /// silently opts out of the guidance reintroduces the exact
+    /// contamination this item was built to stop.
+    var isAnalysisShot: Bool {
+        switch self {
+        case .closeupDamage, .paintTransfer: return true
+        case .heightMeasurement, .wideAngle, .contextShot,
+             .licenseDetail, .lidarReference: return false
+        }
+    }
+
     /// NOTE(AI Developer), added 2026-07 per Sean's request to extend
     /// guided auto-capture (steady/focused/lighting gates, previously
     /// only on the standalone Scar-Direction shot) to the main 30-shot

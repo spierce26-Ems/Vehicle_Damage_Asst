@@ -38,9 +38,36 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
 
     @Published var previewLayer: AVCaptureVideoPreviewLayer?
     @Published private(set) var isSteady: Bool = false
-    @Published private(set) var isFocused: Bool = true
+    /// NOTE(AI Developer), 2026-09 (Item 2 sec.2.2): default flipped from
+    /// `true` to `false` when this gate's MEANING changed. As "the lens is
+    /// not hunting" it was honest to start true -- nothing was hunting
+    /// yet. Now it asserts the frame is measurably sharp, and before the
+    /// first analysed frame nothing has been measured, so `true` would
+    /// have the chip claim a quality nobody checked. It also blocks
+    /// auto-capture for the first few frames, which is the correct
+    /// direction: the manual shutter is available throughout.
+    @Published private(set) var isFocused: Bool = false
     @Published private(set) var isWellLit: Bool = false
     @Published private(set) var lightingMessage: String = "Checking lighting…"
+    /// NOTE(AI Developer), added 2026-09 for Item 2 sec.2.1 (fill gate).
+    /// The scar must OCCUPY the guide box, not sit in the middle of it: a
+    /// too-far shot has room in frame for a tape measure and not enough
+    /// resolution for real striations, so this gate and the no-ruler
+    /// guidance are two halves of one defect.
+    @Published private(set) var isCloseEnough: Bool = false
+    @Published private(set) var framingMessage: String = "Checking framing…"
+    /// Mean absolute Laplacian response inside the guide region on the
+    /// most recent analysed frame, or `nil` before the first one.
+    ///
+    /// NAMED FOR WHAT IT IS. The Item 2 spec asked for
+    /// variance-of-Laplacian; this is the mean absolute response, which is
+    /// the same monotone sharpness proxy and is what `CIAreaAverage` can
+    /// actually produce in one pass on the existing throttled path. The
+    /// distinction matters because `CapturedPhoto.sharpnessScore` is
+    /// persisted into evidence and its doc comment must not describe a
+    /// statistic the code does not compute. Threshold calibration on real
+    /// device frames is Prism's; this only records what was measured.
+    @Published private(set) var sharpnessScore: Double?
     /// 0-1 progress toward auto-capture while all three gates hold true
     /// continuously. Drives the filling-ring animation in `ScarCaptureView`
     /// -- same "hold still and watch it fill" affordance as a check-
@@ -49,9 +76,18 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     @Published var errorMessage: String?
     @Published private(set) var isCapturing: Bool = false
 
-    /// True once all three gates have held continuously long enough that
+    /// True once every gate has held continuously long enough that
     /// `startAutoCaptureLoop` is about to (or just did) fire a capture.
-    var allGatesGood: Bool { isSteady && isFocused && isWellLit }
+    ///
+    /// NOTE(AI Developer), 2026-09 (Item 2 sec.2.3): `isCloseEnough` is
+    /// the fourth gate. This is the gate Sean's hard-block decision acts
+    /// on -- it blocks AUTO-capture only. The manual shutter stays
+    /// enabled at all times, because a gate with no escape hatch loses
+    /// evidence at a roadside in bad light, and taking that escape hatch
+    /// is recorded in `CapturedPhoto.gateOverridden` rather than being
+    /// indistinguishable from a clean capture. Both halves are required;
+    /// neither is safe alone.
+    var allGatesGood: Bool { isSteady && isFocused && isWellLit && isCloseEnough }
 
     /// NOTE(AI Developer), added 2026-07 per Sean's on-device report on
     /// the main 30-shot camera ("auto capture worked way too fast...
@@ -80,6 +116,35 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     private let unevenLightingThreshold: Double = 0.12 // 0-1 luma scale
     private let darkThreshold: Double = 0.12
     private let brightThreshold: Double = 0.93
+    /// NOTE(AI Developer), 2026-09 (Item 2). PROVISIONAL, and flagged for
+    /// Prism: both of these want calibration against real device frames,
+    /// which nobody on this team has. They are deliberately LOOSE rather
+    /// than strict -- a gate calibrated by guesswork that rejects good
+    /// shots trains users onto the manual override, which discards the
+    /// benefit of having a gate at all. Erring loose fails toward
+    /// capturing evidence; erring strict fails toward losing it.
+    private let sharpnessThreshold: Double = 0.035
+    /// Ratio of in-guide edge energy to out-of-guide edge energy below
+    /// which the subject is judged not to fill the box. 1.0 means "as
+    /// much detail outside the guide as inside it".
+    private let fillRatioThreshold: Double = 1.35
+
+    // MARK: Focus-gate composition (Item 2 sec.2.2)
+
+    /// Whether the LENS has settled, as reported by the device. Tracked
+    /// separately from the sharpness measurement so `isFocused` can be
+    /// the conjunction of the two rather than either one alone -- the
+    /// device state says the lens stopped hunting, the measurement says
+    /// the result is actually sharp, and only both together support the
+    /// "Sharp" chip's claim.
+    private var deviceFocusSettled: Bool = true
+    private var sharpnessSatisfied: Bool = false
+
+    /// Recomputes `isFocused` from its two independent inputs. Called from
+    /// both the device-state observer and the frame-analysis path.
+    private func recomputeFocusGate() {
+        isFocused = deviceFocusSettled && sharpnessSatisfied
+    }
 
     // MARK: Private AVFoundation state
 
@@ -212,12 +277,26 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
         deviceObservations = [
             device.observe(\.isAdjustingFocus, options: [.new]) { [weak self] dev, _ in
                 Task { @MainActor [weak self] in
-                    self?.isFocused = !dev.isAdjustingFocus && !dev.isAdjustingExposure
+                    // NOTE(AI Developer), 2026-09 (Item 2 sec.2.2): the
+                    // lens no longer hunting is NOT the same claim as the
+                    // result being sharp. The measured term is folded in
+                    // by `applySharpness` on the analysis path; this
+                    // branch only tracks the device state, and
+                    // `sharpnessSatisfied` combines them.
+                    self?.deviceFocusSettled = !dev.isAdjustingFocus && !dev.isAdjustingExposure
+                    self?.recomputeFocusGate()
                 }
             },
             device.observe(\.isAdjustingExposure, options: [.new]) { [weak self] dev, _ in
                 Task { @MainActor [weak self] in
-                    self?.isFocused = !dev.isAdjustingFocus && !dev.isAdjustingExposure
+                    // NOTE(AI Developer), 2026-09 (Item 2 sec.2.2): the
+                    // lens no longer hunting is NOT the same claim as the
+                    // result being sharp. The measured term is folded in
+                    // by `applySharpness` on the analysis path; this
+                    // branch only tracks the device state, and
+                    // `sharpnessSatisfied` combines them.
+                    self?.deviceFocusSettled = !dev.isAdjustingFocus && !dev.isAdjustingExposure
+                    self?.recomputeFocusGate()
                 }
             }
         ]
@@ -388,6 +467,23 @@ extension ScarCaptureCameraService: AVCaptureVideoDataOutputSampleBufferDelegate
             let overall = brightnesses.reduce(0, +) / Double(brightnesses.count)
             let spread = (brightnesses.max() ?? 0) - (brightnesses.min() ?? 0)
 
+            // NOTE(AI Developer), 2026-09 (Item 2 sec.2.2/2.1). Both new
+            // gates reuse THIS throttled loop and this one `CIImage`
+            // rather than adding a second analysis pass -- the spec's
+            // explicit instruction, because a second per-frame pass on
+            // the preview path is what makes a camera drop frames.
+            //
+            // Sharpness: mean absolute Laplacian response inside the
+            // guide, via CIConvolution3X3 + CIAreaAverage. Fill: the same
+            // measure inside the guide against the frame outside it. If
+            // detail is no more concentrated inside the box than around
+            // it, the subject is not filling the box -- which is the
+            // signal the spec asked for, expressed as a ratio so it does
+            // not depend on absolute scene contrast.
+            let edges = self.edgeEnergy(of: ciImage)
+            let inGuide = edges.flatMap { self.averageLuma(of: $0, in: guideRectPixels) }
+            let wholeFrame = edges.flatMap { self.averageLuma(of: $0, in: ciImage.extent) }
+
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if overall < self.darkThreshold {
@@ -403,6 +499,34 @@ extension ScarCaptureCameraService: AVCaptureVideoDataOutputSampleBufferDelegate
                     self.isWellLit = true
                     self.lightingMessage = "Lighting looks even"
                 }
+
+                if let inGuide {
+                    self.sharpnessScore = inGuide
+                    self.sharpnessSatisfied = inGuide >= self.sharpnessThreshold
+                }
+                // No `else`, on purpose: an unmeasurable frame leaves the
+                // previous verdict and `sharpnessScore` untouched rather
+                // than asserting a failure, so a dropped measurement never
+                // writes a measured-as-poor claim into the photo.
+                self.recomputeFocusGate()
+
+                if let inGuide, let wholeFrame, wholeFrame > 0 {
+                    // Out-of-guide energy, derived rather than measured
+                    // again: the whole frame is the guide plus its
+                    // surround, weighted by area.
+                    let guideArea = guideRectPixels.width * guideRectPixels.height
+                    let frameArea = ciImage.extent.width * ciImage.extent.height
+                    let outsideArea = max(frameArea - guideArea, 1)
+                    let outside = max((wholeFrame * frameArea - inGuide * guideArea) / outsideArea, 0.0001)
+                    let ratio = inGuide / outside
+                    if ratio >= self.fillRatioThreshold {
+                        self.isCloseEnough = true
+                        self.framingMessage = "Framing looks good"
+                    } else {
+                        self.isCloseEnough = false
+                        self.framingMessage = "Move closer — fill the box with the scar"
+                    }
+                }
                 self.updateGoodStreak()
             }
         }
@@ -412,6 +536,26 @@ extension ScarCaptureCameraService: AVCaptureVideoDataOutputSampleBufferDelegate
     /// `CIAreaAverage` technique already used in
     /// `CameraService.estimateBrightness`. `nil` on a degenerate/empty
     /// rect (e.g. right at session startup before geometry is sane).
+    /// NOTE(AI Developer), 2026-09 (Item 2). Laplacian edge response as a
+    /// CIImage, so `averageLuma` can then be reused to reduce any region
+    /// of it to one number. Kernel is the standard 4-neighbour Laplacian.
+    /// `CIConvolution3X3` on a non-premultiplied grayscale-ish input
+    /// returns signed values clamped at zero, which is why this is a mean
+    /// absolute response rather than a variance -- see
+    /// `sharpnessScore`'s doc comment, which says so rather than claiming
+    /// the statistic the spec named.
+    nonisolated private func edgeEnergy(of image: CIImage) -> CIImage? {
+        guard let gray = CIFilter(name: "CIPhotoEffectMono", parameters: [
+            kCIInputImageKey: image
+        ])?.outputImage else { return nil }
+        let weights = CIVector(values: [0, -1, 0, -1, 4, -1, 0, -1, 0], count: 9)
+        return CIFilter(name: "CIConvolution3X3", parameters: [
+            kCIInputImageKey: gray,
+            "inputWeights": weights,
+            "inputBias": 0.0
+        ])?.outputImage
+    }
+
     nonisolated private func averageLuma(of image: CIImage, in pixelRect: CGRect) -> Double? {
         guard pixelRect.width > 1, pixelRect.height > 1 else { return nil }
         let clamped = pixelRect.intersection(image.extent)

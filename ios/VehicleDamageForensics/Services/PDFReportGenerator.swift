@@ -50,6 +50,7 @@ struct PDFReportGenerator {
                 drawScarFingerprintMatch(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawToolMarkComparison(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawPhotoEvidence(ctx: ctx, rect: pageRect, case: forensicCase)
+                drawCaptureConditions(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawChainOfCustody(ctx: ctx, rect: pageRect, case: forensicCase)
                 drawAlgorithmProvenance(ctx: ctx, rect: pageRect, case: forensicCase)
             }
@@ -794,6 +795,101 @@ struct PDFReportGenerator {
         "Each exclusion above was made by the investigator after reviewing the photographs, and is also recorded in this case's chain-of-custody audit log. Because the excluded probes were chosen after the full similarity figure was available, statistical significance is not established for a filtered subset; the unfiltered figure above was computed without any selection and is the more defensible of the two. Both are reported here so this result can be assessed independently."
             .draw(at: CGPoint(x: 50, y: y), font: .italicSystemFont(ofSize: 9),
                   maxWidth: rect.width - 100, color: .darkGray)
+    }
+
+    // MARK: Capture Conditions appendix (Item 2)
+
+    /// NOTE(AI Developer), added 2026-09 for Item 2. Renders
+    /// `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` sec.2 -- Ledger's locked
+    /// copy, reproduced verbatim, not paraphrased.
+    ///
+    /// This section is the "surfaced" half of Sean's hard-block decision.
+    /// The gate blocks auto-capture and the manual shutter always works;
+    /// that is only safe because taking the override is recorded
+    /// (`gateOverridden`) AND reported here. Before this existed the
+    /// decision list carried a ticked box whose safety condition was
+    /// absent from the tree.
+    ///
+    /// Three properties this deliberately has:
+    ///
+    /// 1. It emits the sec.2.3 all-clear sentence rather than nothing when
+    ///    no photo carries a flag. A silent section is indistinguishable
+    ///    from a section that was never generated.
+    /// 2. A `nil` field NEVER produces a note. `frameConfirmedClear ==
+    ///    nil` means the examiner was never asked -- a reference shot, a
+    ///    pre-Item-2 photo, a library import -- and rendering that as a
+    ///    warning would make an absence assert a finding. Only an
+    ///    explicit `false` is reportable.
+    /// 3. Multiple triggers on one photo produce multiple lines under one
+    ///    heading, in the table's order, never merged into a summary
+    ///    sentence. Each is a separate fact about the capture, and a
+    ///    summary above graded facts can only restate or contradict them.
+    ///
+    /// Only analysis shots are considered (`PhotoType.isAnalysisShot`): a
+    /// ruler is WANTED in a height-reference shot, so its frame was never
+    /// meant to be clear and there is nothing to attest.
+    private func drawCaptureConditions(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
+        let photos = (c.victimVehicle.photos + (c.suspectVehicle?.photos ?? []))
+            .filter { $0.photoType.isAnalysisShot }
+        guard !photos.isEmpty else { return }
+
+        ctx.beginPage()
+        var y: CGFloat = 50
+        "Capture Conditions".draw(at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 20))
+        y += 28
+        // sec.2.1. The second sentence is NOT optional -- without it a
+        // reader can mistake a capture note for an analytical conclusion.
+        y += drawWrapping("The analysis photographs below were captured under conditions the app records automatically. Notes in this section describe how a photograph was taken. They are not findings about the vehicles.",
+                          at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11),
+                          maxWidth: rect.width - 100, color: .darkGray) + 16
+
+        var anyNotes = false
+        for (index, photo) in photos.enumerated() {
+            // sec.2.2, in the table's order. Each condition is checked
+            // explicitly against the reportable state -- never against
+            // "not true", which would fold `nil` in with `false`.
+            var notes: [String] = []
+            if photo.gateOverridden {
+                notes.append("Captured manually while the app's sharpness and framing checks were not met. The examiner chose to record the shot rather than lose it. Detail read from this photograph may be limited.")
+            }
+            if photo.frameConfirmedClear == false {
+                notes.append("The examiner did not confirm that the frame was clear of a ruler, tape measure, or other foreign object before capture.")
+            }
+            if photo.qualityFlags.isBlurry {
+                notes.append("The app measured this photograph as not sharp at the point of capture.")
+            }
+            if photo.qualityFlags.isTooFar {
+                notes.append("The app measured the damage area as not filling the guide frame — the subject may be too distant for fine surface detail.")
+            }
+            // The guard on `frameConfirmedClear != nil` is the table's,
+            // and it is what keeps a library import silent: no live frame
+            // ever existed to measure, so "sharpness was not measured" is
+            // a note about missing data rather than about the capture.
+            if photo.sharpnessScore == nil && photo.frameConfirmedClear != nil {
+                notes.append("Sharpness was not measured for this photograph.")
+            }
+            guard !notes.isEmpty else { continue }
+            anyNotes = true
+
+            if y > rect.height - 120 { ctx.beginPage(); y = 50 }
+            y += drawWrapping("\(photo.photoType.displayName) — photo \(index + 1)",
+                              at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 11),
+                              maxWidth: rect.width - 100) + 4
+            for note in notes {
+                if y > rect.height - 90 { ctx.beginPage(); y = 50 }
+                y += drawWrapping("• " + note, at: CGPoint(x: 60, y: y),
+                                  font: .systemFont(ofSize: 10),
+                                  maxWidth: rect.width - 120, color: .darkGray) + 5
+            }
+            y += 8
+        }
+
+        if !anyNotes {
+            // sec.2.3. Emitted rather than omitted, on purpose.
+            _ = drawWrapping("All analysis photographs met the app's capture-quality checks at the time of capture.",
+                             at: CGPoint(x: 50, y: y), font: .systemFont(ofSize: 11),
+                             maxWidth: rect.width - 100)
+        }
     }
 
     private func drawPhotoEvidence(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {

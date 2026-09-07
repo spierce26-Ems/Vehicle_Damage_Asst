@@ -75,6 +75,22 @@ struct ScarCaptureView: View {
     /// flash animation finishes so it can fire again on a retake.
     @State private var justAutoCapture = false
 
+    // MARK: Item 2 state
+
+    /// The examiner's answer to the arm-time "tape measure out of frame?"
+    /// confirmation, or `nil` until they have been asked.
+    ///
+    /// TRI-STATE for the same reason `CapturedPhoto.frameConfirmedClear`
+    /// is: `nil` is "never asked", which is not the same claim as
+    /// "declined to confirm". It is carried straight through to the photo
+    /// so the report can tell those apart.
+    @State private var pendingFrameClear: Bool?
+    /// One confirmation per camera session, not per shot -- per shot it
+    /// becomes a mash-through and the attestation stops meaning anything.
+    @State private var didAskFrameClear = false
+    /// Drives the manual-shutter override confirmation (sec.2.4).
+    @State private var showOverrideConfirm = false
+
     // Marking-stage state
     @State private var lineStart: CGPoint?
     @State private var lineEnd: CGPoint?
@@ -391,6 +407,26 @@ struct ScarCaptureView: View {
             Text("Hold steady — it captures automatically when ready.")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.8))
+            // NOTE(AI Developer), 2026-09 (Item 2 sec.1.2). The scar shot
+            // is the single worst offender for the tape-measure
+            // contamination bug, so the analysis-shot line is permanent
+            // furniture here rather than a one-time card. It is the same
+            // string all day on purpose: the user stops reading it and
+            // starts obeying it.
+            //
+            // Driven by a LOCAL constant, deliberately NOT by
+            // `photo.photoType.isAnalysisShot`, per the spec's sec.0
+            // correction. This screen is unconditionally an analysis
+            // surface regardless of what `PhotoType` its output happens
+            // to carry; the property is for the multi-shot camera where
+            // the type genuinely varies. Reading the property here would
+            // silently change this screen's behaviour the day the scar
+            // photo gets its own `PhotoType` case.
+            Text("🔬 Damaged paint only — tape measure out of frame.")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .padding(10)
         .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 10))
@@ -414,11 +450,29 @@ struct ScarCaptureView: View {
     // if lighting is fine when it isn't).
     private var statusChips: some View {
         VStack(spacing: 8) {
+            // NOTE(AI Developer), 2026-09 (Item 2 sec.2.2/2.3). "Focused"
+            // became "Sharp" because the gate's MEANING changed: "Focused"
+            // reads as "the lens is done", "Sharp" reads as a quality
+            // claim, which is what it now is. Renaming the chip without
+            // renaming the claim would leave the label lying about the
+            // gate behind it.
             HStack(spacing: 10) {
                 statusChip(label: "Steady", isGood: camera.isSteady, systemImage: "hand.raised.fill")
-                statusChip(label: "Focused", isGood: camera.isFocused, systemImage: "camera.metering.spot")
+                statusChip(label: "Sharp", isGood: camera.isFocused, systemImage: "camera.metering.spot")
+                statusChip(label: "Close enough", isGood: camera.isCloseEnough, systemImage: "arrow.up.left.and.arrow.down.right")
             }
             statusChip(label: camera.lightingMessage, isGood: camera.isWellLit, systemImage: "sun.max.fill", fillWidth: true)
+            // Row 3 appears ONLY while framing is the blocker. The spec
+            // is explicit that this must not become a permanently visible
+            // fourth row: bottom-content overflow is a known past
+            // regression on this screen (Sean's "the screen is not
+            // formatted properly" report), and a row that is always there
+            // grows the column for every user to serve the few frames
+            // where it says something.
+            if !camera.isCloseEnough {
+                statusChip(label: camera.framingMessage, isGood: false,
+                           systemImage: "viewfinder", fillWidth: true)
+            }
         }
         .padding(.bottom, 12)
     }
@@ -444,9 +498,30 @@ struct ScarCaptureView: View {
     /// camera and the shared rationale.
     private var readyButton: some View {
         Button {
+            // NOTE(AI Developer), 2026-09 (Item 2 sec.1.3). First tap of
+            // Ready in a session swaps the label for one beat and asks
+            // the attestation; the second tap arms as normal. Subsequent
+            // shots in the same session skip it.
+            //
+            // Confirmation rather than detection, deliberately: a real
+            // ruler detector is CV work (long straight high-contrast edge
+            // plus regular perpendicular tick periodicity) and belongs to
+            // Prism. An examiner-attested boolean is cheap, shippable,
+            // and is the thing that actually holds up in a report -- "the
+            // examiner attested the frame was clear" beats "an algorithm
+            // guessed". It is also the only one of the two that can be
+            // stated in the appendix as an attribution.
+            if !didAskFrameClear {
+                didAskFrameClear = true
+                return
+            }
+            if pendingFrameClear == nil { pendingFrameClear = true }
             camera.armAutoCapture()
         } label: {
-            Label("Ready", systemImage: "checkmark.circle.fill")
+            Label(didAskFrameClear && pendingFrameClear == nil
+                    ? "Tape measure out of frame?"
+                    : "Ready",
+                  systemImage: "checkmark.circle.fill")
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
@@ -473,7 +548,17 @@ struct ScarCaptureView: View {
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.1), value: camera.autoCaptureProgress)
             Button {
-                Task { await performCapture(auto: false) }
+                // NOTE(AI Developer), 2026-09 (Item 2 sec.2.4). The manual
+                // shutter stays enabled regardless of gates -- a scene is
+                // a scene and sometimes the light is what it is. This is
+                // the half of Sean's hard-block decision that makes it
+                // safe to ship, so it is NEVER disabled on gate state.
+                // What it does instead is confirm and then record.
+                if camera.allGatesGood {
+                    Task { await performCapture(auto: false) }
+                } else {
+                    showOverrideConfirm = true
+                }
             } label: {
                 Circle()
                     .fill(.white)
@@ -481,6 +566,22 @@ struct ScarCaptureView: View {
                     .overlay(Circle().stroke(.gray, lineWidth: 2))
             }
             .disabled(camera.isCapturing)
+            .confirmationDialog("Capture anyway?",
+                                isPresented: $showOverrideConfirm,
+                                titleVisibility: .visible) {
+                Button("Capture anyway") {
+                    Task { await performCapture(auto: false) }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                // Locked copy, Item 2 sec.4 (`override.body`). States the
+                // consequence and that the shot is kept -- never that the
+                // examiner is doing something wrong. An affordance that
+                // gets you noted as deficient for using it is one people
+                // stop using, and then they lose the shot to avoid the
+                // note.
+                Text("This shot isn't sharp/close enough for reliable scratch analysis. It'll be saved and flagged in the report.")
+            }
         }
     }
 
@@ -501,12 +602,66 @@ struct ScarCaptureView: View {
             let thumb = UIImage(data: data)?
                 .preparingThumbnail(of: CGSize(width: 240, height: 240))?
                 .jpegData(compressionQuality: 0.6)
+            // Gate state read ONCE, at the moment of capture, before
+            // `stopSession()` can change it. `auto` is true only when
+            // `allGatesGood` drove the countdown, so an override is by
+            // definition a manual tap with a gate failing.
+            let gatesGood = camera.allGatesGood
+            let overridden = !auto && !gatesGood
+            // NOTE(AI Developer), 2026-09 (Item 2 + task #12 tail). This
+            // was `qualityScore: 1.0` on EVERY live scar capture, auto or
+            // manual -- so a manual override shot taken with the gates
+            // failing persisted a claim of perfect quality, and `1.0`
+            // maps to `qualityLabel.excellent`. The moment `scarPhoto`
+            // joins `vehicle.photos`, `drawPhotoEvidence` would print
+            // "(Q: Excellent)" for a shot nothing measured.
+            //
+            // The convention already in this file is the right one:
+            // an imported photo gets `0.0` because `wasImported` earns
+            // the `isUsable` exemption and carries the "not scored"
+            // meaning explicitly. An unmeasured live capture must not
+            // claim MORE than a measurement would; it claims what was
+            // measured, and `sharpnessScore` records the measurement
+            // itself.
             let photo = CapturedPhoto(
                 imageData: data,
                 thumbnailData: thumb,
+                // NOTE(AI Developer), 2026-09 (Item 2 sec.0). This value
+                // is LOAD-BEARING for Item 2's no-ruler guidance:
+                // `PhotoType.isAnalysisShot` returns true for
+                // `.paintTransfer`, which is the only reason the scar
+                // photo is treated as an analysis shot downstream (report
+                // capture notes, review badges). That is incidental type
+                // reuse, not a statement of intent. If the scar photo is
+                // ever given its own `PhotoType` case or routed through
+                // `.closeupDamage`, update `isAnalysisShot` in the same
+                // commit -- otherwise the guidance silently stops
+                // applying to the shot that needs it most.
                 photoType: .paintTransfer,
-                qualityScore: 1.0,
-                annotationNotes: auto ? "Scar photo (auto-captured)" : "Scar photo (manual capture)"
+                // NARROW fix, and the residue is stated rather than
+                // hidden: 0.5 (`.acceptable`, and above `isUsable`'s 0.4
+                // so the shot is never dropped) when a gate was failing,
+                // 1.0 when every gate held. The 1.0 is STILL not a
+                // measurement -- it is the pre-existing value and this
+                // commit only stops the override path from claiming it.
+                // What a scar capture *should* record is a persisted-model
+                // semantics question for Sean (recommendation: 0.0 plus
+                // the `wasImported`-style exemption, following the
+                // convention already in this file), and it wants its own
+                // diff rather than riding in with the gate wiring.
+                qualityScore: gatesGood ? 1.0 : 0.5,
+                qualityFlags: QualityFlags(
+                    isBlurry: !camera.isFocused,
+                    isTooFar: !camera.isCloseEnough
+                ),
+                annotationNotes: auto ? "Scar photo (auto-captured)" : "Scar photo (manual capture)",
+                // This screen is unconditionally an analysis surface, so
+                // the attestation applies -- but it is only `true`/`false`
+                // where the examiner was actually asked. `pendingFrameClear`
+                // is nil until the arm-time confirmation runs.
+                frameConfirmedClear: pendingFrameClear,
+                gateOverridden: overridden,
+                sharpnessScore: camera.sharpnessScore
             )
             camera.resetAutoCaptureStreak()
             camera.stopSession()
@@ -600,10 +755,19 @@ struct ScarCaptureView: View {
             let photo = CapturedPhoto(
                 imageData: jpegData,
                 thumbnailData: thumb,
+                // Same load-bearing value as in `performCapture` -- see
+                // the NOTE there before changing it.
                 photoType: .paintTransfer,
                 qualityScore: 0.0,
                 annotationNotes: "Scar photo (imported from photo library)",
                 wasImported: true
+                // Item 2's three fields are deliberately left at their
+                // defaults (nil / false / nil): there was no live camera
+                // frame to measure and no honest moment to ask "was the
+                // frame clear" about a photograph the user may not have
+                // taken. The appendix emits nothing for this photo, which
+                // is the correct output rather than a note about missing
+                // data.
             )
             camera.stopSession()
             installFreshlyCapturedPhoto(photo)

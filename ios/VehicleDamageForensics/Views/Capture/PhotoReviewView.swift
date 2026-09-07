@@ -256,6 +256,29 @@ private struct PhotoReviewCell: View {
                             .padding(4)
                     }
                 }
+                // NOTE(AI Developer), 2026-09 (Item 2 sec.1.4). Badge on
+                // `frameConfirmedClear == false` ONLY -- the examiner was
+                // asked and declined to confirm.
+                //
+                // `nil` deliberately gets NO badge: a photo taken before
+                // this feature existed, a reference shot where a ruler is
+                // wanted, or a library import. We have no evidence either
+                // way for those, and a warning triangle on every
+                // historical photo trains the user to ignore the badge,
+                // which costs us the one case it exists to catch. Same
+                // rule as the report appendix: an absence must not assert
+                // a finding.
+                .overlay(alignment: .topTrailing) {
+                    if photo.frameConfirmedClear == false {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .padding(4)
+                            .background(.black.opacity(0.55), in: Circle())
+                            .foregroundStyle(.orange)
+                            .padding(4)
+                            .accessibilityLabel("Analysis photo — examiner did not confirm the frame was clear")
+                    }
+                }
         } else if slot.wasSkipped {
             ZStack {
                 Color.orange.opacity(0.12)
@@ -317,6 +340,13 @@ private struct EnlargedReviewPhotoView: View {
             Label(photo.wasImported ? "From Library" : "Live Capture", systemImage: photo.wasImported ? "square.and.arrow.down" : "camera.fill")
             if !photo.wasImported {
                 Label(String(format: "%.0f%%", photo.qualityScore * 100), systemImage: "checkmark.seal")
+            }
+            // Item 2 sec.6: taking the override must be recorded AND
+            // SURFACED. Recorded is `gateOverridden`; the report appendix
+            // and this row are where it is surfaced. Neutral wording --
+            // it states what happened, not that it was a mistake.
+            if photo.gateOverridden {
+                Label("Captured manually", systemImage: "hand.tap")
             }
             Spacer()
             Text("#\(slot.index + 1)")

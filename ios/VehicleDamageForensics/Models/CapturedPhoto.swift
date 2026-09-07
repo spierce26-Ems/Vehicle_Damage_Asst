@@ -153,6 +153,65 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     /// line endpoints are also set).
     var scarFrontEndpoint: ScarEndpoint?
 
+    // MARK: Item 2 -- analysis-shot attestation and capture-gate record
+
+    /// Examiner's attestation that no ruler/tape measure/foreign object
+    /// was in frame for this ANALYSIS shot (`PhotoType.isAnalysisShot`).
+    ///
+    /// TRI-STATE, and the optionality is the point:
+    ///   `true`  -- examiner explicitly confirmed the frame was clear
+    ///   `false` -- examiner was asked and declined to confirm
+    ///   `nil`   -- never asked: a photo taken before this feature
+    ///              existed, a reference shot (a ruler is WANTED there),
+    ///              or a library import
+    ///
+    /// `nil` is NOT "unconfirmed" and must never render as a warning. A
+    /// plain `Bool = false` would have every photo in every existing case
+    /// decode as "the examiner declined to confirm the frame was clear"
+    /// -- a false negative attestation written into evidence about work
+    /// the examiner was never asked to do. For a report that goes into an
+    /// investigation file that is worse than a missing field. This is the
+    /// same rule as the blank examiner line and the `nil` badge: an
+    /// absence must not assert a finding.
+    var frameConfirmedClear: Bool?
+
+    /// True when this photo was captured with one or more capture gates
+    /// failing, via the manual-shutter override.
+    ///
+    /// A plain `Bool` rather than an optional, deliberately, and the
+    /// asymmetry with `frameConfirmedClear` above is the whole reason
+    /// both exist: `false` is TRUTHFUL for a pre-Item-2 photo, because
+    /// there were no gates to override. `frameConfirmedClear` cannot make
+    /// that claim about a question nobody was asked.
+    ///
+    /// This field is what makes Sean's hard-block decision safe rather
+    /// than merely strict: the gate blocks auto-capture, the manual
+    /// shutter always works, and taking that escape hatch is RECORDED and
+    /// SURFACED instead of being indistinguishable from a clean capture.
+    /// A hard block whose override leaves no trace is a silent quality
+    /// hole; a hard block with no override loses evidence at a roadside.
+    /// See `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` sec.4.2 -- the
+    /// report wording for this flag is load-bearing on that decision, and
+    /// must read as a reasonable examiner choice, never as examiner
+    /// error. An affordance that gets you noted as deficient for using it
+    /// is an affordance people stop using, and then they lose the shot to
+    /// avoid the note.
+    var gateOverridden: Bool = false
+
+    /// Variance-of-Laplacian over the capture guide region at the moment
+    /// of capture, as measured on the live preview frame.
+    ///
+    /// `nil` when unmeasured -- a pre-Item-2 photo, or a library import
+    /// where there was no live frame to measure. `nil` is "not measured",
+    /// never "measured as poor": the same non-punitive convention as
+    /// every optional field above, and the reason this is not defaulted
+    /// to `0.0`. Compare `qualityScore`, where `0.0` plus the
+    /// `wasImported` exemption carries that meaning explicitly.
+    ///
+    /// Threshold calibration is Prism's on real device frames; this field
+    /// only records what was measured.
+    var sharpnessScore: Double?
+
     // MARK: Init
 
     init(
@@ -176,7 +235,10 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         scarMinutiae: [ScarMinutia] = [],
         toolMarkStriationProfile: StriationProfile? = nil,
         scarFocusRegion: CGRect? = nil,
-        scarFrontEndpoint: ScarEndpoint? = nil
+        scarFrontEndpoint: ScarEndpoint? = nil,
+        frameConfirmedClear: Bool? = nil,
+        gateOverridden: Bool = false,
+        sharpnessScore: Double? = nil
     ) {
         self.id = id
         self.imageData = imageData
@@ -199,6 +261,9 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.toolMarkStriationProfile = toolMarkStriationProfile
         self.scarFocusRegion = scarFocusRegion
         self.scarFrontEndpoint = scarFrontEndpoint
+        self.frameConfirmedClear = frameConfirmedClear
+        self.gateOverridden = gateOverridden
+        self.sharpnessScore = sharpnessScore
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -258,6 +323,19 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         // above.
         scarFocusRegion = try c.decodeIfPresent(CGRect.self, forKey: .scarFocusRegion)
         scarFrontEndpoint = try c.decodeIfPresent(ScarEndpoint.self, forKey: .scarFrontEndpoint)
+        // Item 2's three fields didn't exist before the no-ruler
+        // guidance / close-focus gate. Each default is chosen for what is
+        // TRUE of an old photo, not for what is convenient:
+        //   `frameConfirmedClear` -> nil: the examiner was never asked,
+        //     so neither `true` nor `false` is honest. This is the one
+        //     that must not be a plain Bool.
+        //   `gateOverridden` -> false: truthful, since there were no
+        //     gates to override.
+        //   `sharpnessScore` -> nil: not measured, which is not the same
+        //     claim as measured-and-poor.
+        frameConfirmedClear = try c.decodeIfPresent(Bool.self, forKey: .frameConfirmedClear)
+        gateOverridden = try c.decodeIfPresent(Bool.self, forKey: .gateOverridden) ?? false
+        sharpnessScore = try c.decodeIfPresent(Double.self, forKey: .sharpnessScore)
     }
 
     // MARK: Duplication (item #5)
@@ -298,7 +376,16 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
             scarMinutiae: scarMinutiae.map { $0.duplicatedWithFreshID() },
             toolMarkStriationProfile: toolMarkStriationProfile?.duplicatedWithFreshIDs(),
             scarFocusRegion: scarFocusRegion,
-            scarFrontEndpoint: scarFrontEndpoint
+            scarFrontEndpoint: scarFrontEndpoint,
+            // Carried, not reset, by the same reasoning as `wasImported`:
+            // how this photograph was obtained and what the examiner
+            // attested about it are chain-of-custody facts about the
+            // photograph itself. Copying it into a case about a different
+            // suspect does not change them, and resetting them would
+            // fabricate a clean capture record for a shot that had one.
+            frameConfirmedClear: frameConfirmedClear,
+            gateOverridden: gateOverridden,
+            sharpnessScore: sharpnessScore
         )
     }
 
