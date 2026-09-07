@@ -149,7 +149,10 @@ unavailable answer would repeat the row-five mistake in copy, where it is
 hardest to find.
 
 **Until it lands, `frameConfirmedClear` is functionally two-state in the tree
-while four documents describe it as three-state.** That is a design commitment
+while four documents describe it as three-state** — `git ls-files '*.md' |
+xargs grep -l frameConfirmedClear` returns exactly this file,
+`docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md`, `docs/PROCESS.md` and
+`ios/README.md`. That is a design commitment
 the code does not yet honour, not a shipped behaviour, and it is recorded here
 rather than at the field because this is where the reader of the condition
 table looks. Nothing about the tri-state design is wrong: `nil` and `true` are

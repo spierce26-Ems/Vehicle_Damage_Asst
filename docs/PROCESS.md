@@ -1213,8 +1213,10 @@ The habits, both cheap:
 **Run that second habit over a whole condition TABLE, not one sentence at a
 time — the third instance turned up that way and it is not a set problem.**
 `frameConfirmedClear` is `Bool?` so that *declined* is distinguishable from
-*never asked*, and the appendix's row two, the review badge and four documents
-all rest on that. **No code path assigns `false`.** Both Ready buttons record
+*never asked*, and the appendix's row two, the review badge and four
+documents all rest on that — the four being this file, the appendix, the Item 2
+spec and `ios/README.md`, per `git ls-files '*.md' | xargs grep -l
+frameConfirmedClear`. **No code path assigns `false`.** Both Ready buttons record
 `true` on the second tap; there is no decline affordance, so an examiner who
 sees the ruler still in frame simply takes no photograph. The predicate has no
 reachable input at all.
