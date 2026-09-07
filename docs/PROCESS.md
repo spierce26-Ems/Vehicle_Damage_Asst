@@ -821,6 +821,34 @@ which would have sent a tester to export the case least likely to overflow
 while calling it the worst case. Measure from the format templates in the
 source, and name which path is worst rather than a character count alone.
 
+**And the box was never the defect — the defect is a pairing, which is the
+counting clause applied to layout.** A wrapping `.draw(…maxWidth:)` followed by
+a literal `y += N` encodes a line count its author guessed. Fixing the one
+instance you were shown leaves every sibling live: grepping the *pairing*
+rather than the symbol found seventeen more on `main`, all predating this
+round — the scar narrative and both motion lines, per-factor notes,
+impact-profile lines, the fingerprint and tool-mark summaries, audit-trail
+lines, the examiner attestation, the algorithm-constant explanations. The scar
+narrative's `.inconsistent` form runs about 268 characters against an advance
+of 40 and has been overlapping the lines below it since 2026-07. **So: when a
+defect is a pairing of two constructs, grep the pairing, not the symbol** — the
+same failure as accepting the set of render sites you were handed.
+
+**A near-miss is the same defect as an overrun.** The disclaimer box fit today,
+about 520 characters in 86pt of a literal 130, and was one edit of locked copy
+away from clipping with nothing to say so. A margin nobody measures is not a
+margin anyone is maintaining, and that string is the one whose truncation is a
+liability rather than an inconvenience: a clipped disclaimer is a report
+claiming more than the algorithm can support.
+
+**None of this is verified, in the strong sense.** `boundingRect` runs at draw
+time, so the heights are real — but no page has been rendered by anyone, and
+four people produced five figure-sets for three strings while arguing about
+them. The defect does not depend on any of those numbers, because a literal
+advance is wrong regardless of the number. **The fit does, and the only
+instrument for it is exporting a PDF of all three paths.** That is what the
+checklist item is for; it is not doing the arithmetic again.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
