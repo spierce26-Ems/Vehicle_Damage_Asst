@@ -800,6 +800,20 @@ When a value is read in more than one place, enumerate its render sites from
 the code and write the count into a comment at each site, so the next reader
 inherits the count instead of the recollection.
 
+**And a de-styling diff is when to re-measure the frame, because removing a
+decoration can reveal a layout fault rather than create one.** The PDF
+callout's box was a literal 60pt tall with its body drawn 26pt down — about two
+lines — while the three strings it renders run roughly 3, 6 and 8 lines at that
+width. Every path had overrun since 2026-07, the longest by around 45pt into
+the line below. It was invisible because a filled tinted band makes overflowing
+text read as text on a band; a hairline border draws the boundary the overflow
+crosses, so the neutral treatment exposed the fault it is now blamed on
+introducing. **A frame that cannot fit the real string is a layout defect and
+never a licence to shorten locked copy** — and where the string *is* the
+finding, a clipped exclusion is a missing one. Measure the body and size the
+frame to it; no check reads a box's height against its content, which puts this
+squarely on the silent side above.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
