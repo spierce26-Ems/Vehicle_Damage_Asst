@@ -705,6 +705,14 @@ Six for six, caught by four readers, and by none of `preflight`,
 placement, not only wording** — reviewing the sentence is not reviewing the
 surface, and gating is invisible in the artefact under review.
 
+**Which makes "read it more carefully" the wrong remedy, and this is the
+operational form.** A reviewer looking at a mockup sees an element and a
+sentence about it and has no way to know one contradicts the other, because
+the fact that decides it is a Swift conditional in a different file. So the
+check is not more care: it is **for any element, name which side of the gate
+it renders on** — done against the code, every time. It cannot be done from a
+picture, and it cannot be done by whoever is reviewing the picture.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
