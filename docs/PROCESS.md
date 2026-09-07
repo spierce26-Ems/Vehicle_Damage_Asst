@@ -739,6 +739,24 @@ check is not more care: it is **for any element, name which side of the gate
 it renders on** — done against the code, every time. It cannot be done from a
 picture, and it cannot be done by whoever is reviewing the picture.
 
+**A fifth instance inverted the failure direction, and it is the one that
+decides how a verification number should be read.** Every earlier instance
+made something absent look fine. This one makes something fine look absent: a
+per-commit check run from a clone of one's own checkout reported *1 BLOCKING*
+and `unable to read sha1` on a file in a landed, valid commit, because a
+partial clone inherits only the objects that had been fetched. The same
+substitution, opposite sign — so **a local clone's result is not evidence in
+either direction**, and the rule is to verify per-commit history from a clone
+of the remote by URL, never from a clone of your own working checkout. The
+matching hazard is at the other end of the same step: **a bare fresh clone of
+this repository honestly reports 1 advisory, and it is the refspec one** —
+`remote.origin.fetch` defaults to `main` only, which the guard checks as its
+own precondition. Apply the remedy the advisory prints, re-fetch, *then*
+measure. "0 advisories" is therefore a claim about a clone whose config has
+been repaired; the surface being substituted is the clone's own configuration,
+and the next person to verify from a fresh clone will see 1 and have to decide
+whether it is a finding. It is not.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
