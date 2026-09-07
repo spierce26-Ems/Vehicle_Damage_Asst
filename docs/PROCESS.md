@@ -2208,9 +2208,13 @@ claim about two things is two claims wearing one bullet.**
 
 **A guard no reachable state can falsify is worth keeping, but say so
 explicitly.** The mutation runner reported `drop-measured-guard` as surviving
-on the motion-blur shape, and it was right: `peakRotationRate` is only ever
-raised on the same line that sets `motionMeasured`, so the first clause is
-implied by the second in every reachable state. **That is a fact about the
+on the motion-blur shape, and it was right: the peak was only ever raised on
+the same line that set `motionMeasured`, so the first clause was implied by the
+second in every reachable state. (Recorded against the `peakRotationRate`
+field, which the trailing-window fix has since replaced with a rolling
+`motionSamples` buffer; the guard and the reasoning carry over unchanged, since
+the buffer's recency filter is likewise only fed where `motionMeasured` is
+set.) **That is a fact about the
 guard, not a hole in the assertions** — and the wrong responses are deleting
 the guard (it becomes load-bearing the moment any path seeds a peak without a
 reading: a replayed buffer, a restored draft, a fixture) and adding an
@@ -2221,8 +2225,8 @@ fails there rather than in an evidence appendix. **A redundant guard on a
 persisted claim costs one `&&`; the failure it prevents is a finding asserted
 about a device that measured nothing.** And it is a **third instance of the
 half-published class**, stronger than the two that produced that rule:
-`measuredMotionBlur` reads `motionMeasured` and `peakRotationRate` and
-**neither is `@Published`**, where the earlier pair each had one published
+`measuredMotionBlur` reads `motionMeasured` and the rolling `motionSamples`
+buffer (previously `peakRotationRate`) and **neither is `@Published`**, where the earlier pair each had one published
 operand and refreshed by co-assignment. So a `body` reading it would not
 refresh at all — harmless only because its single reader is the imperative
 call site in `performCapture`, and the fix when it is surfaced is the same:
@@ -2279,6 +2283,38 @@ structurally" is true of each screen and false of the pair, and only the
 second claim is the one a future edit tests.** The general form:
 **deduplicating a claim inside one file leaves the same claim duplicated
 across files, and the second copy is invisible from the first.**
+
+**A patch that deletes a field owes a sweep of the prose that names it.** The
+trailing-window fix removed `peakRotationRate`, and three passages named it:
+two in this section and one on the task #4 row, including the third
+half-published instance, whose *point* survives intact because the rolling
+buffer replacing the field is equally unpublished. **A conflict-free `git am`
+would have produced a document citing a field that no longer exists** — the
+apply is mechanical and the citation is semantic, so nothing in the merge can
+see it. Corrected by naming the buffer with the old field in parentheses, so
+the instance count stays at three and the history is still followable. This is
+the **deletion direction** of the status-row rule: a sentence describing a
+field outlives the field by default, exactly as a sentence describing owed work
+outlives the work.
+
+**And two honest counts of the same quantity disagree when they count different
+trees, which convergence hides rather than reveals.** Three of us reported
+`Totals:` figures of 21573, 21583 and 21624 within minutes, each correct about
+a different tree — `main` without the window fix, one agent's local base plus
+it, and `main` with it. **A number that matches is not a number that agrees**:
+reconciling to a shared figure without naming the tree is how two measurements
+of different things come to look like confirmation of one. Same correction as a
+per-agent green being a property of the pair rather than of the commit, so
+**a count in a handover names the commit it was taken at, not only the value.**
+
+**A count taken mid-conflict is a count of index entries, not of files.**
+`git ls-files` reports each conflicted path once per stage, so a tree with two
+conflicts reads as 79 tracked files where 75 exist — and the aggregate says
+"79" with nothing in its output to explain why. Confirmed here with
+`git ls-files -u`, which reports the unmerged entries directly and is `0` on a
+clean tree. **Count from a clean tree, or count the stages you are standing
+in** — the same shape as reading a verdict through a pipe: the tool was right
+and the reading was not.
 
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
