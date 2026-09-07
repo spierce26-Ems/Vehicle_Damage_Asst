@@ -967,6 +967,27 @@ checks, and every consumer silently takes the clean branch. So checking a spec
 against the tree means checking that each condition is *assigned*, not that its
 name resolves.
 
+**Swept past the spec's own list, exactly four properties in the app are never
+written** — `isBlurry`, `isTooFar`, `isTooClose`, `hasMotionBlur`. The
+consequence is the house rule from §5 arriving through dead state:
+`issueDescriptions` is the user-visible claim, and with those four dead it
+reports a photo as having no blur, no motion blur and no framing problem.
+**An absence asserting the clean case.** They are audited at the declaration
+rather than deleted, because the work that wires them needs the spec's
+vocabulary.
+
+**A sweep for never-written properties must check initialiser arguments, not
+just assignments.** `isHighlighted` in `PaywallView` looks like a fifth
+instance to a naive grep and is not: it is set at the call site from an
+expression. A sweep that reads only `x = ` reports a false positive beside the
+real ones — the same disguise pointed the other way, and a census that includes
+a phantom is not a census.
+
+**And a count of commits on a moving branch cannot be written down.** A row
+documenting the lapsed isolation guarantee recorded 99 Swift commits and
+measured 100 one commit later — the very failure the row exists to describe,
+inside the sentence describing it. Where a number moves with the tree, record
+the command and not the figure.
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
