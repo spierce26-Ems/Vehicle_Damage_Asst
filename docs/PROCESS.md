@@ -2788,6 +2788,14 @@ code** (rc=3), so a wrapper cannot treat an unrun suite as an empty one; the
 four codes are 0 pass / 1 ran-and-failed / 2 nothing-to-execute / 3
 could-not-execute, and they are documented in the runner and its README because
 a caller reads the code, not the prose. Verified bare, one condition at a time.
+**And the Designer's addition is the better half of the repair: the verdict now
+goes to STDERR as well as stdout, because stderr survives a stdout pipe.** The
+slip that surfaced all of this was reading `bash run.sh | tail; echo $?` --
+`| tail` is the natural way to read seven ok lines, and the piped form lost the
+only machine-readable signal while the TEXT still said "1 failing". **Cheaper to
+stop rewarding the mistake than to write a rule nobody re-reads:** a rule
+guards the reader who remembers it, a redundant channel guards the one who does
+not. Verified through the exact command that hid it.
 Third instance of the shape the runner was built to prevent, in the runner:
 **the diagnostic is right and the channel a caller reads is not.**
 

@@ -3,21 +3,29 @@
 # fails to compile -- a check that no longer compiles is not a passing check,
 # which is the absence-asserting-the-clean-case failure aimed at this script.
 #
-# EXIT CODES, distinct per condition because an exit code is what a caller
-# reads (Ledger, 2026-09-07):
+# EXIT CODES, and they are distinct on purpose:
 #   0  every check compiled, ran and passed
-#   1  a check failed or failed to compile -- the instruments RAN
-#   2  no shape checks found -- there is nothing to execute
-#   3  no Swift compiler on PATH -- the instruments COULD NOT BE RUN
-# 2 and 3 are opposite problems and both returned 2 until now, so a caller
-# could not tell "nothing to execute" from "did not execute". That is this
-# script's own subject one level out: the printed lines distinguished them
-# correctly and the channel a caller reads did not. Found by running the
-# script BARE -- reading its status through a pipe reports the pipe.
+#   1  at least one check FAILED or would not compile
+#   2  nothing to run    -- no *.shapecheck files here
+#   3  could not run     -- no usable Swift compiler
+#
+# NOTE(UI/UX Designer), after Ledger ran this bare and found 2 and 3 sharing
+# one code. The printed lines distinguished them correctly; the EXIT CODE did
+# not, and an exit code is what a caller reads. Those are opposite problems --
+# "the instruments could not be run" versus "there are none to run" -- so one
+# code made "the checks did not execute" indistinguishable from "there is
+# nothing to execute", and a caller treating 2 as "empty, fine" would swallow a
+# missing toolchain. Third instance in this script of the shape it was written
+# to prevent: the diagnostic is right and the channel a caller reads is not.
 set -uo pipefail
 cd "$(dirname "$0")"
 SWIFTC="${SWIFTC:-swiftc}"
-command -v "$SWIFTC" >/dev/null || { echo "no $SWIFTC on PATH -- the shape checks did NOT run (this is not a pass)"; exit 3; }
+if ! command -v "$SWIFTC" >/dev/null 2>&1; then
+  echo "no usable Swift compiler ('$SWIFTC') -- the shape checks did NOT run" >&2
+  echo "  set SWIFTC=/path/to/swiftc, or install a toolchain" >&2
+  echo "SHAPECHECKS NOT RUN (no compiler) -- exit 3" >&2
+  exit 3
+fi
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 # nullglob, so an empty directory yields an EMPTY LOOP rather than the literal
 # pattern. Without it the glob falls through as a filename, the loop runs once,
@@ -40,6 +48,33 @@ for f in *.shapecheck; do
     echo "ok            $f -- $last"
   fi
 done
-[ "$n" -eq 0 ] && { echo "no shape checks found -- an empty pass is not a pass"; exit 2; }
+if [ "$n" -eq 0 ]; then
+  echo "no *.shapecheck files here -- an empty pass is not a pass" >&2
+  echo "SHAPECHECKS NOT RUN (none found) -- exit 2" >&2
+  exit 2
+fi
 echo; echo "$n shape check(s), $fail failing."
-[ "$fail" -eq 0 ]
+
+# NOTE(UI/UX Designer). The verdict is written to STDERR as well as stdout, and
+# it is deliberately redundant with the count above.
+#
+# The Tech Lead nearly reported this runner's exit code as broken after reading
+# `bash run.sh | tail; echo RC=$?` -- which captures `tail`'s status, not this
+# script's. He caught it before publishing. Reproduced here: bare rc=1, piped
+# rc=0, `${PIPESTATUS[0]}`=1. The measurement was wrong, not the runner.
+#
+# But the runner can stop rewarding the mistake, and that is cheaper than a
+# rule nobody re-reads. `| tail` is the natural way to read this output --
+# seven ok lines are noise -- and the piped form silently loses the only
+# machine-readable signal while the TEXT still says "1 failing". So a reader
+# who pipes gets a true report and a false status, which is the same shape as
+# a true alarm naming the wrong file.
+#
+# stderr is not swallowed by a stdout pipe, so the verdict survives `| tail`
+# and stays visible next to whatever the reader kept.
+if [ "$fail" -eq 0 ]; then
+  echo "SHAPECHECKS OK ($n/$n)" >&2
+  exit 0
+fi
+echo "SHAPECHECKS FAILED ($fail/$n) -- exit 1; if you piped this, read \${PIPESTATUS[0]}, not \$?" >&2
+exit 1
