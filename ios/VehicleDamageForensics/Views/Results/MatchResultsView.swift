@@ -852,10 +852,19 @@ struct MatchResultsView: View {
             // with no qualifier at all. A uniform striation pattern
             // matches almost anything at near 100%, so that was the
             // most confidently-wrong number the app could display.
+            // NOTE(UI/UX Designer), 2026-09-07. `reportableSignificance`,
+            // never `isStatisticallySignificant`: the latter is the
+            // UNFILTERED verdict, and on a filtered comparison a green
+            // headline asserted "above chance" directly above
+            // `filteredSummary`'s paragraph explaining that no verdict can
+            // be established for a filtered subset. The colour was the worse
+            // half -- green confers approval with no word read, so the
+            // verdict travelled by hue through a channel the string-level
+            // suppression could not reach.
             if let headline = comparison.headlineDisplay {
                 Label(headline, systemImage: "waveform.path")
                     .font(.headline)
-                    .foregroundStyle(significanceColor(comparison.isStatisticallySignificant))
+                    .foregroundStyle(significanceColor(comparison.reportableSignificance))
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let orientation = comparison.orientationUsed {
@@ -1059,12 +1068,23 @@ struct MatchResultsView: View {
                 // comment. The suppression is stated, not silent: an
                 // absent line reads as "not computed yet", which is a
                 // weaker claim than "cannot be established here".
+                // NOTE(UI/UX Designer), 2026-09-07. Was
+                // `exclamationmark.triangle.fill` in `.red`. Styling is a
+                // claim: red asserts severity, and a SUPPRESSION is an
+                // absence of a verdict, not an adverse one. The red filled
+                // triangle read as "this comparison failed" on a filtered
+                // result that may be perfectly ordinary -- the same
+                // over-claim as a red exclusion banner on the inconclusive
+                // path, and the third instance of it in this file.
+                // Non-.fill in secondary: the sentence carries the claim,
+                // the glyph carries no severity, and prominence in this
+                // block comes from position.
                 Label(
                     "Significance not reported for a filtered result",
-                    systemImage: "exclamationmark.triangle.fill"
+                    systemImage: "exclamationmark.triangle"
                 )
                 .font(.caption)
-                .foregroundStyle(.red)
+                .foregroundStyle(.secondary)
             }
             if let summary = comparison.filteredSummary {
                 Text(summary).font(.caption)

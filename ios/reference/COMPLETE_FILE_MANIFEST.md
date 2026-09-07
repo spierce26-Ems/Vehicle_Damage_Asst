@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 75 tracked files, of which 42 Swift sources (21688 lines).
+Totals: 75 tracked files, of which 42 Swift sources (21791 lines).
 
 ## iOS app — Xcode project
 
@@ -61,7 +61,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Views/LiDAR/LiDARScanView.swift` | 809 |
 | `ios/VehicleDamageForensics/Views/Paywall/PaywallView.swift` | 265 |
 | `ios/VehicleDamageForensics/Views/Reports/PDFReportView.swift` | 41 |
-| `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift` | 1210 |
+| `ios/VehicleDamageForensics/Views/Results/MatchResultsView.swift` | 1230 |
 
 ## Services — camera, ARKit/LiDAR, storage, PDF, StoreKit
 
@@ -70,7 +70,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Services/CameraService.swift` | 1021 |
 | `ios/VehicleDamageForensics/Services/HeadingProvider.swift` | 60 |
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
-| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1420 |
+| `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1427 |
 | `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
 | `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 736 |
 | `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
@@ -87,7 +87,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | `ios/VehicleDamageForensics/Utilities/ModelExtensions.swift` | 53 |
 | `ios/VehicleDamageForensics/Utilities/ScarFingerprintAnalysis.swift` | 584 |
 | `ios/VehicleDamageForensics/Utilities/ScarLineSuggester.swift` | 153 |
-| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 1509 |
+| `ios/VehicleDamageForensics/Utilities/ToolMarkAnalysis.swift` | 1585 |
 
 ## ForensicEngine — scoring/matching orchestration
 

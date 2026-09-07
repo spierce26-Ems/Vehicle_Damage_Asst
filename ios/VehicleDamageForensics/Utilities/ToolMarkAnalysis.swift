@@ -995,6 +995,63 @@ struct ToolMarkComparison: Codable, Equatable {
         return permutationPValue < ForensicNullModel.significanceLevel
     }
 
+    // NOTE(UI/UX Designer), 2026-09-07. Found by the Tech Lead's widened
+    // locked-string sweep; the defect is in the SURFACE layer, which is why
+    // the repair is here and in the two headline render sites rather than in
+    // `filteredSummary`, which was already correct.
+    //
+    // WHY the verdict is suppressed under exclusions is NOT restated here.
+    // It is written once, on `ToolMarkFilteredOutcome`, and
+    // `filteredSummary` is the surface that states it to a reader. Two
+    // copies of one suppression's reasoning is the diverging-duplicate
+    // defect this round hit three times, and the headline is the louder
+    // surface, so its copy would be the one that won any drift. This
+    // property SELECTS on the filtered state; it does not re-argue it.
+    //
+    // What IS new here, and is the defect: `headlineDisplay` and the colour
+    // beside it read `permutationPValue` and `isStatisticallySignificant`,
+    // which are the UNFILTERED figures and carry no exclusion branch at all.
+    //
+    // So on a filtered case the report printed a bold coloured "above
+    // chance" headline directly above a paragraph explaining that no
+    // significance verdict can be established for a filtered subset. The
+    // two claims are not merely inconsistent: the loud one wins, because it
+    // is bold, coloured, and first. **A suppression defeated by the surface
+    // above it is not a suppression** -- and this one cost Prism a
+    // measurement to justify.
+    //
+    // The colour was the worse half. A green headline confers approval
+    // without a reader parsing a single word, so the verdict was being
+    // asserted through a channel the string-level suppression could not
+    // reach. Same class as the locked-string presentation defect: a channel
+    // the review inspected characters through, while the claim travelled by
+    // weight and hue.
+    //
+    // `nil` rather than `false`: "no verdict can be established for a
+    // filtered subset" is not "tested and found insignificant". Rendering it
+    // orange would assert a negative finding the tree cannot support, which
+    // is the sign-inverted version of the same defect.
+    /// The significance verdict a SURFACE may render, as opposed to the raw
+    /// `isStatisticallySignificant` above.
+    ///
+    /// `nil` whenever exclusions are active, for the same reason
+    /// `filteredSummary` suppresses its verdict line: once the examiner
+    /// picks the subset after seeing the score, the statistic under test is
+    /// the best over all reachable subsets and the unadjusted threshold does
+    /// not test it. Never render `isStatisticallySignificant` directly --
+    /// use this, and pair it with `filteredSummary`'s stated suppression so
+    /// the absence is explained rather than silent.
+    var reportableSignificance: Bool? {
+        // `hasExclusions`, not a fourth `!exclusions.isEmpty`: the filtered
+        // state already had ONE selector and two readers
+        // (`MatchResultsView`'s filtered block, `PDFReportGenerator`'s), so a
+        // new independent copy is how two surfaces come to disagree about the
+        // same state. Per the Tech Lead's constraint: read the filtered state
+        // and select, do not re-derive it.
+        guard !hasExclusions else { return nil }
+        return isStatisticallySignificant
+    }
+
     /// NOTE(AI Developer), added 2026-09 for the "no bare match %" rule.
     /// The ONLY string any UI or report surface may use as this
     /// comparison's headline number. A raw `matchScorePercent` must
@@ -1006,6 +1063,25 @@ struct ToolMarkComparison: Codable, Equatable {
     /// callers show `summary` and no headline.
     var headlineDisplay: String? {
         guard let score = matchScorePercent else { return nil }
+        // NOTE(UI/UX Designer), 2026-09-07. Checked BEFORE the p-value
+        // branch, deliberately. The p-value and trial count are real and
+        // unfiltered; printing them beside a filtered score would attach a
+        // significance figure to a number it was not computed for, which is
+        // a worse claim than omitting significance. The suppression is
+        // stated in the string rather than left as an absence -- an omitted
+        // qualifier reads as "not yet computed", the more forgiving claim
+        // `filteredSummary` was rewritten to avoid.
+        guard !hasExclusions else {
+            // Second sentence is sec.6.1's locked wording VERBATIM. The
+            // locked template's first sentence ("Filtered comparison -- NN%
+            // similarity across M of N cross-sections") describes the
+            // FILTERED figure, and this property carries the UNFILTERED
+            // score, so it cannot be dropped in here whole. Flagged to
+            // Ledger as a scope question on the lock rather than resolved by
+            // paraphrase -- the claim-bearing sentence is reproduced exactly
+            // and the score keeps its own true subject.
+            return String(format: "%.0f%% similarity — Statistical significance is not established for a filtered subset. See the exclusion record in the appendix.", score)
+        }
         guard let p = permutationPValue, let trials = nullTrialCount else {
             return String(format: "%.0f%% similarity — significance not testable", score)
         }

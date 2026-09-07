@@ -814,6 +814,13 @@ struct PDFReportGenerator {
         // NOTE(AI Developer), rewritten 2026-09 -- same change and
         // same reasoning as `drawScarFingerprintMatch` above.
         // Same pairing and same reason as `drawScarFingerprintMatch` above.
+        // NOTE(UI/UX Designer), 2026-09-07. `headlineDisplay` now suppresses
+        // the significance verdict when exclusions are active, which is what
+        // makes this line safe to print above `filteredSummary`. The PDF has
+        // no colour channel here, so the string WAS the whole claim -- and
+        // it asserted "above chance" from unfiltered figures on a page whose
+        // next paragraph explains no verdict can be established. This
+        // artefact leaves the app and cannot be corrected afterwards.
         if let headline = comparison.headlineDisplay {
             y += drawWrapping(headline, at: CGPoint(x: 50, y: y),
                               font: .boldSystemFont(ofSize: 14),
