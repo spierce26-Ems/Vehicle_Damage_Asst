@@ -907,6 +907,36 @@ which is a habit, not a mechanism. The ledger is the mechanism.
 The rationale column is the load-bearing part — it is what stops a future
 editor "restoring" wording that was deliberately changed.
 
+**AND THIS TABLE IS THE POPULATION FOR "IS THE LOCKED STRING RENDERED" —
+recorded 2026-09-07, because the widened check does not read it and the two
+items most likely to be forgotten are the two nothing recomputes.**
+`check_note_rows_implemented` reads §2.2's condition rows plus §2.3's
+blockquote variants. **`attest.body` and §6.1's filtered wording are both
+locked, both recorded as owed, and neither is in that population** — so a
+clear run says nothing about either. The ledger below is the artefact that
+owns every locked string by construction: a string is locked **because** it
+has a row here, so **the population is this table, not any one section's
+blockquotes.**
+
+**This is the third widening of this lock's scope, and the first to happen
+inside a check rather than in prose.** The scope went commits → spec
+revisions → mocks, each time because a string escaped through a channel the
+enumeration had not named, and the fix each time was to stop enumerating
+carriers and name the obligation instead. **A check scoped to one section's
+rows is that same enumeration in a new medium**, and the same repair applies:
+**scope it by the ledger, whatever its length, and record the counting command
+rather than a count** (§4.0's rule, and the reason this section's scope
+sentence no longer carries a figure).
+
+**The declared-hold mechanism must survive the widening, and with two owed
+rows it is what makes the widening landable at all.** `attest.body` and
+§6.1's wording are both **specified and deliberately unbuilt**; swept for
+blindly they arrive as two immediate advisories, which normalises the clear
+run the check exists to protect. **A deliberate hold and an oversight are
+indistinguishable in a checker's output unless one of them is written down** —
+so the declaration is what keeps "we chose not to build this yet" a decision
+rather than letting it decay into a defect nobody remembers choosing.
+
 | Date | Key | Was | Now | Why |
 |---|---|---|---|---|
 | 2026-09-06 | `review.flag` | Analysis photo — frame not confirmed clear | Analysis photo — examiner did not confirm the frame was clear | The old wording described the photograph as deficient; the new one describes what a person did or did not do. Same principle as the `frameConfirmedClear` tri-state — a photo is not at fault for a question nobody asked. Changed in Item 2 spec v2, before this lock existed; recorded retroactively. |
@@ -914,7 +944,8 @@ editor "restoring" wording that was deliberately changed.
 | 2026-09-07 | `confirm.yes` | *(new)* | Yes — clear | Added with the decline affordance. Names the FRAME's state, not the examiner's diligence, which is what keeps §2.2 row two an attestation rather than a claim about a person (§3). Symmetrical with `confirm.no` by requirement, not by style. |
 | 2026-09-07 | `confirm.no` | *(new)* | No — not clear | Added with the decline affordance; it is what makes row two and §1.4's badge reachable at all. Must not drift toward "skip"/"later"/"not sure" — each turns a recorded decline into a deferral, and deferral is `nil`'s meaning, which must stay unreachable from a button. Must not acquire a warning adjective or the word "anyway": §4.2's argument applies unchanged — an answer that reads as a confession is an answer nobody gives twice. |
 | 2026-09-07 | `confirm.no` | *(text unchanged)* | *(text unchanged; presentation corrected)* | **No text change — recorded because the string's PRESENTATION violated its own lock entry.** It shipped with an `exclamationmark.circle` and a dimmed capsule against `confirm.yes` on a blue primary one, passing this lock byte-for-byte while breaking the symmetry constraint above. **A warning glyph is a warning adjective the lock cannot see.** Corrected to identical styling with no icon on either, held by one shared label builder per screen. Recorded here because a ledger triggered only by changed characters would not have caught it — the same gap as `confirm.arm`'s row, pointed at presentation instead of meaning. |
-| 2026-09-07 | `attest.body` | I generated this report from the case data described above. I make no claim of forensic identification. | The person named below documented this case using this application and attested to the capture conditions recorded in it. This report makes no claim of forensic identification. | **Ruled after the Tech Lead found the lock in LIVE CONFLICT with `drawAttestationBlock`** — the tree was third-person and about capture conditions, the lock first-person and about generating the report, and the code had dropped the identification limit. **The code's SUBJECT is adopted and its OMISSION rejected.** Attesting to capture conditions is the narrower, recorded act (the examiner answers `confirm.yes`/`confirm.no` per frame); **first person was my defect** — the app generates the report and then put that sentence in a person's mouth, which is §4.0.1 broken by the attestation itself. The identification limit returns with **the report** as its subject, not the person, which is what lets it survive the move out of first person. Neither side adopted whole. |
+| 2026-09-07 | `attest.body` | I generated this report from the case data described above. I make no claim of forensic identification. | I documented this case using this application and attested to the capture conditions recorded in it. This report makes no claim of forensic identification. | **Ruled after the Tech Lead found the lock in LIVE CONFLICT with `drawAttestationBlock`** — the tree was third-person and about capture conditions, the lock first-person and about generating the report, and the code had dropped the identification limit. **The code's SUBJECT is adopted, its OMISSION rejected, and FIRST PERSON KEPT for sentence one after the Tech Lead's objection — I had the halves swapped.** "I generated this report" was wrong in its VERB, not its PERSON: the app generates the report, so that clause had the examiner claiming an act the app performs (§4.0.1). Documenting the case and answering the capture-condition question per frame ARE the examiner's acts and are recorded, so they stay first person — **a person can be held to "I …" and an app printing a disclaimer about itself cannot**, which is the property that makes an attestation worth printing at all. **Sentence two is deliberately third person:** the identification limit is the only one the report states, so it must hold whether or not an examiner is named — a first-person limit vanishes with the signature precisely when the report is least attributable. The tree had dropped that sentence entirely, the most consequential half of the conflict. Neither side adopted whole, and neither was my first ruling. |
+| 2026-09-07 | §6.1 filtered `headlineDisplay` | *(template, unusable whole on this surface)* | Unfiltered comparison — NN% similarity across all cross-sections. Statistical significance is not established for a filtered subset. See the exclusion record in the appendix. | **Scope ruling on the UI/UX Designer's question.** The locked template's first sentence describes the FILTERED figure and `headlineDisplay` carries the UNFILTERED score, so the template cannot be used whole — **that would make the number lie to fit the lock.** But the shipped string left a BARE percentage beside "for a filtered subset", and **an unqualified quantity inherits its subject from the sentence next to it**, so the correct claim silently mislabelled the number. First sentence now names the score's own subject; the claim-bearing second sentence is verbatim and unchanged. **Where a surface carries the FILTERED figure the original template stands unchanged** (`filteredSummary`). Rule: when a locked template cannot be used whole because one figure is not the figure at hand, **name the subject of the figure you do have — never drop the qualifier, never keep a bare number.** |
 | 2026-09-07 | `allclear.partial` | *(new)* | All analysis photographs met the app's capture-quality checks that could be run at the time of capture. Camera movement was not measured for every photograph. | **A second variant of §2.3's all-clear, not a replacement for it.** Added because `motionMeasurable` makes "a check did not run" visible in the persisted model for the first time, and the unqualified sentence covered such a photograph as though its steadiness had been verified. Emitted only when some analysis photograph has `motionMeasurable == false`, so the qualification distinguishes something rather than appearing on every report. **Must not be merged into one softened sentence** — a permanent "checks that could be run" is the always-firing note in the section whose purpose is the quiet case. **Must not become a per-photograph note**: §1's motion row has no "not measured" line deliberately, and this is the per-set form of the same fact. Must not drift to "may not have been fully checked" (a recorded fact read as a hedge), "motion blur could not be ruled out" (a conclusion this report does not draw, §4.0.1), or the second clause alone (blames the photograph rather than the instrument). |
 
 The current value of `review.flag` is therefore **"Analysis photo — examiner
@@ -1158,17 +1189,52 @@ the only place the limit appears in the first person.
 
 So the locked wording becomes:
 
-> The person named below documented this case using this application and
-> attested to the capture conditions recorded in it. This report makes no
-> claim of forensic identification.
+> I documented this case using this application and attested to the capture
+> conditions recorded in it. This report makes no claim of forensic
+> identification.
 
 Second sentence's subject is the **report**, not the person, which is why it
 survives the move out of first person. `confirm.arm`'s ledger row is the
 precedent for recording this at all: **the string changed meaning, so the
 change is the entry, not the diff.**
 
-**On the unsigned branch the DOCUMENT is right and the code's citation of my
-own rule is a misreading, so that half stands.** The `else` branch prints *"No
+**FIRST PERSON RECONSIDERED, and the Tech Lead's objection is right on the
+half that matters: a person can be held to "I …" and an app printing a
+disclaimer about itself cannot.** So the question is not first-versus-third
+person as a style; it is **which verb the person can actually be held to.**
+Splitting it that way resolves both sentences without compromise:
+
+> I documented this case using this application and attested to the capture
+> conditions recorded in it. This report makes no claim of forensic
+> identification.
+
+**Sentence one is first person because the acts are the examiner's** — they
+documented the case and answered the capture-condition question per frame,
+both recorded in the file. **"I generated this report" was the defect, and the
+defect was the VERB, not the person:** the app generates the report, so that
+clause had the examiner claiming an act the app performs. My earlier ruling
+fixed the wrong half — it dropped first person and kept the framing — which
+would have thrown away the one property that makes an attestation worth
+printing.
+
+**Sentence two stays third person, and this is the deliberate asymmetry.** It
+is the only place in the report where the limit is stated at all, so it must
+be true whether or not an examiner is named; a first-person limit disappears
+with the signature exactly when the report is least attributable. **The
+report, not the person, is what makes no claim of forensic identification** —
+the app's own limit, stated by the app, which §4.0.1 requires. The examiner
+attests to what they did; the document states what it is not.
+
+**So neither side of the original conflict was adopted whole, and neither was
+my first ruling:** the code's *subject* was right, the lock's *grammatical
+person* was right for sentence one, and the identification limit was missing
+from the tree — the single most consequential half, because it is the one
+sentence the report has no other way to say.
+
+**On the unsigned branch the DOCUMENT is right, and the Tech Lead — who first
+ruled the other way — reversed himself on the fact that decides it: the
+`"Attestation"` heading is drawn UNCONDITIONALLY, before the examiner branch.
+Verified independently.** The `else` branch prints *"No
 examiner identity was recorded… cannot be attributed to a named person"*,
 citing the specify-omission rule. **The hazard this section names is a blank
 signature LINE, and a printed sentence is not a blank line** — but the rule
@@ -1179,6 +1245,24 @@ the absence asserting something with a title on it.** Omit the block entire,
 heading included, exactly as written. The sentence is good copy in the wrong
 place: if the omission is worth stating, it belongs in the audit record, not
 under a heading that promises a signature.
+
+**Why the first ruling went the other way, recorded because it is the round's
+own shape arriving in a RULING rather than a patch (the Tech Lead's framing,
+and it is worth more than the outcome):** the ruling compared the document's
+blank-line hazard against the code's printed sentence — **the two artefacts
+placed in front of it** — and never asked what else the block draws
+unconditionally. Both compared texts were read correctly; the frame around
+them was never opened. **A ruling is an artefact whose failure looks like a
+decision**, so it is the one artefact here that nothing re-checks by default:
+a patch invites review, a settled question does not.
+
+**And "never render an unsigned attestation" is kept as written rather than
+softened to "never render an unsigned signature".** The narrower reading was
+available and was the basis of the first ruling; it fails because the heading
+is not part of the signature. **The remedy for an absence is a statement, but
+a statement under a title that promises something else is a new absence with
+better production values.** If the omission is worth recording — and it is —
+the audit record is where a reader looks for what did not happen.
 
 #### 4.3.2 The actor column
 
@@ -1257,6 +1341,44 @@ Locked wording for `headlineDisplay` in the filtered case:
 > Statistical significance is not established for a filtered subset. See the
 > exclusion record in the appendix.
 
+**SCOPE RULING 2026-09-07, on the UI/UX Designer's question, and the question
+was the right one to ask rather than paraphrase.** The template's first
+sentence describes the **filtered** figure; `headlineDisplay` carries the
+**unfiltered** score. So the template cannot be dropped in whole — **that
+would make the number lie to fit the lock**, which is the one failure this
+document never accepts. But the implemented string was
+*"NN% similarity — Statistical significance is not established for a filtered
+subset."*, and **a bare percentage next to "for a filtered subset" reads as
+the filtered percentage.** The lock's claim-bearing sentence is reproduced
+correctly and the number beside it silently acquires the wrong subject.
+
+**The rule this turns on: when a locked template cannot be used whole because
+one of its figures is not the figure at hand, the repair is to NAME THE
+SUBJECT OF THE FIGURE YOU DO HAVE — never to drop the qualifier and never to
+keep a bare number.** An unqualified quantity inherits its subject from the
+sentence next to it, and a reader cannot see that it was not computed there.
+
+So the locked wording for this case, **split by which figure the surface
+carries:**
+
+> Unfiltered comparison — NN% similarity across all cross-sections.
+> Statistical significance is not established for a filtered subset. See the
+> exclusion record in the appendix.
+
+Second sentence is unchanged and stays verbatim. **First sentence names the
+score's own subject, so the headline and `filteredOutcomeBlock`'s filtered
+percentage can sit on one page without either being mistaken for the other** —
+which is the actual hazard, since both are visible at once and only one is
+labelled today. **Where a surface DOES carry the filtered figure, the original
+template above is the wording and is unchanged** — `filteredSummary` is that
+surface, and it already states it.
+
+**Both forms say "is not established for a filtered subset" rather than naming
+which subset was tested, deliberately:** the exclusion record is the place a
+reader learns what was excluded, and a headline that summarises the exclusions
+is the second copy of `filteredSummary`'s reasoning that §6.1 exists to
+prevent.
+
 Rationale, and why this is not conservatism for its own sake: the p-value
 recomputed on a filtered subset is not wrong by a small margin. Prism measured a
 15.6× inflation of the false-positive rate at two exclusions, with the *typical*
@@ -1270,8 +1392,19 @@ figure stays, the claim about the figure goes.
 one escape on the board that puts a wrong forensic verdict on a page.** Both
 `ScarFingerprintMatch.headlineDisplay` and `ToolMarkComparison.headlineDisplay`
 read the **unfiltered** `permutationPValue` and print "above chance" / "NOT
-distinguishable from chance" with **no filtered branch at all**, at four render
-sites across `MatchResultsView` and `PDFReportGenerator`. `filteredSummary`
+distinguishable from chance" with **no filtered branch at all**.
+
+**Scope corrected 2026-09-07 (UI/UX Designer), and my count was wrong in the
+same class as the "twelve": TWO render sites can be wrong, not four.**
+`ScarFingerprintMatch` has **no `exclusions` and no `filteredOutcome`** —
+there is no filtered state for it to misreport, so its two
+`headlineDisplay` sites are correct as they stand. Four was the count of
+`headlineDisplay` READERS; the defect's population is readers **of a type that
+can be filtered**. **Verify that a type HAS the feature before counting its
+render sites** — a count of call sites is not a count of exposed call sites,
+and the wider figure made the finding look broader while the conclusion never
+depended on it. Second wrong denominator of mine today supporting a right
+conclusion, which is why the rule is worth more than the number. `filteredSummary`
 suppresses the verdict correctly and at length, directly underneath.
 **So on a filtered case the loud headline contradicts the careful summary below
 it, and the suppression Prism's 15.6× measurement bought is defeated by the one

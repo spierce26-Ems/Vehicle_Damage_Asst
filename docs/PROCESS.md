@@ -2582,6 +2582,30 @@ the widened population must be marked for specced-not-built rows or its
 immediate advisories normalise the clear run it exists to protect** (the Tech
 Lead's caution, adopted).
 
+**AN UNQUALIFIED QUANTITY INHERITS ITS SUBJECT FROM THE SENTENCE NEXT TO IT.**
+§6.1's locked template names a FILTERED percentage; `headlineDisplay` carries
+the UNFILTERED score. Using the template whole would make the number lie to fit
+the lock, so the implementation kept the claim-bearing sentence verbatim and
+left the score bare — and a bare percentage beside "for a filtered subset"
+reads as the filtered percentage. **The correct claim silently mislabelled the
+figure, and both halves passed review because each was right on its own.**
+Rule: **when a locked template cannot be used whole because one of its figures
+is not the figure at hand, name the subject of the figure you DO have** — never
+drop the qualifier, never keep a bare number. A reader cannot see that a
+quantity was computed somewhere other than the sentence it sits in.
+
+**AND A COUNT OF CALL SITES IS NOT A COUNT OF EXPOSED CALL SITES.** I recorded
+§6.1 as wrong at four render sites; two of them read `ScarFingerprintMatch`,
+which has no `exclusions` and no `filteredOutcome` — no filtered state to
+misreport, so those sites are correct as they stand. **Verify that a type HAS
+the feature before counting its render sites.** That was the second wrong
+denominator in one day supporting a right conclusion, after the coaching-table
+"twelve", and the pattern is the durable part: **a wrong denominator that
+supports the right conclusion is never put under pressure by the exchange that
+follows**, because everyone is agreeing about the conclusion. **Quote a
+population with the symbol it was counted from**, the way a measurement travels
+with its method.
+
 **A locked TEMPLATE and a locked SENTENCE are different artefacts, so
 "every locked string wherever written" cannot be a verbatim match.** Widening
 a check's population by the class rather than by the found instance is right in
