@@ -1795,6 +1795,15 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     A reader of a printed or emailed report cannot scroll for the string's own graded consequence
     and cannot be corrected afterwards, so a wrong frame there is the only one of the three that
     is unrecoverable.
+  - [ ] **The PDF callout fits the longest string.** Render all three paths, including the
+    combined-rule case (the longest, ~715 characters). The box grows to its content and nothing
+    overlaps the `Status:` line below it. The box is measured, not a literal height — a clipped
+    exclusion is a missing one, and the PDF's reader cannot scroll. **The item above audits the
+    frame's colour and heading; this one audits its size.** After `1114687` the callout was
+    neutral, correctly headed, and still clipping every path: the styling half of the audit
+    transferred to the PDF and the fitting half did not, because the PDF has no Dynamic Type and so
+    looked to need no fitting check. What it has instead is three strings of very different
+    lengths — the same exposure by a different mechanism. Fixed in `91c9d1c`.
   - [ ] **Negative case**: a case with **no** exclusion. No card renders at all — not an empty one,
     not a "no exclusion found" one. An absence must not assert anything.
   - [ ] **Not unlocked**: the pointer line *"The per-factor evidence behind this finding is part of
