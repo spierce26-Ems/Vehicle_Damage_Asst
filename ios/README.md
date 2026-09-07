@@ -112,7 +112,7 @@ should wait on Apple Developer team setup to start finding compiler errors.
 | #10 | Three scoring divergences against the Python reference, incl. the 6-inch height rule-out | Prism | (a) and (b) in review on `prism-task10-p1b`. The defect they fix: a height mismatch that should exclude a suspect scored 39/100 — quietly wrong in the direction of implicating someone. |
 | #11 | Examiner identity — plus the `AuditEntry` actor field and the report attestation block, folded in | Vector | Open. Blocks the cover examiner line, the custody actor column and the attestation. All three omit cleanly until it lands (§5). |
 | #12 | UI/UX design set: wireframes, report mocks, implementation specs | UI/UX Designer | Standing track, in review. Report page mocks reviewed; new strings on all four pages are under the copy lock. |
-| #13 | Readiness bar + LiDAR set-point reticle | Vector | Open — touches no `ScarCaptureView.swift` and adds no new Swift files, so it is the one implementation item queuing behind signing alone. |
+| #13 | Readiness bar + LiDAR set-point reticle | Vector | Open — touches no `ScarCaptureView.swift` and adds no new Swift files, so it is the one implementation item queuing behind signing alone. **Carries task #12's tail as a requirement: the reticle and the readiness bar can both express a quality verdict from the same value, and the user sees them simultaneously rather than sequentially, so every render site of the readiness value gets enumerated by `grep` before the branch is touched and the count reported whatever it is.** |
 
 ### Held out of the tree deliberately
 
@@ -1770,7 +1770,9 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     failing conditions. The score and disclaimer are still visible below it.
   - [ ] The same case, **unlocked**. The exclusion text appears **twice** — once in the banner and
     once inside the scar-direction section, beside the check that produced it. **If it appears
-    only once, the paid view has lost information the free view had.**
+    only once, the paid view has lost information the free view had.** **A duplicated string is
+    only an invariant if every render carries the same claim** — check the frames, not just the
+    presence, per the styling items below.
   - [ ] A case on the **LiDAR-inconclusive** path (both heights from scans, difference over 6").
     The card heading reads *"Rule-out assessment"*, the body says the difference **cannot** be
     resolved from these photographs and to re-measure with a tape, and **nothing on the screen
@@ -1779,8 +1781,20 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
   - [ ] The **standalone height rule-out** path (manual measurements, difference over 6"). The
     body says the vehicle *should* be ruled out on height evidence alone, and does **not** promise
     a factor breakdown.
-  - [ ] The card's styling is **neutral on all three paths** — no red border, no red accent. Red
-    on the inconclusive path would contradict its own text.
+  - [ ] **Every render site's styling is neutral on all three paths, each checked separately** —
+    the free banner, the scar-direction section when unlocked, **and the exported PDF's callout**.
+    No red fill, border or accent, and no heading that asserts an exclusion. Red on the
+    inconclusive path contradicts its own text. **Item 2 requires the string to appear more than
+    once; this item requires every appearance to carry the same claim.** Two of the three sites
+    were red until `b61ba0b` and `1114687`, and this item's first version named one card, so it
+    was tickable on the free screen while the other two were live. **The render count is whatever
+    `grep` says, not what anyone remembers** — audit every site of the shared value, not the one
+    you specified.
+  - [ ] **The exported PDF specifically**, because it is the only render that leaves the app: its
+    exclusion callout is neutral and headed *"RULE-OUT ASSESSMENT"*, not *"EXCLUSION WARNING"*.
+    A reader of a printed or emailed report cannot scroll for the string's own graded consequence
+    and cannot be corrected afterwards, so a wrong frame there is the only one of the three that
+    is unrecoverable.
   - [ ] **Negative case**: a case with **no** exclusion. No card renders at all — not an empty one,
     not a "no exclusion found" one. An absence must not assert anything.
   - [ ] **Not unlocked**: the pointer line *"The per-factor evidence behind this finding is part of
