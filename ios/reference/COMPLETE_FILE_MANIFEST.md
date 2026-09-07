@@ -116,11 +116,11 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 
 | File | Lines |
 |---|---:|
-| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 684 |
+| `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 706 |
 | `docs/PROCESS.md` | 1423 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
-| `ios/README.md` | 1890 |
+| `ios/README.md` | 1901 |
 
 ## Reference material (`ios/reference/`)
 

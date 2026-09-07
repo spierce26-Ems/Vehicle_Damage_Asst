@@ -4,6 +4,28 @@ Owner: Ledger. Implements §3 of the Item 2 no-ruler / focus-gate UX spec.
 Applies to `Services/PDFReportGenerator.swift` and the evidence appendix only.
 Ledger owns this wording; changes to it go through the copy lock in §4 below.
 
+> **Provenance warning, added 2026-09-07.** This document cites *the Item 2 UX
+> spec* six times as the authority for its field semantics — §1's note
+> conditions, §1.1's `frameConfirmedClear` tri-state, §2.2's wording, §4's
+> 16-string copy inventory. **That spec is not in this repository.**
+> `git ls-files '*.md'` returns twelve files and none of them is it; no commit
+> has ever added it. It is task #4's design artefact, held outside the tree.
+>
+> So this document is normative about fields that do not exist, on the
+> authority of a document a reader of this repository cannot open. §1.1's
+> tri-state table is the only in-tree statement of that semantics, and it
+> presents itself as a *restatement* of an upstream source. **A citation that
+> cannot be followed is indistinguishable from one that can until someone
+> tries** — and nobody tried for two months, because the documents that could
+> have caught it agree with each other.
+>
+> Nothing here is withdrawn: the semantics are right and were reviewed. What is
+> recorded is that the chain is **spec → spec → decision tick, with the tree at
+> neither end**, and that §1.1's table is therefore load-bearing rather than
+> illustrative. Task #4's implementation should treat it as the source and
+> reconcile it against the design artefact explicitly, not assume it matches —
+> and whoever lands that work should land the spec in `docs/` with it.
+
 Principle: **a flagged photo in the file beats a missing one.** Nothing is
 silently dropped, nothing is silently promoted. The report records what the
 capture conditions were and lets the reader weigh it. That is the whole job.
