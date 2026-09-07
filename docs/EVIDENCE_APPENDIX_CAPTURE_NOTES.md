@@ -120,6 +120,29 @@ Multiple triggers on one photo produce multiple lines under one photo heading,
 in the table's order. Do not merge them into a summary sentence — each one is a
 separate fact about the capture.
 
+**The word "measured" in rows three and four is load-bearing copy, not
+style.** It makes each sentence a claim about a measurement, which is what
+forbids driving the trigger from a gate: **a gate may say "not yet"; a recorded
+finding may only say what was measured** (`docs/PROCESS.md` §4c). `isBlurry`
+and `isTooFar` were first wired from `!isFocused` / `!isCloseEnough` — gates
+that read `false` before anything is measured — and fixed in `a9deebb`.
+
+**The rows are not independent, and that is the maintenance rule this table
+was missing.** Row five, *"Sharpness was not measured for this photograph"*,
+fires on exactly the photo rows three and four described as
+measured-and-failing under the old wiring: **one photograph, two notes, one
+saying the measurement did not happen and one reporting its result**, rendered
+into the same bullet list. So **row five is the negative case for rows three
+and four, and an edit to any of the three must be checked against the others.**
+
+Row two got this right from the start because `frameConfirmedClear` is `Bool?`
+and "never asked" is visible in the type. `Bool` cannot hold "unmeasured", so
+for these two the distinction has to be held at the source — which is why four
+careful readers passed over it. **If a future edit softens "measured" out of
+row three or four, the constraint on their inputs disappears with it**: the
+sentence becomes satisfiable by a gate, and the contradiction returns with
+nothing in this document able to catch it.
+
 ### 2.3 When no analysis photo carries a flag
 
 > All analysis photographs met the app's capture-quality checks at the time of
@@ -583,6 +606,7 @@ decision rather than an oversight.
 - [ ] An audit event predating the actor field reads "not recorded".
 - [ ] No page prints a source-file hash.
 - [ ] A photo where the examiner was asked and declined (`frameConfirmedClear == false`) does render the note — confirming `nil` and `false` are not collapsed anywhere in the render path.
+- [ ] **A scar capture taken on the very first frame, before any measurement lands, renders row five and NOT rows three or four.** The negative case for `a9deebb`: enter the scar camera, tap the manual shutter immediately, export. One note — *"Sharpness was not measured for this photograph"* — with no *"The app measured…"* line beside it. **Two notes on that photo means the flags are reading gates again.** Walk it a second time with the lens hunting: `isFocused` is the conjunction of device focus and the sharpness measurement, so a hunting lens over a sharp frame is the other way a gate reads `false` with a good measurement in hand.
 - [ ] ~~A factor whose inputs include a flagged photo shows the §2.4 cross-reference, and its numeric score is unchanged from the same analysis run without the appendix.~~ **NOT IMPLEMENTED — do not walk this item, it cannot pass.** `408a247` built §1, §2.1, §2.2 and §2.3 in full and verbatim, and did not build §2.4: *"See Capture Conditions in the evidence appendix."* has zero references in Swift, and `drawFactorBreakdown` renders `f.notes` and nothing else. **A checklist line for a clause nobody built would have been walked, found no cross-reference to look at, and read as a pass — or as a defect in the tester's method.** That is this document's own subject one artefact over. Re-enable it in the same diff that implements §2.4; the requirement stands.
 - [ ] Search the rendered PDF text for: likely, probably, consistent with, suggests, indicates, match confirmed — zero hits in the Capture Conditions section.
 
