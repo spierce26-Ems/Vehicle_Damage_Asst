@@ -239,6 +239,33 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
     /// Decodes `false` for every photograph saved before this field
     /// existed, which is correct -- none of them came from a measuring
     /// path either, so none should carry a not-measured note.
+    /// Whether motion was measured for THIS photograph, recorded at
+    /// capture by the paths that measure it.
+    ///
+    /// NOTE(Designer), 2026-09-07. The symmetric partner of
+    /// `sharpnessMeasurable`, added because the trailing-window fix
+    /// computed this distinction on the service and nothing carried it
+    /// here. `qualityFlags.hasMotionBlur` is a plain `Bool` persisted
+    /// into evidence, so `false` meant BOTH "motion was measured and the
+    /// phone was steady" AND "motion was never measured": a device with
+    /// no gyro, or one whose readings went stale before the shutter,
+    /// produces the second while the report reads the first. An absence
+    /// asserting the clean case, which is the failure this project has
+    /// hit from four directions now.
+    ///
+    /// A computed property with no reader is not a fix -- it is the
+    /// always-false disguise with a better name. The distinction existed
+    /// in `ScarCaptureCameraService` and could not reach the artefact
+    /// that makes the claim.
+    ///
+    /// `Bool` rather than `Bool?`, and `false` is honest for every path
+    /// that does not set it: no capture path measured motion before this
+    /// field existed, and none of the non-scar paths measures it now.
+    /// Same asymmetry as `gateOverridden` versus `frameConfirmedClear` --
+    /// `false` is TRUE of an old photo, because there was no measurement
+    /// to have taken.
+    var motionMeasurable: Bool = false
+
     var sharpnessMeasurable: Bool
 
     // MARK: Init
@@ -268,7 +295,8 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         frameConfirmedClear: Bool? = nil,
         gateOverridden: Bool = false,
         sharpnessScore: Double? = nil,
-        sharpnessMeasurable: Bool = false
+        sharpnessMeasurable: Bool = false,
+        motionMeasurable: Bool = false
     ) {
         self.id = id
         self.imageData = imageData
@@ -295,6 +323,7 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         self.gateOverridden = gateOverridden
         self.sharpnessScore = sharpnessScore
         self.sharpnessMeasurable = sharpnessMeasurable
+        self.motionMeasurable = motionMeasurable
     }
 
     // MARK: Codable (custom, for backward-compatible decoding)
@@ -371,6 +400,13 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
         //   existed did not come from a measuring path either, so `false`
         //   is the truthful decode rather than a lenient one.
         sharpnessMeasurable = try c.decodeIfPresent(Bool.self, forKey: .sharpnessMeasurable) ?? false
+        //   `motionMeasurable` -> false, same reasoning: no capture path
+        //     measured motion before this field existed, so "motion was not
+        //     measured" is the truthful reading of an old photo.
+        //     `decodeIfPresent ?? false` per the persisted-model rule -- a
+        //     `keyNotFound` makes every existing case file unopenable, and
+        //     where the case file IS the evidence that is data loss.
+        motionMeasurable = try c.decodeIfPresent(Bool.self, forKey: .motionMeasurable) ?? false
     }
 
     // MARK: Duplication (item #5)
@@ -421,7 +457,8 @@ struct CapturedPhoto: Identifiable, Codable, Equatable {
             frameConfirmedClear: frameConfirmedClear,
             gateOverridden: gateOverridden,
             sharpnessScore: sharpnessScore,
-            sharpnessMeasurable: sharpnessMeasurable
+            sharpnessMeasurable: sharpnessMeasurable,
+            motionMeasurable: motionMeasurable
         )
     }
 

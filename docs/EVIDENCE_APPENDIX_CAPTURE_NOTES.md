@@ -49,6 +49,21 @@ when any of:
 | `frameConfirmedClear == false` | the examiner was asked and did not attest the frame was free of a ruler or foreign object (reachable from the capture UI as of 2026-09-07 — see §1.1) |
 | `qualityFlags.isBlurry` or `.isTooFar` | set at capture time from the MEASURED sharpness and fill terms — not from the gate booleans; see the spec's §2.4 correction, and §1.1 below for why the distinction is this table's problem too |
 | `sharpnessScore == nil && sharpnessMeasurable` | sharpness was not measured for this photo (see §1.1 — the second clause was `frameConfirmedClear != nil` and that was a proxy) |
+| `qualityFlags.hasMotionBlur` | motion was measured over the trailing capture window and exceeded the steadiness threshold |
+
+**`hasMotionBlur` was written into evidence with no row here, which is the
+mirror of a row with no writer.** §1.2 records a condition no path could
+satisfy; this was a field no condition read. Both leave the artefact unable to
+make a claim the tree supports, and neither is visible from the side you are
+standing on.
+
+**It gets no "not measured" row, deliberately.** `motionMeasurable` is recorded
+per photograph, because motion needs a gyro that exists *and* a reading inside
+the window — so unlike sharpness on the scar screen it can genuinely be absent.
+But a note reading "motion was not measured" on every photograph from a
+gyro-less device is the always-firing note this document spent a round
+removing. **The field exists so nothing can read `hasMotionBlur == false` as
+"the phone was steady" — it guards a claim rather than making one.**
 
 Reference/measurement shots get **no** note for any of these. A tape measure in
 a measurement shot is wanted evidence, not a defect — this is the core insight
@@ -259,6 +274,16 @@ One line per photo, prefixed with the shot label and photo index.
 | `qualityFlags.isBlurry` | The app measured this photograph as not sharp at the point of capture. |
 | `qualityFlags.isTooFar` | The app measured the damage area as not filling the guide frame — the subject may be too distant for fine surface detail. |
 | `sharpnessScore == nil && sharpnessMeasurable` | Sharpness was not measured for this photograph. |
+| `qualityFlags.hasMotionBlur` | The app measured camera movement during this capture that exceeded its steadiness threshold. |
+
+**"Measured" in the motion row carries the same constraint as rows three and
+four, and its input is coupled to them the way row five is:** the peak over the
+trailing window, never `isSteady`. `isSteady` is a live gate reading one
+instant, and a photograph is blurred by movement across the exposure — so the
+gate can read steady at the shutter over a frame that moved. **Writing this row
+from the gate would restate the defect `a9deebb` removed, in a third field.**
+Attribution is to the app: it names what the app measured, and does not suggest
+the shot was taken carelessly.
 
 Multiple triggers on one photo produce multiple lines under one photo heading,
 in the table's order. Do not merge them into a summary sentence — each one is a
@@ -320,6 +345,22 @@ through the manual override with every gate failing.
 **An all-clear computed over a set that excludes the only photograph that can
 fail is an absence asserting the clean case** (§5), and here it asserted it
 about the shot the analysis actually runs on.
+
+**Open constraint on this sentence, recorded now because the field that makes
+it checkable exists now.** "Met the app's capture-quality checks" is a claim
+about checks that RAN. `motionMeasurable == false` means motion was not
+measured for that photograph — no gyro, or readings stale before the shutter —
+and this sentence currently covers such a photograph as though its steadiness
+had been verified. **That is the input-set defect above one level in: not a set
+missing a member, but a member missing a check.** Recorded rather than fixed
+because the honest repair is a wording question and the wording is this
+document's — candidates are naming the checks that ran, or qualifying the
+sentence when any photograph in the set was not fully measured. **Do not fix it
+by treating `motionMeasurable == false` as a pass**, which is what the sentence
+does today by silence.
+
+Falsifiable rather than aspirational: `motionMeasurable` is written at
+`ScarCaptureView.performCapture` and defaults `false` everywhere else.
 
 The rule, for this section and any other all-clear: **state the population,
 then the predicate.** An all-clear is a claim about a set, so the set is half

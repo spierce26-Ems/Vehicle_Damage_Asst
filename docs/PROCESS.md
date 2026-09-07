@@ -2284,6 +2284,37 @@ second claim is the one a future edit tests.** The general form:
 **deduplicating a claim inside one file leaves the same claim duplicated
 across files, and the second copy is invisible from the first.**
 
+**A computed property with no reader is not a fix — it is the always-false
+disguise with a better name.** The trailing-window repair added
+`motionMeasurable` on the service, correctly reasoned and correctly named, and
+nothing read it: one declaration, one doc mention, zero consumers.
+`hasMotionBlur` is a plain `Bool` persisted into evidence, so `false` still
+meant both "motion was measured and the phone was steady" and "motion was
+never measured", and a gyro-less device produced the second while the report
+read the first. **The distinction existed in the service and could not reach
+the artefact that makes the claim** — the same failure as a field that exists,
+decodes, and always reads `false`.
+
+The check is one grep and it belongs in every "recorded, not inferred" fix:
+**after adding a field that separates measured from unmeasured, confirm the
+distinction reaches the artefact** — persisted on the model, decoded
+additively, read by the renderer, and named by a condition. Second instance
+today after `sharpnessMeasurable`, which is why it is a rule rather than an
+anecdote. Its mirror is worth naming in the same breath, because both surfaced
+in one round: **a condition with no writer** (§1.2's unreachable decline) and
+**a writer with no condition** (`hasMotionBlur` persisted with no note row).
+Neither is visible from the side you are standing on.
+
+**And the second unfalsifiable guard in two patches, so record the pattern
+rather than the instance.** `motionMeasurable`'s gyro-presence clause is
+implied by a non-empty window in every state reachable through the sample sink,
+exactly as `motionMeasured` was implied by a nonzero peak. Both were found by a
+runner reporting the clause-dropping mutant as surviving, and the response is
+the same: keep the clause, assert the **implication** across the state space,
+and construct the unreachable state directly. **Two instances in one service
+means the shape belongs to the design — a guard on a persisted claim costs an
+`&&`, and its absence is only ever discovered in an evidence artefact.**
+
 **A patch that deletes a field owes a sweep of the prose that names it.** The
 trailing-window fix removed `peakRotationRate`, and three passages named it:
 two in this section and one on the task #4 row, including the third

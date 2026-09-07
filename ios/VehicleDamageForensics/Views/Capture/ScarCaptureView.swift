@@ -764,7 +764,17 @@ struct ScarCaptureView: View {
                 // fifth note reports. Stated rather than inferred from
                 // `frameConfirmedClear`, which the 30-shot camera now also
                 // sets without measuring anything.
-                sharpnessMeasurable: true
+                sharpnessMeasurable: true,
+                // NOTE(Designer), 2026-09-07. Recorded, not inferred, and
+                // deliberately NOT hardcoded `true` the way
+                // `sharpnessMeasurable` is: this screen always measures
+                // sharpness on a delivered frame, but motion needs a gyro
+                // that EXISTS and a reading inside the trailing window.
+                // So the service answers per-photograph and this carries
+                // the answer. Without it `hasMotionBlur == false` cannot
+                // distinguish "measured, steady" from "never measured",
+                // and the report reads the first while the second is true.
+                motionMeasurable: camera.motionMeasurable
             )
             camera.resetAutoCaptureStreak()
             camera.stopSession()
