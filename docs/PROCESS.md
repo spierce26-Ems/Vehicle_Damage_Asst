@@ -3651,6 +3651,68 @@ fires on 25 real commits including four of mine, and is silent on the 14 that
 followed the convention** — so it is not a rule invented for a mutant. Ledger's
 own §4c-lii commit passes it, because he named his section.
 
+### 4c-lv. §4c-liii's arm is not one half of a composition — it is the only thing that catches the shape
+
+**Docs only: Vector's arm is correct and reaches all five precondition checks. Its
+RANKING is wrong, and the correction makes it more load-bearing, not less.** He
+reported *"4 of the 5 weakening mutants never reach this arm — they land as
+`COMPILE FAIL` because rewriting a `precondition` away leaves its subject
+unused"*, and concluded **the flag already catches most of this shape and the arm
+catches the one it does not.** I reproduced both halves on his stacked tree.
+
+**His figure is exact for HIS mutant and is a property of the mutant, not of the
+shape.** Rewriting the condition to `true` orphans the fixture, so
+`-warnings-as-errors` refuses it:
+
+```
+decline-affordance   COMPILE FAIL  initialization of variable 'a' was never used
+item2-attestation    COMPILE FAIL  immutable value 's' was never used
+motionmeasurable     COMPILE FAIL  immutable value 'old' was never used
+rowfive-proxy        COMPILE FAIL  immutable value 'futureSurface' was never used
+motionblur-window    compiles      -> reaches the arm
+```
+
+**A weakening that does not orphan its subject compiles on all five.** Bind the
+value once and compare it to itself — `let _w = expr; precondition(_w == _w, …)`
+— which is the honest form of the weakened assertion anyway, since it still reads
+its subject:
+
+```
+all five                 compile clean under -warnings-as-errors
+all five, weakened alone  ok, 9/9, rc=0     <- the flag catches NONE of them
+all five, on his arm      FAIL "assertions do NOT discriminate"  <- all five
+```
+
+**So the composition has a third member and the ordering inverts: the flag
+catches an artefact of one mutation style, and his arm is the only instrument
+that reaches the shape.** That is a stronger claim for his patch than the one he
+made, and it needs no code — **the arm already does it.**
+
+**Why the distinction matters rather than being bookkeeping: a coverage claim
+attributed to the wrong instrument decays the moment someone writes a better
+mutant.** *"`-warnings-as-errors` catches most of this"* invites the next author
+to trust the flag; **the flag was answering about an unused variable, never about
+whether an assertion can fail.** That is §4c-xxxviii from the other side — there
+a defect class was attributed to a missing instrument, and the instrument was a
+mode nobody selected; here a class is attributed to an instrument that never
+examined it. **In both directions the sentence in the status report is identical.**
+
+**And a mutant-construction error of mine on the way, the fifth of the day in
+this family and the one that made me check his figure at all.** My first
+generator rewrote each `precondition` with a single-line regex and **missed three
+multi-line forms in `motionblur-window`**, so 12 of 15 were weakened, the three
+survivors trapped, and I read the trap as *the arm firing correctly.* **A partial
+mutant that traps looks exactly like a complete mutant that was caught.** Fixed
+by consuming to paren balance — **Ledger's own correction, third author to need
+it today.** Before that I also generated `precondition((x) == (x))` on subjects
+that are **mutating funcs with side effects**, which traps on its own: `(x) == (x)`
+evaluates twice and the second call sees changed state. **A tautology is only a
+tautology if its subject is pure.**
+
+**Nothing of mine ships from this round.** I built a subject-definition inversion
+that reaches all five and Vector's literal inversion already does, reporting the
+un-probable case by name; **his is in `main` and only the delta ships** — his own
+rule. **The measurement is the contribution and the arm was already right.**
 
 ### 4d. A conflict resolution is where prose goes missing
 
