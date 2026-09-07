@@ -1888,9 +1888,32 @@ get a free pass:
   call site construct one: **by omission.** Any assertion set for a new field
   with a default needs at least one case that omits it.
 
-Both are the same error as an all-clear over a set no member can fail, aimed at
-the check instead of the artefact: **a check that cannot fail is not a check,
-and neither is a mutation that cannot change anything.**
+- **The mutant does not compile.** A third shape, found by mechanising the two
+  above rather than by reading them: a `sed` that produces invalid Swift makes
+  the run fail, and a failing run is exactly what a killed mutant looks like.
+  **A non-building mutant tests nothing** — it never reached the assertions.
+
+So the pass condition is narrower than "the mutant failed": a mutant must
+**differ**, then **build**, then **fail**. Three states, and the exit status
+collapses all three into one bit.
+
+The first two are the same error as an all-clear over a set no member can fail,
+aimed at the check instead of the artefact: **a check that cannot fail is not a
+check, and neither is a mutation that cannot change anything.**
+
+**These guards belong in the runner, not in a reviewer's attention.** Each is a
+rule about what to verify before believing a result — the kind that is followed
+while a technique is fresh and skipped once it feels routine, which is why
+`check_remedies` exists instead of a note asking authors to declare their
+remedy kinds. Both of today's instances were missed by people who had just
+written or just read the rule.
+
+A runner that enforces differ-then-build-then-fail can also prove its own first
+guard on every run, by carrying a deliberate **no-op canary**: a mutation whose
+pattern cannot match, which the runner must report *as* a no-op rather than as
+a pass. **A canary is the mutation-testing form of confirming that a reduced
+shape fails when the property under test is removed** — the check checked
+through itself rather than through the thing it wraps.
 
 **Naming an interaction correctly and mis-routing it is its own failure, and
 it is the one that keeps a defect open.** The row-five interaction was reported
