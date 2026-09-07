@@ -705,8 +705,11 @@ Six for six, caught by four readers, and by none of `preflight`,
 placement, not only wording** — reviewing the sentence is not reviewing the
 surface, and gating is invisible in the artefact under review.
 
-**The same class with a git ref as the surface, and it is one entry rather
-than three.** Inside this round: an advisory measured against a working tree
+**The general form, which is tighter than enumerating the surfaces: a claim
+names a subject, and the reader assumes the shared one.** Paywall, working
+tree, local branch, stale attachment — four surfaces, one substitution, and
+stating it this way covers the next one instead of waiting for it. Inside this
+round: an advisory measured against a working tree
 containing its author's own unlanded commit; a push reported for two days that
 had only ever been local, because the sandbox holds no write credential; a
 patch attached and described in detail that contained three unrelated landed
@@ -720,6 +723,13 @@ own diff. **And this is why the instrument worked on the other defects at all:
 they were caught because someone could fetch the artefact and re-run the
 claim.** The one nobody could have caught was the local push, whose subject
 was unreachable by construction.
+
+**A fourth instance closed the loop: a teammate tested an attachment twice
+after its replacement had already landed.** The subject was retrievable,
+correct, and *no longer current* — so "fetch the artefact" is not sufficient;
+the fetch has to be of the shared tip. `git log --oneline origin/main -6`
+before testing an attachment, and it is the same substitution as the other
+three.
 
 **Which makes "read it more carefully" the wrong remedy, and this is the
 operational form.** A reviewer looking at a mockup sees an element and a
