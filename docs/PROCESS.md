@@ -1007,6 +1007,28 @@ measure" is under-specified: **name which clone, because the flag that makes a
 clone cheap is also the flag that makes the guard fire.** A recipe that is
 correct where it was run and wrong where it is repeated is this section's own
 subject aimed at its own instructions.
+
+**A partly-implemented clause can read as compliance when its halves pull in
+opposite directions.** Spec §2.4 of the capture-notes work says two things: a
+score is never annotated or hedged, and the findings section carries a
+cross-reference to the appendix page. The cross-reference has zero references
+in Swift — so **the constraining half is satisfied and the informing half is
+missing, and the constraining half is satisfied *by* the omission.** A reviewer
+checking "is any score hedged?" gets a clean answer from a tree that never
+implemented the clause at all. **When a requirement both forbids and requires,
+check the requiring half first: the forbidding half cannot distinguish
+compliance from absence.**
+
+**And the checklist item written for it would have hidden it, in the worst way
+available.** "A factor whose inputs include a flagged photo shows the §2.4
+cross-reference" is walkable by a human on a device — who would find no
+cross-reference to look at and record either a pass or a defect in their own
+method. **That is worse than the unearned tick**, because a tick nobody acts on
+merely misinforms, while an item a human performs converts their effort into
+false evidence. An item must be falsifiable against the tree it will be walked
+on; when the mechanism it tests is absent, strike it with the reason and
+re-enable it in the diff that implements the mechanism — never leave it live and
+unpassable.
 **And a count of commits on a moving branch cannot be written down.** A row
 documenting the lapsed isolation guarantee recorded 99 Swift commits and
 measured 100 one commit later — the very failure the row exists to describe,
