@@ -549,7 +549,7 @@ decision rather than an oversight.
 - [ ] An audit event predating the actor field reads "not recorded".
 - [ ] No page prints a source-file hash.
 - [ ] A photo where the examiner was asked and declined (`frameConfirmedClear == false`) does render the note — confirming `nil` and `false` are not collapsed anywhere in the render path.
-- [ ] A factor whose inputs include a flagged photo shows the §2.4 cross-reference, and its numeric score is unchanged from the same analysis run without the appendix.
+- [ ] ~~A factor whose inputs include a flagged photo shows the §2.4 cross-reference, and its numeric score is unchanged from the same analysis run without the appendix.~~ **NOT IMPLEMENTED — do not walk this item, it cannot pass.** `408a247` built §1, §2.1, §2.2 and §2.3 in full and verbatim, and did not build §2.4: *"See Capture Conditions in the evidence appendix."* has zero references in Swift, and `drawFactorBreakdown` renders `f.notes` and nothing else. **A checklist line for a clause nobody built would have been walked, found no cross-reference to look at, and read as a pass — or as a defect in the tester's method.** That is this document's own subject one artefact over. Re-enable it in the same diff that implements §2.4; the requirement stands.
 - [ ] Search the rendered PDF text for: likely, probably, consistent with, suggests, indicates, match confirmed — zero hits in the Capture Conditions section.
 
 ---
