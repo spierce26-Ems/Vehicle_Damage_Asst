@@ -1219,12 +1219,33 @@ property on an `ObservableObject`, ask what its inputs are published as, not
 whether the property compiles.** `var x: Bool { a && b }` is correct,
 observable, or neither, and the type says nothing about which.
 `measuredNotSharp` and `measuredNotCloseEnough` read `sharpnessSatisfied` and
-`framingMeasured`, **neither of which is `@Published`**, so a `body` reading
-either computed property would not be invalidated when its inputs change.
-Harmless only because the sole readers today are two imperative call sites in
-`performCapture(auto:)` — **the moment either is surfaced as a chip or a review
-badge, the input has to become `@Published` or the UI silently will not
-refresh.** A stale view with no error anywhere is the same failure family as an
+`framingMeasured`, **neither of which is `@Published`** — so the input that
+carries the "measured" half of each claim is unobserved, and the fix when
+either is surfaced is to publish it.
+
+**But neither property is simply unobservable, and the difference changes what
+a test would find: they are half-published.** `measuredNotSharp` is
+`sharpnessScore != nil && !sharpnessSatisfied` and `sharpnessScore` **is**
+`@Published`; `measuredNotCloseEnough` is `framingMeasured && !isCloseEnough`
+and `isCloseEnough` **is** `@Published`. So a `body` reading either one *is*
+invalidated — just not on every transition that changes the answer. **And today
+it would refresh on all of them, for a reason that is an accident of the write
+sites rather than a property of the code**: `sharpnessScore` is reassigned on
+the same two lines that set `sharpnessSatisfied`, and `isCloseEnough` in the
+same block that sets `framingMeasured`, so the published sibling fires on every
+frame the private half can move. **The observation is correct by co-assignment,
+not by design.** Guard either published write with an equality check, hoist it
+out of that branch, or add a path that sets only the private half, and the
+refresh stops with nothing in the type, the tests, or the diff to say so.
+
+**That is the harder shape to catch, and it is why "would not be invalidated"
+is the wrong thing to write down.** A view that never refreshes is uniformly
+wrong and gets reported on first use; a view whose observation depends on which
+line happens to write a sibling is right until the transition nobody tried.
+Harmless today only because the sole readers are two imperative call sites in
+`performCapture(auto:)`, neither inside any `body`. **Publish the whole input
+set or none of it — a partially observed conjunction is the shape that survives
+testing.** A stale view with no error anywhere is the same failure family as an
 absence asserting the clean case: nothing is wrong, nothing is reported, and
 the reader draws the wrong conclusion. Verified as a two-instance class rather
 than assumed — the only other computed-from-unpublished pair in the tree is
