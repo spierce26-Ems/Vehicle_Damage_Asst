@@ -510,6 +510,26 @@ def check_shapecheck_anchors():
     an unanchored shape check reports a property of its own file while its
     name says it reports one about the app, and today it did so through a
     clear run in front of three reviewers.
+
+    NOTE(Tech Lead), 2026-09-07, third clause. AN ANCHOR THAT RESOLVES
+    INSIDE A COMMENT IS THE PROSE DEFECT THIS CHECK WAS BUILT TO CLOSE,
+    ARRIVING THROUGH THE CHECK ITSELF. Measured on the stacked tree: regress
+    the real selector in `PDFReportGenerator` to v1 AND add a one-line
+    history comment quoting the old predicate -- entirely natural in the
+    same commit, since documenting what changed is what a careful author
+    does -- and `substring in file_text` resolves against the COMMENT. All
+    fourteen anchors hold, `--strict` returns 0, `run.sh` is 8/8, and the
+    renderer is regressed. Done inside an existing comment line rather than
+    on a new one it costs no line-count advisory either, so the manifest
+    figures do not flinch.
+
+    The mechanism is exactly the one three paragraphs up: a check names its
+    subject in prose and prose does not fail. `hay` was the whole file, so
+    the anchor never asked WHERE the line lives. So: an anchor must resolve
+    on at least one line that is not a comment. Still a grep -- it cannot
+    see a string literal, a `#if`, or dead code, and the strong version is
+    still sec.4's compile -- but the ONE failure mode it removes is the one
+    that repairs itself with a sentence about the code it broke.
     """
     d = os.path.join(REPO, "scripts", "shapechecks")
     if not os.path.isdir(d):
@@ -517,7 +537,7 @@ def check_shapecheck_anchors():
     checks = sorted(n for n in os.listdir(d) if n.endswith(".shapecheck"))
     if not checks:
         return
-    missing, broken = [], []
+    missing, broken, prose = [], [], []
     for name in checks:
         text = open(os.path.join(d, name), encoding="utf-8").read()
         anchors = re.findall(r"^//\s*anchor:\s*(\S+)\s+(.+?)\s*$",
@@ -530,9 +550,18 @@ def check_shapecheck_anchors():
             if not os.path.exists(target):
                 broken.append(f"{name} -> {rel} (no such file)")
                 continue
-            hay = open(target, encoding="utf-8").read()
-            if needle not in hay:
+            hits = [ln for ln in open(target, encoding="utf-8")
+                    .read().splitlines() if needle in ln]
+            if not hits:
                 broken.append(f"{name} -> {rel} (`{needle[:60]}` absent)")
+                continue
+            # An anchor is a claim about CODE. A line that resolves only
+            # inside a comment resolves against prose about the code -- and
+            # prose does not fail, which is the defect the anchors were
+            # added to close, arriving one hop further in.
+            if all(ln.strip().startswith("//") for ln in hits):
+                prose.append(f"{name} -> {rel} (`{needle[:60]}` resolves "
+                             f"only in a comment)")
     if missing:
         # remedy: fixes
         fail("shapecheck-anchors",
@@ -554,6 +583,17 @@ def check_shapecheck_anchors():
              "and either update the model and its anchor together, or fix "
              "the code the model says is correct -- never the anchor alone, "
              "which converts a real alarm into a silent one")
+    if prose:
+        # remedy: fixes
+        fail("shapecheck-anchors",
+             f"{len(prose)} shape-check anchor(s) resolve only inside a "
+             f"comment: {'; '.join(prose)}",
+             "the anchored text survives as PROSE ABOUT the code while the "
+             "code itself changed -- a regression plus a history note "
+             "restores the anchor and the check goes green. Re-point the "
+             "anchor at the executable line, or if the code is genuinely "
+             "gone, delete the model rather than anchoring it to its own "
+             "obituary")
 
 
 def check_shapechecks_run():

@@ -1625,6 +1625,54 @@ that a clean `preflight --strict` is not read as covering it. **The reason it
 goes in writing now is that the anchors are the strongest instrument layer we
 have ever had, and that is precisely when a limit stops being obvious.**
 
+### 4c-xx. An anchor that resolves inside a comment is the prose defect arriving through the fix for it
+
+**Measured on the fully stacked tree, and it is one `if` from being the worst
+kind of finding: `check_shapecheck_anchors` searched the whole FILE for its
+substring, so an anchor could resolve against a COMMENT.** Regress the real
+selector in `PDFReportGenerator` to v1 *and* add one clause to an existing
+comment line quoting the old predicate — which is what a careful author does
+when changing a non-obvious line — and:
+
+```
+preflight --all --strict  ->  clear, rc=0
+run.sh                    ->  8/8, rc=0
+manifest                  ->  unchanged (the note went inside an existing line)
+```
+
+**All fourteen anchors held while the renderer was regressed, and the thing
+that held them was a sentence describing the regression.** §4c-xix's limit is a
+defect the anchors cannot see; this one is a defect that **repairs the anchor
+that would have caught it**. The mechanism is §4c-xviii's, three paragraphs up
+in the check's own docstring: *a check names its subject in prose and prose
+does not fail* — arriving inside the instrument written to close it, because
+`substring in file_text` never asks WHERE the line lives.
+
+**Built, blocking, in the same check:** an anchor must resolve on at least one
+line that is not a comment. Four mutants, every rc read bare from a file:
+
+- selector regressed **plus** history comment → `1 blocking`, rc=1, named as
+  *resolves only in a comment* (the finding itself)
+- that clause deleted from `preflight`, tree defect kept → rc=0, no `clear`
+  only because of an unrelated line-count advisory — **the canary; the pass is
+  not vacuous**
+- selector regressed with no comment → rc=1, still the pre-existing *absent*
+  diagnosis (the two arms are distinct, not one collapsed message)
+- an anchor authored against a comment line from the start → rc=1, caught
+  before it ever protects anything
+
+**Still a grep.** It cannot see a string literal, a `#if`, dead code, or
+§4c-xix's negated ternary; §4's compile is still owed. The one failure mode it
+removes is the one that **self-heals**, and that is why it was worth a blocking
+clause: every other anchor break gets louder over time, while this one gets
+quieter each time somebody documents the change that caused it.
+
+**The general form, and it is the day's shape at its shortest: A CHECK THAT
+READS A FILE AS TEXT CANNOT DISTINGUISH THE CODE FROM THE COMMENTARY ABOUT THE
+CODE — so any grep-strength instrument inherits the prose-does-not-fail defect
+it was built to close.** Ask it of every text-matching guard in this repo, not
+only of anchors.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
