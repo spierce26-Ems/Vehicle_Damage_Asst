@@ -162,6 +162,53 @@ for f in *.shapecheck; do
   # available as a signal and was being read as the clean case. Same shape
   # as sec.4c-xxii: this runner is the artefact that decides what `9/9` means,
   # and `9/9` counted a check that said nothing.
+  # AND THE COMPARATOR MUST DISCRIMINATE, which none of the arms above ask.
+  # sec.4c-xlvi, closing the boundary I stated as owed under sec.4c-xliv:
+  # weaken an assertion's PREDICATE rather than disabling it -- `if got ==
+  # want` to `if got == got` in the check's own helper -- and every assertion
+  # still runs, every one is reported, the verdict is verdict-shaped, no site
+  # is commented, and `0 failing assertion(s).` is TRUE. Measured on all four
+  # helper-style checks at 77aaa44: `0 failing`, `ok`, 9/9, rc=0. The arms
+  # above establish that the assertions RAN; this one is the only thing that
+  # establishes they can FAIL, and a check that cannot fail is not a check.
+  #
+  # Mechanised as a self-mutation, not a text rule: INVERT the check's own
+  # comparator, re-run, and require the mutant to report failures. That is
+  # the third fixed reference the Designer's sec.4c-xliv correction asks for
+  # -- both sides of a live-versus-reported comparison move with the mutated
+  # text, and a run of the INVERTED subject does not.
+  #
+  # The recognised forms are exact rather than substrings, so a weakened
+  # comparator is not silently accepted as "no comparator here": an
+  # unrecognised helper is its own finding. Precondition-style checks are NOT
+  # covered -- a weakened `precondition(x == x)` passes this too -- and that
+  # is stated rather than implied, because five of the nine are that shape.
+  if grep -q 'func expect(' "$f"; then
+    cmp_ok=0
+    for pair in 'if got == want:if got != want' 'if cond {:if !cond {'; do
+      have=${pair%%:*}; want_inv=${pair#*:}
+      if grep -qF "    $have" "$f" || grep -qF "  $have" "$f"; then
+        cmp_ok=1
+        sed "0,/$(printf '%s' "$have" | sed 's/[][\/.*^$]/\\&/g')/s//$(printf '%s' "$want_inv" | sed 's/[\/&]/\\&/g')/" \
+          "$f" > "$tmp/m.swift"
+        if ! "$SWIFTC" -O "$tmp/m.swift" -o "$tmp/m" >"$tmp/merr" 2>&1; then
+          echo "FAIL          $f -- comparator mutant does not COMPILE; a mutant that fails to compile grades the parser, not the check"
+          fail=$((fail+1)); continue 2
+        fi
+        mout=$("$tmp/m" 2>&1); mrc=$?
+        if [ "$mrc" -eq 0 ] && ! printf '%s\n' "$mout" | grep -qE 'FAIL|[1-9][0-9]* failing assertion'; then
+          echo "FAIL          $f -- comparator does NOT discriminate: inverted, it still reports \"$(printf '%s\n' "$mout" | tail -1)\""
+          fail=$((fail+1)); continue 2
+        fi
+        break
+      fi
+    done
+    if [ "$cmp_ok" -eq 0 ]; then
+      echo "FAIL          $f -- has a expect() helper with no RECOGNISED comparator, so a WEAKENED predicate is caught here rather than by the mutant run -- restore an exact recognised form or add the new one to the table above"
+      fail=$((fail+1)); continue
+    fi
+  fi
+
   if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q 'FAIL'; then
     echo "FAIL          $f -- $last"; fail=$((fail+1))
   else

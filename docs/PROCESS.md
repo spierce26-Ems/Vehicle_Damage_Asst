@@ -3188,6 +3188,68 @@ clear this.** The heading is the evidence that a splice was attempted, and
 removing it hides the drop instead of repairing it — the same direction as
 renumbering a stranded section to fit where it landed.
 
+### 4c-xlviii. The comparator, and the arm that establishes a check CAN fail
+
+**Numbered xlvi. I stated this case as an owed boundary under §4c-xliv rather
+than shipping a clean run over it, and the Tech Lead and Ledger both carried it
+forward as owed — this closes it. Placed inside the §4c run, per the Designer's
+§4c-xliv arm, which caught Ledger's own first placement in the same round.**
+
+Six arms now stand between a shape check and a passing line: it must compile
+(§4c-xxxviii), the last line must be verdict-shaped, a trap is reported as a
+trap (Designer/Ledger, §4c-xliii/xlv), the assertions must have run and none
+may be commented out (§4c-xliv). **Every one of them asks whether the
+assertions RAN. None asks whether they can FAIL.** Measured on landed
+`77aaa44`, one substitution in a check's own helper — `if got == want` to
+`if got == got`, line-neutral:
+
+```
+compiles under -warnings-as-errors    yes
+every assertion runs and is reported  8 of 8
+verdict is verdict-shaped             `0 failing assertion(s).`
+no site commented out                 correct
+run.sh                                ok, 9/9, rc=0
+```
+
+**And `0 failing assertion(s).` is TRUE.** Nothing in the tree is lying; the
+comparator simply cannot distinguish its two inputs. **All four helper-style
+checks — `allclear-variant-selector`, `decoder-roundtrip`, and both
+`filtered-headline` — pass identically under it.** §4c-xxv's own sentence, in
+the instruments: *a check that cannot fail is not a check*, and the six arms
+above are collectively satisfiable by one.
+
+**Built as a self-mutation rather than a text rule, and that is the Designer's
+correction of my §4c-xliv applied to my own next patch.** She generalised it
+better than I stated it: **any check comparing two values derived from the same
+mutated text needs a third fixed reference.** So the runner INVERTS each
+check's own comparator, recompiles, re-runs, and **requires the mutant to
+report failures.** A run of the inverted subject is that third reference — it
+does not move when the subject's text moves. Measured: inverted, the four
+helper checks report 9, 8, 17 and 21 failing assertions respectively.
+
+**Two arms, and the second is the one that matters.** The recognised comparator
+forms are matched **exactly**, and a `func expect(` helper with no recognised
+form is **its own finding** — because a weakened comparator is precisely a
+comparator the table does not recognise, and *"no comparator here, nothing to
+mutate"* is how this arm would otherwise pass over the defect it exists for.
+That is the free half: the weakened form is caught by the recognition arm
+before the mutation is even attempted.
+
+**Two errors of my own inside it, both from this file's own rules.** My first
+version's diagnostic contained a backtick-quoted identifier inside a
+double-quoted shell string, so **command substitution ate the message and the
+finding printed with a hole in it** — my own emitted-text rule, fourth time
+today, and the mutant is what showed it. And the cond-style mutant
+(`if cond {` → `if true {`) is caught as a **`COMPILE FAIL`** rather than by
+the comparator arm, because the unused parameter fails
+`-warnings-as-errors`: **a correct refusal on the wrong channel, which the
+exit code alone would have hidden.** Both graded on their named row, never rc.
+
+**Boundary, stated rather than implied, because five of the nine checks are the
+other shape:** `precondition`-style checks are **not** covered — a weakened
+`precondition(x == x)` passes this arm too. They have no comparator to name, so
+the mutation has no fixed target, and I would rather record that than widen the
+table until it matches something.
 
 ### 4d. A conflict resolution is where prose goes missing
 
