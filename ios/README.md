@@ -1795,15 +1795,30 @@ known trade-off, not a silent gap. A future upgrade path without a full backend 
     A reader of a printed or emailed report cannot scroll for the string's own graded consequence
     and cannot be corrected afterwards, so a wrong frame there is the only one of the three that
     is unrecoverable.
-  - [ ] **The PDF callout fits the longest string.** Render all three paths, including the
-    combined-rule case (the longest, ~715 characters). The box grows to its content and nothing
+  - [ ] **The PDF callout fits the longest string.** Render all three paths, and note which one is
+    longest: it is the **LiDAR-inconclusive** string. Measured from the format templates in
+    `evaluateExclusionRule` they are **249, 470 and 235 characters** — standalone rule-out, LiDAR
+    inconclusive, combined rule — before the measured heights and the reciprocity delta are
+    substituted in, which adds a few more to each. So the LiDAR path is the worst case at about
+    six lines of 11pt text, and **the combined-rule string is the shortest of the three.** The box grows to its content and nothing
     overlaps the `Status:` line below it. The box is measured, not a literal height — a clipped
-    exclusion is a missing one, and the PDF's reader cannot scroll. **The item above audits the
+    exclusion is a missing one, and the PDF's reader cannot scroll. **The worst case is therefore
+    the path that denies an exclusion** — the one whose text an investigator most needs in full,
+    since a clipped *"re-measure both heights with a tape measure"* leaves a red-free box that
+    still reads as a finding. **The item above audits the
     frame's colour and heading; this one audits its size.** After `1114687` the callout was
     neutral, correctly headed, and still clipping every path: the styling half of the audit
     transferred to the PDF and the fitting half did not, because the PDF has no Dynamic Type and so
     looked to need no fitting check. What it has instead is three strings of very different
     lengths — the same exposure by a different mechanism. Fixed in `91c9d1c`.
+  - [ ] **The disclaimer box on the same page fits its text**, by the same check and for a
+    stronger reason. `drawDisclaimerBox` uses a literal `height: 130` with its body at +32 for
+    `MatchResult.disclaimerText` — about 474 characters, roughly six lines at 10pt. It fits, with
+    little margin, and **nothing measures it.** This is the one piece of report copy whose
+    truncation is a liability rather than an inconvenience: it is what stops the document reading
+    as a certified forensic identification. **Treat a near-miss as the same defect as an overrun**,
+    re-measure whenever that text is edited, and note that the text is inside the copy lock — a
+    frame that cannot fit it is a layout defect and never a licence to shorten it.
   - [ ] **Negative case**: a case with **no** exclusion. No card renders at all — not an empty one,
     not a "no exclusion found" one. An absence must not assert anything.
   - [ ] **Not unlocked**: the pointer line *"The per-factor evidence behind this finding is part of
