@@ -151,6 +151,31 @@ finding rather than recording it.
 turns a recorded decline into a **deferral**, which is `nil`'s meaning and must
 stay unreachable from a button.
 
+**And a lock-mechanics finding from that repair, recorded because it is this
+lock's own weak point rather than that screen's: all three attestation strings
+are duplicated across the two cameras as six separate literals** —
+`confirm.arm` at `CaptureCameraView:413` and `ScarCaptureView:545`, and each
+answer twice more. **There is no single source for any of them, so the lock
+protects three strings and the tree contains six copies.** Nothing is wrong
+today; they agree byte-for-byte, verified. **But "the locked string is correct"
+is a claim about six places and a reviewer opens one**, and a future edit that
+corrects one camera leaves the other saying something the ledger does not
+record — the drift is invisible from either side, because each file reads
+correct on its own.
+
+**This is one level up from the styling defect and the same shape**
+(`docs/PROCESS.md` §5b): the symmetry was held per screen and maintained
+between screens by coincidence, and so is the copy. **The audit that catches
+it is mechanical, not a read: grep each locked literal and count the sites,
+then compare the count to the number the lock thinks it is protecting.** A
+count of one where the tree has two is exactly the disguise §4.1 was extended
+three times to close — a string escaping through a channel the enumeration had
+not named, here a second call site rather than a second artefact.
+
+**Not refactored here** — a shared constant is a `Views/` change with its own
+diff, and the duplication is currently correct. Recorded as the condition
+under which it stops being correct, which is any edit to one camera's row.
+
 **The general rule: never infer a defect from a field's absence.**
 
 ### 1.2 No code path can record a decline, so row two cannot fire
