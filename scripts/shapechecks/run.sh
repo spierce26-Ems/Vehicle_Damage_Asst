@@ -64,6 +64,40 @@ for f in *.shapecheck; do
     echo "FAIL          $f -- produced NO output; an empty verdict is not a pass"
     fail=$((fail+1)); continue
   fi
+  # sec.4c-xliii (Designer), Ledger's owed `rc >= 128` arm. A check that
+  # COMPILES and then TRAPS prints a Swift runtime backtrace whose final
+  # line is the BACKTRACER'S STOPWATCH, so `tail -1` reported
+  # `FAIL  zz-crash.shapecheck -- Backtrace took 0.00s`. Reproduced here
+  # with an out-of-range subscript: rc=132, signal 4. The refusal is
+  # correct -- `fail` increments, rc=1, nothing is laundered -- and the one
+  # line a reader takes away is meaningless. NEITHER existing arm reaches
+  # it: `-warnings-as-errors` cannot, because the file compiles, and the
+  # empty-verdict arm cannot, because the output is enormous. Third
+  # instance of "the diagnostic is right and the channel a caller reads is
+  # not", inside the artefact that decides what `9/9` means.
+  #
+  # Two channels in this order, because a trap and a failed assertion are
+  # different findings and one verdict line must not flatten them:
+  #   rc >= 128  died on a SIGNAL. `128 + N` is the shell's own encoding,
+  #              so this is not a heuristic. Report the trap AS a trap and
+  #              name the signal; never quote a line from the dump.
+  #   otherwise  prefer the check's own last VERDICT-SHAPED line to the
+  #              literal last line, so a check that prints diagnostics
+  #              after its verdict still reports the verdict.
+  # Ledger's ranking kept: between "said nothing" and "said the wrong
+  # thing", the empty arm caught the first and this catches the second.
+  if [ "$rc" -ge 128 ]; then
+    echo "TRAP          $f -- died on signal $((rc - 128)) (rc=$rc) after" \
+         "compiling; a backtrace's last line is the backtracer's own" \
+         "timing, not a verdict"
+    printf '%s\n' "$out" | grep -E 'Fatal error|error:|Crash' | head -3 \
+      | sed 's/^/    /'
+    fail=$((fail+1)); continue
+  fi
+  verdict=$(printf '%s\n' "$out" \
+            | grep -E 'failing assertion|all shape assertions hold|FAIL' \
+            | tail -1)
+  [ -n "$verdict" ] && last="$verdict"
   if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q 'FAIL'; then
     echo "FAIL          $f -- $last"; fail=$((fail+1))
   else

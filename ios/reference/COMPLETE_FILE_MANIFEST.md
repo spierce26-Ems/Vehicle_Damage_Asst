@@ -118,7 +118,7 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 1673 |
 | `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 753 |
-| `docs/PROCESS.md` | 4431 |
+| `docs/PROCESS.md` | 4508 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1913 |
@@ -155,7 +155,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/build_pbxproj.py` | 143 |
 | `scripts/gen_pbxproj_ids.py` | 18 |
 | `scripts/pbxproj_skeleton.txt` | 312 |
-| `scripts/preflight.py` | 4154 |
+| `scripts/preflight.py` | 4196 |
 | `scripts/check_doc_drift.py` | 555 |
 | `scripts/regen_manifest.py` | 144 |
 | `scripts/check_remedies.py` | 311 |
@@ -170,7 +170,7 @@ Original brief and specs, plus `forensic_analyzer.py` / `enhanced_forensic_analy
 | `scripts/shapechecks/motionmeasurable.shapecheck` | 124 |
 | `scripts/shapechecks/rowfive-proxy.shapecheck` | 91 |
 | `scripts/shapechecks/allclear-variant-selector.shapecheck` | 139 |
-| `scripts/shapechecks/run.sh` | 102 |
+| `scripts/shapechecks/run.sh` | 136 |
 
 ## Repo root
 

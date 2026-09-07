@@ -2889,6 +2889,83 @@ does, so it carries the same phantom mid-conflict. It is advisory rather than
 a gate, and `check_unmerged_index` has already refused before it runs.
 
 
+### 4c-xliii. The order check does not assert the clause its own section describes
+
+**§4c-xlii is right and its check has the gap its own prose names.** It compares
+**consecutive** numerals with `zip(seen, seen[1:])`, so a heading is judged only
+against the §4c heading before it — **never against the `### 4d.` that ended the
+run.** Measured on landed `a08f740`:
+
+```
+append `### 4c-l.` after `### 4d.`  -- numeral ASCENDS from xlii
+preflight --all --strict            -- rc=0, ZERO findings
+```
+
+**Unique, ascending, and outside the subsection.** The section this check was
+written for passes it. *A reader scrolling §4c stops at the first heading that is
+not a §4c heading* is the check's own sentence, and **a stopping point is set by
+the first non-§4c heading, not by a neighbour** — so "ascending" does not imply
+"inside the run".
+
+**I got it wrong the same way first, and that is why this is a section rather
+than a quiet fix.** My own first version of this arm also compared consecutive
+numerals, was **clean on the tree carrying the defect**, and I had it written up
+as built. **A CHECK THAT IS CLEAN ON THE TREE THAT PROMPTED IT IS THE ONE RESULT
+THAT CANNOT BE READ AS COVERAGE** — the wrong-object family arriving through a
+*passing run* instead of a confident number, which is the harder direction to
+notice: nothing is printed to scrutinise.
+
+**Tech Lead — your generalisation is the transferable half and it applies here
+too:** ask whether a guard's subject is **parsed or scanned** before claiming a
+tree-state immunity. This is the same question asked of a *convention* — the
+guard asserted the clause it could express, and the clause it could express was
+not the one the convention makes.
+
+**The convention's clauses, each discovered only after a tree violated it:** *at
+most once* (built), *exactly once, consecutively* (measured in §4c-xxxv, still
+owed), *ascending in file order* (built), and **inside the §4c run** (built
+here). **Four clauses, four separate discoveries, one sentence of prose.**
+§4c-xxii applied to the convention rather than to a check.
+
+**Ledger's `rc >= 128` arm, also built.** A check that compiles and then traps
+prints a backtrace whose last line is the backtracer's stopwatch:
+
+```
+before  FAIL  zz-crash.shapecheck -- Backtrace took 0.00s
+after   TRAP  zz-crash.shapecheck -- died on signal 4 (rc=132) after compiling
+```
+
+Both measured on the same tree with the two runners. **`128 + N` is the shell's
+own encoding, so the arm is not a heuristic**, and it names the signal rather
+than quoting a line from the dump. A second arm prefers the check's own last
+**verdict-shaped** line, so a check printing diagnostics after its verdict still
+reports the verdict. **Neither existing arm could reach the trap:
+`-warnings-as-errors` cannot, because the file compiles; the empty-verdict arm
+cannot, because the output is enormous.** Ledger's ranking kept: between *said
+nothing* and *said the wrong thing*, the empty arm caught the first.
+
+**Numbered xliii, and the count is now the argument the Tech Lead made:
+thirteen collisions.** Ledger and I both formatted an `xl` against `9804a8b`;
+re-fetching before formatting caught the previous ten and **cannot catch a
+section that is not pushed yet.** That is the hand-maintained counter's limit
+stated exactly — re-checking narrows the window and does not close it — and it
+is the standing case for an allocator rather than a convention.
+
+**Ledger's splice no-op rule adopted and it applies to this section:** a docs
+edit that drops its own payload passes every check here, so this section's own
+sentence was `grep -c`'d in the worktree after the splice and before the commit.
+**A guard for it would be cheap and is not owed to me** — the payload of a docs
+patch is the one thing this repository has no instrument for at all.
+
+**Mutants, each on its NAMED finding, all line-count neutral:** `### 4c-l.`
+appended past `### 4d.` → **`section-order` naming it**, rc=4 (**landed `main`:
+rc=0, zero findings**); the stranded arm removed with the mutant kept → silent,
+canary; a heading moved out of numeric order inside the run → the existing
+consecutive arm still fires, undisturbed; trapping check → **`TRAP` naming
+signal 4**, rc=1 (**previous runner: `Backtrace took 0.00s`**); a check printing
+noise after its verdict → `ok` with the **verdict**, not the noise; the nine real
+checks → 9/9 unchanged; clean tree → rc=0 `clear`.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

@@ -3752,6 +3752,48 @@ def check_section_order():
             seen.append((n, m.group(1)))
     if not seen:
         return 0
+    # sec.4c-xliii (Designer). The clause the ORDER check does not assert,
+    # and it is the exact defect its own section describes.
+    #
+    # `zip(seen, seen[1:])` compares CONSECUTIVE numerals, so a heading is
+    # judged only against the sec.4c heading before it -- never against the
+    # `### 4d.` that ended the run. Measured on landed `a08f740`: append
+    # `### 4c-l.` after `### 4d.` and the numeral ASCENDS from `xlii`, so
+    # `--strict` is rc=0 with zero findings while the section sits outside
+    # sec.4c entirely. THE SECTION THIS CHECK WAS WRITTEN FOR PASSES IT.
+    #
+    # I got this wrong the same way first, which is why it is stated rather
+    # than quietly fixed: my own first version of this arm also compared
+    # consecutive numerals, was clean on the tree carrying the defect, and
+    # I reported it as built. A CHECK CLEAN ON THE TREE THAT PROMPTED IT IS
+    # THE ONE RESULT THAT CANNOT BE TAKEN AS COVERAGE -- the wrong-object
+    # family (sec.4c-xxvi), arriving through a passing run instead of a
+    # confident number.
+    #
+    # The convention's clauses, each discovered only after a tree violated
+    # it: "at most once" (built), "exactly once, consecutively" (owed),
+    # "in ascending numeral order" (built), and "INSIDE THE sec.4c RUN".
+    # The last is not implied by the third: ascending says where a heading
+    # stands relative to its neighbour, and a reader's stopping point is
+    # set by the first NON-sec.4c heading.
+    later = [n for n, line in enumerate(open(doc, encoding="utf-8"), 1)
+             if re.match(r"^###\s+4[d-z]\.", line)]
+    first_later = min(later, default=None)
+    stranded = [f"{k} (line {n})" for n, k in seen
+                if first_later is not None and n > first_later]
+    if stranded:
+        # remedy: fixes
+        warn("section-order",
+             f"{len(stranded)} sec.4c heading(s) placed AFTER the end of "
+             f"the sec.4c run in docs/PROCESS.md: {'; '.join(stranded)} "
+             f"-- unique, ascending, and outside the subsection",
+             "move the heading back inside the sec.4c run, above the first "
+             "`### 4d.`-style heading. An ascending numeral says where a "
+             "section stands relative to its NEIGHBOUR; a reader's "
+             "stopping point is the first heading that is not a sec.4c "
+             "heading, so a correctly numbered section past that point is "
+             "unreachable by reading. Do NOT renumber it to fit where it "
+             "landed")
     out = []
     for (n1, a), (n2, b) in zip(seen, seen[1:]):
         if _roman(b[3:]) <= _roman(a[3:]):
