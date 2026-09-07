@@ -633,15 +633,46 @@ is §1.2 unbuilt on the surface §1.2 was written for.**
    *window*: a photograph is blurred by movement **during the exposure**, not
    by movement at the instant the gate last recomputed, and `isSteady` at the
    moment of capture says nothing about the half-second before it. So the
-   service records `peakRotationRate` over the window since arming —
-   arming, not session start, because a peak from while the examiner was
-   walking up to the vehicle is not a fact about the photograph — and
-   `measuredMotionBlur` is `motionMeasured && peak >= rotationRateThreshold`.
-   Same threshold as the gate on purpose: a looser one would let the report
-   contradict the gate about the same frames. `motionMeasured` is `false` on
-   a device with no gyro, where `startMotionUpdates` sets `isSteady = true`
-   rather than block capture on an unreadable signal — right for a gate, and
-   a lie as a finding.
+   service records a rolling buffer of gyro readings and takes the peak over
+   a **trailing** `autoCaptureHoldSeconds` window **ending at the shutter**.
+
+   *(Corrected in place, 2026-09-07, Vector. The first version opened the
+   window at `armAutoCapture()`. The argument for a window was right; the
+   boundary was wrong, and the difference is invisible on the path the
+   argument was reasoned about. The manual shutter is never disabled on gate
+   state (§2.4, deliberately — it is the half of the hard-block decision that
+   makes it shippable), so a manual capture can occur with `armAutoCapture()`
+   never called, and the walk-up peak is then reported as a fact about the
+   photograph. Worse, `resetAutoCaptureStreak()` disarms after **every**
+   capture without clearing the peak, so a second manual shot inherits the
+   first shot's peak. Both were verified by construction on a reduced shape
+   that runs: with the window opened at arming, an unarmed manual capture and
+   a second manual capture both report blur that was measured before the
+   frame existed. A window opened by a control cannot bind a path that skips
+   the control; a trailing window needs no control to open it.)*
+
+   `measuredMotionBlur` is `motionMeasured && peak-in-window >=
+   rotationRateThreshold`. Same threshold as the gate on purpose: a looser
+   one would let the report contradict the gate about the same frames.
+   `motionMeasured` is `false` on a device with no gyro, where
+   `startMotionUpdates` sets `isSteady = true` rather than block capture on
+   an unreadable signal — right for a gate, and a lie as a finding.
+
+   **`motionMeasurable` is a separate field and not a duplicate of
+   `motionMeasured`.** The latter answers "did this device's gyro ever
+   report"; the former answers "was motion measured for **this**
+   photograph" — false when readings went stale before the shutter, because
+   wall-clock advances with no callback and **silence is not steadiness**.
+   Same distinction `sharpnessMeasurable` records one field over.
+
+   The rolling buffer's prune and the read-time window filter look redundant
+   and are not: the prune bounds memory (30 Hz for a session's life grows
+   without bound), the filter decides correctness, and staleness is only
+   detectable at read time. A mutation run over the reduced shape killed each
+   one only through the assertion the other cannot satisfy — including a
+   *stale high* reading, which the first version of that assertion set missed
+   because it used an under-threshold value and so passed for the wrong
+   reason.
 
    **`isTooClose` has no measurement and cannot get one from this signal
    set.** The fill gate measures edge-energy *concentration*, which rises

@@ -1090,6 +1090,48 @@ landing it: the remaining written counts (`42 tracked Swift files`, `all 43
 remedy sites`, `Totals:`) are **reports at a commit, checked by tooling that
 recomputes them**, and none of them scopes a rule. **A count under a check that
 recomputes it is safe; a count in prose that authorises something is not.**
+### 4c-vii. A boundary enforced at a control does not bind the paths that skip it
+
+`hasMotionBlur` was rewritten to be written from a measured window rather than
+a live gate, and the argument for the window was exactly right: a photograph is
+blurred by movement during the exposure, so a peak from while the examiner
+walked up to the vehicle is not a fact about the photograph. The window was
+then opened at `armAutoCapture()` — which is a control, not a moment. The
+manual shutter is deliberately never disabled on gate state (Item 2 §2.4, the
+half of the hard-block decision that makes it shippable), so a manual capture
+reaches `performCapture` with `armAutoCapture()` never called; and
+`resetAutoCaptureStreak()` disarms after **every** capture without clearing the
+peak, so a second manual shot inherits the first shot's. On both paths the flag
+reported motion measured before the frame existed — **the same over-claim the
+rewrite existed to remove, reintroduced by the mechanism of the fix.**
+
+**When a rule is about an interval, enforce it with an interval.** A boundary
+opened by a control binds only the paths that run the control, and the paths
+that skip it are precisely the ones nobody reasons about while writing the
+control. A trailing window ending at the event needs nothing to open it, so
+there is no path that can skip opening it.
+
+The general form, and it is the one to carry: **a correct argument constrains
+what the fix must achieve, not where the fix may be installed.** Reviewing the
+argument is not reviewing the installation, and here the argument was quoted in
+three documents while the installation was wrong in two paths. Verify the
+mechanism against the paths, not against the reason.
+
+Two smaller findings from the same repair, both worth keeping:
+
+- **Two guards that look redundant may each be load-bearing for a different
+  property.** The rolling buffer's prune bounds memory; the read-time window
+  filter decides correctness. Wall-clock advances with no gyro callback, so
+  staleness is only detectable at read time; the filter alone frees nothing.
+  A mutation run killed each only through the assertion the other cannot
+  satisfy — so "these two do the same thing" would have deleted a real guard.
+- **An assertion can pass for the wrong reason and still kill nothing.** The
+  first stale-reading assertion used an under-threshold magnitude, so it held
+  whether or not the window filter existed, and the mutant that deleted the
+  filter survived it. A stale **high** reading was the case that discriminates.
+  Choose assertion inputs that can only pass because of the thing under test —
+  the set-membership form of §5's never-let-an-absence-assert rule.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

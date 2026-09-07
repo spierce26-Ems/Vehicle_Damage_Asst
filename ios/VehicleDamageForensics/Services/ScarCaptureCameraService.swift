@@ -197,8 +197,25 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     /// an unreadable signal. That is right for a gate and would be a lie
     /// as a finding: "no motion blur" and "motion was never measured"
     /// are different claims, and only the second is true there.
+    /// NOTE(Vector), 2026-09-07. The window is a TRAILING INTERVAL ending
+    /// at the shutter, not an interval opened by `armAutoCapture()`.
+    ///
+    /// Opening it at arming was right about WHY the window exists and
+    /// wrong about WHERE it starts, and the difference only shows on the
+    /// path arming does not run on. The manual shutter is never disabled
+    /// on gate state (`ScarCaptureView`, Item 2 sec.2.4 -- "the half of
+    /// Sean's hard-block decision that makes it safe to ship"), so a
+    /// manual capture can happen with `armAutoCapture()` never called;
+    /// and `resetAutoCaptureStreak()` disarms after every capture without
+    /// clearing the peak, so a second manual shot inherits the first
+    /// shot's peak. In both cases the walk-up peak is reported as a fact
+    /// about the photograph -- the exact over-claim `hasMotionBlur` was
+    /// rewritten to stop.
+    ///
+    /// A trailing window needs no control to open it, so it cannot be
+    /// bypassed by a path that skips one.
     private(set) var motionMeasured: Bool = false
-    private(set) var peakRotationRate: Double = 0
+    private var motionSamples: [(at: Date, magnitude: Double)] = []
 
     /// True only when motion WAS measured and the peak over the capture
     /// window exceeded the steadiness threshold.
@@ -208,7 +225,33 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
     /// it was not still at some point in the window the shutter fired
     /// in. Using a looser threshold here would let the report contradict
     /// the gate about the same frames.
-    var measuredMotionBlur: Bool { motionMeasured && peakRotationRate >= rotationRateThreshold }
+    /// Peak over the `autoCaptureHoldSeconds` window ENDING NOW, which is
+    /// the interval the shutter fires in on both paths.
+    ///
+    /// Requires a reading inside that window, not merely one at some
+    /// point in the session: `motionMeasured` answers "did this device's
+    /// gyro ever report", `motionMeasurable` answers "was motion measured
+    /// for THIS photograph". Silence is not steadiness -- if the gyro
+    /// stopped delivering, the honest value is "not measured", the same
+    /// distinction `sharpnessMeasurable` records one field over.
+    var measuredMotionBlur: Bool {
+        guard motionMeasured,
+              let peak = motionSamples
+                .filter({ sm in Date().timeIntervalSince(sm.at) <= autoCaptureHoldSeconds })
+                .map({ sm in sm.magnitude })
+                .max()
+        else { return false }
+        return peak >= rotationRateThreshold
+    }
+
+    /// Whether motion was measured for this photograph at all. False on a
+    /// device with no gyro AND when readings went stale before the shutter.
+    var motionMeasurable: Bool {
+        guard motionMeasured,
+              motionSamples.contains(where: { sm in Date().timeIntervalSince(sm.at) <= autoCaptureHoldSeconds })
+        else { return false }
+        return true
+    }
 
     // MARK: Private AVFoundation state
 
@@ -410,7 +453,16 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
             // stays true -- it answers "did the gyro ever report", not
             // "is it reporting now".
             self.motionMeasured = true
-            self.peakRotationRate = max(self.peakRotationRate, magnitude)
+            self.motionSamples.append((at: Date(), magnitude: magnitude))
+            // Two separate jobs, deliberately NOT merged. This prune bounds
+            // MEMORY (30 Hz for a session's life grows without bound); the
+            // read-time filter in `measuredMotionBlur` decides CORRECTNESS.
+            // They look redundant and are not: wall-clock advances with no
+            // callback, so staleness is only detectable at read time, and
+            // the filter alone never frees anything. A mutation run killed
+            // each only via the assertion the other cannot satisfy.
+            let cutoff = self.autoCaptureHoldSeconds
+            self.motionSamples.removeAll { sm in Date().timeIntervalSince(sm.at) > cutoff }
             self.updateGoodStreak()
         }
     }
@@ -466,13 +518,12 @@ final class ScarCaptureCameraService: NSObject, ObservableObject {
         lastNotGoodTime = Date()
         hasFiredAutoCaptureForCurrentGoodStreak = false
         autoCaptureProgress = 0
-        // NOTE(Designer), 2026-09-07. The motion-blur window OPENS here,
-        // not at session start: arming is the point from which the shot
-        // is being taken, and a peak from while the examiner was still
-        // walking up to the vehicle is not a fact about the photograph.
-        // `motionMeasured` is NOT reset -- whether the gyro reports at
-        // all is a property of the device, not of the window.
-        peakRotationRate = 0
+        // NOTE(Vector), 2026-09-07. Nothing motion-related happens here
+        // any more. The Designer's argument for the window was right --
+        // a peak from while the examiner walked up is not a fact about
+        // the photograph -- but arming is the wrong boundary to enforce
+        // it at, because the manual path never reaches this method. The
+        // window is now trailing; see `measuredMotionBlur`.
     }
 
     // MARK: Photo capture

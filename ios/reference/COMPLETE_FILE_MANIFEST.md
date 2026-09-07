@@ -8,7 +8,7 @@ This file supersedes the earlier manifest, which described a one-off AI-session
 workspace of PDFs/JSON/markdown artifacts that are NOT in this repository. If a
 file is not listed below, it is not in the repo.
 
-Totals: 75 tracked files, of which 42 Swift sources (21573 lines).
+Totals: 75 tracked files, of which 42 Swift sources (21624 lines).
 
 ## iOS app — Xcode project
 
@@ -72,7 +72,7 @@ Changing any field here is a persistence-format change: keep it additive/optiona
 | `ios/VehicleDamageForensics/Services/LiDARService.swift` | 316 |
 | `ios/VehicleDamageForensics/Services/PDFReportGenerator.swift` | 1403 |
 | `ios/VehicleDamageForensics/Services/PurchaseManager.swift` | 283 |
-| `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 685 |
+| `ios/VehicleDamageForensics/Services/ScarCaptureCameraService.swift` | 736 |
 | `ios/VehicleDamageForensics/Services/StorageService.swift` | 225 |
 
 ## Utilities — pure-function analysis algorithms
@@ -117,8 +117,8 @@ Hand-rolled pixel/statistics math; validated against the Python reference in `io
 | File | Lines |
 |---|---:|
 | `docs/EVIDENCE_APPENDIX_CAPTURE_NOTES.md` | 1010 |
-| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 722 |
-| `docs/PROCESS.md` | 2254 |
+| `docs/ITEM2_NORULER_FOCUSGATE_UX_SPEC.md` | 753 |
+| `docs/PROCESS.md` | 2296 |
 | `HANDOFF_SUMMARY.md` | 320 |
 | `README.md` | 21 |
 | `ios/README.md` | 1913 |
