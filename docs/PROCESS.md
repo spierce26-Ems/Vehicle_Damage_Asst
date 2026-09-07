@@ -1233,6 +1233,78 @@ was mutation-tested by replacing the motion note's string and confirming it
 names that row: **a check written to catch a defect must be shown to fail on
 it**, or it joins the class it closes.
 
+### 4c-xi. A check scoped to the shape of its first instance reads as covering the class
+
+`check_note_rows_implemented` compared the §2.2 note TABLE against the
+renderer. §2.3's all-clear variants are BLOCK QUOTES, so with
+`allclear.partial` specified and unrendered `preflight --all` reported clear
+and silent. **A row with no branch and a VARIANT with no branch are the same
+defect in two markdown shapes.**
+
+I scoped it to a table because a table was the instance in hand, and the
+population is every locked string the renderer is supposed to emit — so the
+check committed the error §2.3 is itself about: **it answered a question about
+a member and read as an answer about the set.** Rule: **name and scope a check
+by the population, not by the artefact the defect turned up in.** This is
+§4.1's three-times-widened lock scope arriving at a check.
+
+**The widening is not a verbatim match, and this is the Tech Lead's caution
+rather than a detail.** A locked TEMPLATE (`NN%`, `M of N`) and a locked
+SENTENCE are different artefacts, so a naive sweep over "every locked string"
+produces false absences. And **the widened check has to land WITH the doc
+marking specified-not-built rows**, or immediate advisories normalise the
+clear run it exists to protect. §2.3's held variant is therefore *declared* in
+the check, so **an intentional hold reads as a hold and not as an oversight** —
+lifting the declaration without building the branch is caught.
+
+**Two bugs on the way in, both producing a WRONG reading rather than no
+reading.** The blockquote parser flushed on the loop's tail instead of at the
+first non-quote line, concatenating both variants into one string that matched
+nothing — so **the check blamed the variant that IS rendered**, sending a
+reader to correct working code. And renderer literals wrap across source
+lines, so a naive substring test reports a present string as absent; the
+comparison collapses whitespace on both sides.
+
+### 4c-xii. Count how much of the population carries the default
+
+Found by the Designer against a selector I wrote, and it is the sharpest
+instance of §4c-vii on this board. §2.3's owed selector was
+`captureConditionPhotos(in:).contains { !$0.motionMeasurable }`.
+`motionMeasurable` is written on exactly ONE path
+(`ScarCaptureView.performCapture`); `false` is the struct default; and
+`CameraService`'s single `CapturedPhoto(...)` call passes it **not at all**
+while constructing every protocol analysis shot. **So the predicate is true on
+every real report, the qualified all-clear becomes the only reachable variant,
+and the plain sentence is dead on arrival — the always-firing qualification the
+lock forbids, arriving through the SELECTOR instead of the wording.**
+
+**The reusable half is the sentence that was already there.** The section said
+`motionMeasurable` "defaults `false` everywhere else" as *reassurance* that the
+trigger reads the persisted model rather than a gate. **The same words say the
+trigger is true for almost every photograph in the app. Same sentence,
+opposite conclusion — and the reassuring reading is the one a reviewer reaches
+for.** A population statement wearing a safety note's clothes.
+
+So: **before a default-valued field becomes a predicate, count how much of the
+population carries the default.** Stated mechanically as
+`check_default_valued_predicates`, which reports a persisted `Bool` defaulted
+`false` and negated inside a set predicate unless every initialiser call site
+passes it. Mutation-verified by reintroducing the declined selector.
+
+**And the narrow fix is the proxy §1.1 removed:** `&& $0.sharpnessMeasurable`
+works only because that flag happens to mark the one measuring screen — *two
+fields agreeing today is not one field meaning the other*, which is what put
+four notes per vehicle in row five. The honest repair is a per-path capability
+field, the way `motionMeasurable` replaced `frameConfirmedClear != nil`.
+
+**Scope, so a clear run is not read as stronger.** The check compares
+INITIALISER CALL SITES against the field, catching "one writer, many
+defaults". It cannot tell whether a path that *does* pass the field passes a
+correct value. **A row with no branch is now detectable; a branch with the
+wrong condition is what this closes; a branch with a subtly wrong VALUE
+remains invisible to every check here** — and the filtered-`headlineDisplay`
+divergence is exactly that third kind.
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

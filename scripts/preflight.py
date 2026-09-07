@@ -390,6 +390,84 @@ def check_docs_owed(files):
              "the code")
 
 
+def check_default_valued_predicates():
+    """A field defaulted `false` and predicated on may select nothing.
+
+    # remedy: fixes
+
+    NOTE(Vector), 2026-09-07. Found by the Designer against a selector I had
+    written. sec.2.3's owed selector was
+    `captureConditionPhotos(in:).contains { !$0.motionMeasurable }`, and
+    `motionMeasurable` is written on exactly ONE path
+    (`ScarCaptureView.performCapture`) while `false` is the struct default.
+    `PhotoType.requiredCaptureProtocol` contributes four analysis shots per
+    vehicle through `CameraService`, whose `CapturedPhoto(...)` call passes no
+    `motionMeasurable` at all -- so the predicate is true on every real
+    report, the qualified all-clear becomes the ONLY reachable variant, and
+    the plain sentence goes dead. THE ALWAYS-FIRING QUALIFICATION THE LOCK
+    FORBIDS, ARRIVING THROUGH THE SELECTOR INSTEAD OF THE WORDING.
+
+    The reusable half is that the section already said "defaults `false`
+    everywhere else" as REASSURANCE that the trigger reads the persisted model
+    rather than a gate. The same words say the trigger is true for almost
+    every photograph in the app. Same sentence, opposite conclusion, and the
+    reassuring reading is the one a reviewer reaches for.
+
+    So: before a default-valued field becomes a predicate, count how much of
+    the population carries the default. This check states that mechanically --
+    a persisted `Bool` defaulted `false` on a model, negated inside a
+    `contains`/`filter`/`first(where:)`, is reported unless every initialiser
+    call site passes it.
+
+    Scope, so a clear run is not read as stronger: it compares INITIALISER
+    CALL SITES against the field, which catches "one writer, many defaults".
+    It cannot tell whether a path that DOES pass the field passes a correct
+    value, and it says nothing about a field whose default is the intended
+    reading for most of the population. A row with no branch is now
+    detectable; a branch with the wrong condition is what this closes; a
+    branch with a subtly wrong VALUE remains invisible to every check here.
+    """
+    model = os.path.join(REPO, "ios", "VehicleDamageForensics", "Models",
+                         "CapturedPhoto.swift")
+    if not os.path.exists(model):
+        return
+    text = open(model).read()
+    fields = set(re.findall(r"^\s*var (\w+): Bool = false", text, re.M))
+    if not fields:
+        return
+    swift = [f for f in tracked_swift() if f.endswith(".swift")]
+    for field in sorted(fields):
+        negated = []
+        writers = 0
+        inits = 0
+        for f in swift:
+            try:
+                body = open(os.path.join(REPO, f)).read()
+            except OSError:
+                continue
+            if re.search(r"(contains|filter|first\(where:|allSatisfy)"
+                         r"[^\n]*!\s*\$0\." + field, body):
+                negated.append(f)
+            if re.search(r"^\s*" + field + r":\s", body, re.M):
+                writers += 1
+            inits += len(re.findall(r"CapturedPhoto\(\s*$", body, re.M))
+        if not negated:
+            continue
+        if writers < inits:
+            # remedy: fixes
+            warn("default-predicate",
+                 f"`{field}` defaults false, is negated in a set predicate "
+                 f"({', '.join(os.path.basename(n) for n in negated)}), and "
+                 f"{inits - writers} of {inits} CapturedPhoto initialiser "
+                 f"call sites pass no value for it",
+                 "count how much of the population carries the DEFAULT before "
+                 "predicating on the field: a predicate true for almost every "
+                 "photograph selects the qualified branch always, which is the "
+                 "always-firing note in a new channel. Either pass the field "
+                 "from every capture path, or use a per-path capability field "
+                 "-- never a second flag that happens to agree today")
+
+
 def check_note_rows_implemented():
     """Every note row the appendix SPECIFIES must exist in the renderer.
 
@@ -460,14 +538,70 @@ def check_note_rows_implemented():
              "a check that examines nothing cannot fail -- verify the table's "
              "shape rather than trusting this check's silence")
         return
+    # sec.2.3's all-clear variants are BLOCKQUOTES, not table rows, and the
+    # same defect lives there. Ledger found this by taking the docstring's
+    # stated scope literally and asking what else it does not reach.
+    #
+    # NOTE(Vector), 2026-09-07. This widening is the check failing its own
+    # rule on its first reuse: it was scoped to "the note table" because a
+    # note table was the instance in hand, and the population is every locked
+    # string the renderer is supposed to emit. A CHECK SCOPED TO THE SHAPE OF
+    # ITS FIRST INSTANCE COVERS THAT INSTANCE AND READS AS COVERING THE CLASS.
+    #
+    # A variant that is locked and deliberately NOT emitted is declared in the
+    # table below rather than reported, so an intentional hold reads as a hold
+    # and not as an oversight. sec.2.3's `allclear.partial` is held on the
+    # Designer's finding: its owed selector is true on every real report, so
+    # emitting it would make the qualified form the only reachable variant --
+    # the always-firing qualification the lock forbids, arriving through the
+    # selector instead of the wording.
+    HELD_UNEMITTED = {
+        "All analysis photographs met the app's capture-quality checks that "
+        "could be run at the time of capture. Camera movement was not "
+        "measured for every photograph.",
+    }
+    variants = []
+    buf = []
+    in_23 = False
+    for l in lines:
+        if l.startswith("### 2.3"):
+            in_23 = True
+            continue
+        if not in_23:
+            continue
+        if l.startswith("### "):
+            break
+        if l.startswith("> "):
+            buf.append(l[2:].strip())
+        elif buf:
+            # A blockquote ENDS at the first non-quote line. Flushing on the
+            # loop's tail instead concatenated both variants into one string
+            # that matched nothing, and the check then BLAMED THE VARIANT
+            # THAT IS RENDERED -- a check naming the wrong member sends a
+            # reader to correct working code.
+            variants.append(" ".join(buf))
+            buf = []
+    if buf:
+        variants.append(" ".join(buf))
+    rows += [(f"sec.2.3 all-clear variant {i + 1}", v)
+             for i, v in enumerate(variants)
+             if " ".join(v.split()) not in
+             {" ".join(h.split()) for h in HELD_UNEMITTED}]
+
     text = open(gen).read()
-    missing = [(c, n) for c, n in rows if n not in text]
+    # Renderer literals wrap across source lines, so compare with whitespace
+    # collapsed -- a naive substring test reports a present string as absent.
+    flat = " ".join(text.split())
+    missing = [(c, n) for c, n in rows
+               if n not in text and " ".join(n.split()) not in flat]
     if missing:
         names = "; ".join(c for c, _ in missing)
         # remedy: fixes
         warn("note-rows",
-             f"sec.2.2 specifies {len(rows)} note rows; "
-             f"{len(missing)} have no string in PDFReportGenerator.swift ({names})",
+             f"the appendix specifies {len(rows)} rendered strings "
+             f"(sec.2.2 note rows + sec.2.3 all-clear variants, excluding "
+             f"any declared as held); {len(missing)} have no literal in "
+             f"PDFReportGenerator.swift ({names})",
              "add the row to captureNotes(for:) with the note copied VERBATIM "
              "from the table, guarded by the recorded flag and never by a live "
              "gate -- or, if the row is intentionally not implemented yet, say "
@@ -2335,6 +2469,7 @@ def main():
     check_manifest_drift()
     check_cited_doc_copy()
     check_note_rows_implemented()
+    check_default_valued_predicates()
     check_doc_drift()
     check_conflict_markers()
     check_cited_commits()
