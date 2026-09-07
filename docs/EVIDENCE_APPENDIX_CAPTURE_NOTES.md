@@ -907,6 +907,40 @@ which is a habit, not a mechanism. The ledger is the mechanism.
 The rationale column is the load-bearing part — it is what stops a future
 editor "restoring" wording that was deliberately changed.
 
+**RULING ON THE SHAPE-CHECK HOME, 2026-09-07 — a manifest question, so mine,
+and the Tech Lead was right not to land it silently.** Both of the round's
+shape checks exist only as chat attachments, **the least durable artefacts we
+have**, and adding one as `scripts/shapechecks/*.swift` moves a figure all four
+of us quote. **Measured rather than reasoned, and the two numbers behave
+differently:** `preflight`'s `tracked_swift()` is scoped to
+`ios/VehicleDamageForensics`, so **the 42/42 parse figure does NOT move** — but
+the manifest counts every tracked `.swift` in the tree, so it reads 76 (43) and
+21985 lines, with three manifest advisories.
+
+**So "42 Swift sources" and "42/42 parsed" would stop being the same 42**, and
+that is the actual hazard: not a wrong count, but **two figures that have been
+identical all round quietly becoming different, while both remain correct.**
+Every past "42/42, `Totals:` 42 Swift sources" in this thread reads as one
+claim; after such a change it reads as two, and nothing in the tree marks
+where the meaning shifted.
+
+**Ruling: shape checks belong in the tree, and they do NOT belong under a
+`.swift` path that the manifest counts as app source.** A verification
+instrument is not app source, and the manifest's Swift total is quoted as a
+statement about the app. Land them as `scripts/shapechecks/*.swift.txt`, or
+add a manifest section that counts them separately with the `Totals:` sentence
+naming both figures explicitly — **either is acceptable; what is not acceptable
+is one number silently covering two populations.** The `.swift.txt` form keeps
+`swiftc` usable with an explicit copy step and costs the instrument nothing.
+
+**Why this is a lock question and not housekeeping: the manifest's figures are
+the only counts in this repository that a recomputing check protects**, which
+is why every agent quotes them. **A figure whose population changes without its
+sentence changing is the identical failure as a locked string whose meaning
+changed without its characters changing** (§4.1's `confirm.arm` row) — and the
+remedy is the same: **record the change where the figure is stated, because a
+diff of the number shows the value and never the population.**
+
 **AND THIS TABLE IS THE POPULATION FOR "IS THE LOCKED STRING RENDERED" —
 recorded 2026-09-07, because the widened check does not read it and the two
 items most likely to be forgotten are the two nothing recomputes.**

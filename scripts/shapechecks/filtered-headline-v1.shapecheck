@@ -1,0 +1,137 @@
+// Shape check for the filtered-headline contradiction (Tech Lead's finding).
+//
+// Reduced shape. Encodes only what was read from the tree at bea84c0:
+//   - `headlineDisplay` built its verdict from `permutationPValue` /
+//     `isStatisticallySignificant`, which are the UNFILTERED figures, with no
+//     exclusion branch.
+//   - `filteredSummary` suppresses the verdict whenever exclusions exist.
+//   - the view coloured the headline by `isStatisticallySignificant`.
+//
+// Assertions are aimed at what the REPORT may conclude, not at the flag.
+
+struct Comparison {
+    var matchScorePercent: Double?
+    var permutationPValue: Double?
+    var nullTrialCount: Int?
+    var exclusionCount: Int
+
+    var isStatisticallySignificant: Bool? {
+        guard let p = permutationPValue else { return nil }
+        return p < 0.05
+    }
+
+    // BEFORE
+    var headlineOld: String? {
+        guard let score = matchScorePercent else { return nil }
+        guard permutationPValue != nil, nullTrialCount != nil else {
+            return "\(Int(score))% similarity — significance not testable"
+        }
+        let verdict = (isStatisticallySignificant == true) ? "above chance" : "NOT distinguishable from chance"
+        return "\(Int(score))% similarity — p, \(verdict)"
+    }
+    var colourOld: String {
+        switch isStatisticallySignificant {
+        case .some(true): return "green"
+        case .some(false): return "orange"
+        case .none: return "gray"
+        }
+    }
+
+    // AFTER
+    var hasExclusions: Bool { exclusionCount > 0 }
+    var reportableSignificance: Bool? {
+        guard !hasExclusions else { return nil }
+        return isStatisticallySignificant
+    }
+    var headlineNew: String? {
+        guard let score = matchScorePercent else { return nil }
+        guard !hasExclusions else {
+            return "\(Int(score))% similarity — Statistical significance is not established for a filtered subset. See the exclusion record in the appendix."
+        }
+        guard permutationPValue != nil, nullTrialCount != nil else {
+            return "\(Int(score))% similarity — significance not testable"
+        }
+        let verdict = (isStatisticallySignificant == true) ? "above chance" : "NOT distinguishable from chance"
+        return "\(Int(score))% similarity — p, \(verdict)"
+    }
+    var colourNew: String {
+        switch reportableSignificance {
+        case .some(true): return "green"
+        case .some(false): return "orange"
+        case .none: return "gray"
+        }
+    }
+
+    // filteredSummary's verdict line, unchanged in the tree.
+    var summarySuppresses: Bool { exclusionCount > 0 }
+}
+
+var failures = 0
+func expect(_ label: String, _ cond: Bool) {
+    if cond { print("  ok   \(label)") } else { print("  FAIL \(label)"); failures += 1 }
+}
+func asserts(_ h: String?) -> Bool {
+    guard let h else { return false }
+    return h.contains("above chance") && !h.contains("NOT")
+}
+
+// A filtered case whose UNFILTERED figures are significant: the exact shape
+// Prism measured as a false positive for the median unrelated pair.
+let filteredSignificant = Comparison(matchScorePercent: 83, permutationPValue: 0.01, nullTrialCount: 2000, exclusionCount: 2)
+let cleanSignificant    = Comparison(matchScorePercent: 83, permutationPValue: 0.01, nullTrialCount: 2000, exclusionCount: 0)
+let cleanInsignificant  = Comparison(matchScorePercent: 83, permutationPValue: 0.40, nullTrialCount: 2000, exclusionCount: 0)
+let untestable          = Comparison(matchScorePercent: 83, permutationPValue: nil, nullTrialCount: nil, exclusionCount: 0)
+let filteredUntestable  = Comparison(matchScorePercent: 83, permutationPValue: nil, nullTrialCount: nil, exclusionCount: 1)
+
+print("1. The defect reproduces on the old shape (the assertion must be able to fail).")
+expect("OLD headline asserts 'above chance' on a filtered case", asserts(filteredSignificant.headlineOld))
+expect("OLD colour is green on a filtered case", filteredSignificant.colourOld == "green")
+expect("...while filteredSummary suppresses the verdict on the same case",
+       filteredSignificant.summarySuppresses)
+
+print("\n2. The contradiction, stated as the report's own claim.")
+expect("OLD: headline asserts a verdict the summary says cannot be established",
+       asserts(filteredSignificant.headlineOld) && filteredSignificant.summarySuppresses)
+expect("NEW: no case both asserts a verdict and suppresses it",
+       !(asserts(filteredSignificant.headlineNew) && filteredSignificant.summarySuppresses))
+
+print("\n3. Suppression is STATED, not an absence (an omitted qualifier reads 'not yet computed').")
+expect("NEW filtered headline names the suppression",
+       filteredSignificant.headlineNew?.contains("Statistical significance is not established for a filtered subset") == true)
+expect("NEW filtered headline still carries the score",
+       filteredSignificant.headlineNew?.contains("83%") == true)
+expect("NEW filtered headline attaches no p-value to a filtered score",
+       filteredSignificant.headlineNew?.contains("p,") == false)
+
+print("\n4. Colour: nil, never false. 'No verdict establishable' is not 'tested and negative'.")
+expect("NEW filtered colour is neutral, not orange", filteredSignificant.colourNew == "gray")
+expect("NEW filtered colour is not green", filteredSignificant.colourNew != "green")
+
+print("\n5. The unfiltered paths are unchanged (a fix that also breaks the clean case is not a fix).")
+expect("clean significant still green", cleanSignificant.colourNew == "green" && cleanSignificant.colourOld == "green")
+expect("clean significant string unchanged", cleanSignificant.headlineNew == cleanSignificant.headlineOld)
+expect("clean insignificant string unchanged", cleanInsignificant.headlineNew == cleanInsignificant.headlineOld)
+expect("clean insignificant still orange", cleanInsignificant.colourNew == "orange")
+expect("untestable string unchanged", untestable.headlineNew == untestable.headlineOld)
+
+print("\n6. Filtered AND untestable: the exclusion branch must win, or two qualifiers collide.")
+expect("filtered+untestable reports the filtered suppression, not 'not testable'",
+       filteredUntestable.headlineNew?.contains("Statistical significance is not established for a filtered subset") == true)
+
+print("\n7. Total over the state space: no reachable case asserts a verdict while suppressing it.")
+var bad = 0
+for score in [nil, 83.0] as [Double?] {
+  for p in [nil, 0.01, 0.40] as [Double?] {
+    for trials in [nil, 2000] as [Int?] {
+      for ex in [0, 1, 2] {
+        let c = Comparison(matchScorePercent: score, permutationPValue: p, nullTrialCount: trials, exclusionCount: ex)
+        if asserts(c.headlineNew) && c.summarySuppresses { bad += 1 }
+        if c.colourNew == "green" && c.summarySuppresses { bad += 1 }
+      }
+    }
+  }
+}
+print("   contradicting states over 36 combinations: \(bad)")
+expect("no state asserts or colours a verdict that is suppressed below", bad == 0)
+
+print("\n\(failures) failing assertion(s).")

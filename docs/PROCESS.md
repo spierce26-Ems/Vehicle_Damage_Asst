@@ -2655,33 +2655,90 @@ drop the qualifier, never keep a bare number. A reader cannot see that a
 quantity was computed somewhere other than the sentence it sits in.
 
 **WHEN A FIX HAS TWO HALVES, MUTATE EACH HALF SEPARATELY AND REQUIRE EACH TO
-FAIL ASSERTIONS THE OTHER DOES NOT** (the Designer's rule, after the Tech Lead
-found her shape check measuring one defect twice). Reverting both guards failed
-7; reverting the **headline guard alone also failed 7**, because every colour
-failure was a subset of it through one shared totalising assertion. **So the
-colour assertions never discriminated, and the check would have passed a tree
-with only the colour guard removed — the exact state the hue defect lived in
-through three sign-offs.** Vector's "an assertion that cannot fail without the
-thing under test is not testing it", aimed at a PAIR of guards rather than one.
+FAIL ASSERTIONS THE OTHER DOES NOT.** The rule is sound and it is kept. **It
+has no exemplar in this repository, and the story it was nearly attached to is
+the more valuable record** — see below. Vector's form is the one-guard version:
+an assertion that cannot fail without the thing under test is not testing it.
 
-**The dangerous part is that the mutation run was REAL and the discrimination
-was not.** Mutations ran, a number came back, and two figures agreeing was read
-as coverage — **"mutation-verified" published off a matching pair of counts.**
-That is convergence-hides-failure inside the instrument: **a matching pair of
-test counts is a number that matches, not a number that agrees**, the same
-correction as three agents reconciling `Totals:` across different trees. **A
-defect in the instrument is the worst place to have one**, because everything
-downstream of it reports clear. Isolate a channel by holding the other channel
-CORRECT and asserting only the first — then the assertion can fail on one path
-and no other.
+**AN UNVERIFIED CORRECTION SPREADS FASTER THAN THE DEFECT IT NAMES, BECAUSE
+AGREEING WITH A SELF-CRITICISM FEELS SAFE.** A finding was raised that the
+Designer's filtered-headline shape check measured one defect twice: reverting
+both guards failed 7, reverting the headline guard alone also failed 7, so the
+colour assertions never discriminated. **Three of us endorsed it within four
+minutes. I wrote it into this section as fact. She rewrote a correct instrument
+on it. Nobody re-ran it.**
 
-**Independence verified by running it, not by accepting the claim** (`swiftc`
-is available here too, so a teammate's reduced shape check is a claim to
-falsify rather than a result to take): the colour guard alone now fires **4**
-colour-exclusive assertions, the headline guard alone fires **5**
-headline-exclusive ones, overlapping only on the shared total. **Two mutations
-whose failure sets differ is the evidence; two mutations whose counts match is
-the warning.**
+**It was false, and the check had been doing the thing it was accused of not
+doing.** Measured on the attached v1 by two of us independently: **colour guard
+alone fails 3 (two of them the named colour assertions), headline guard alone
+fails 5 with no colour assertion among them, both fail 7 — 3 + 5 − 1 shared
+totalising assertion = 7 exactly.** The failure sets were disjoint from the
+start.
+
+**The mechanism is worth more than the correction: both guards match the same
+text.** `reportableSignificance`'s `guard !hasExclusions else { return nil }`
+and the headline's `guard !hasExclusions else {` share a pattern, so a
+single-pattern edit removes **both** and reproduces the double-revert count.
+Confirmed here: a naive pattern-replace on the v1 file yields exactly that
+artefact. **A mutation applied by pattern rather than by location is not the
+mutation you named**, and its plausible-looking failure profile carries no
+diagnostic value.
+
+**So the round produced three nested versions of one shape, and the last is the
+one to keep.** A fix can be right while its reason is wrong. **A CORRECTION can
+be wrong while everyone's agreement makes it feel verified.** And the
+correction was the least-checked artefact in the exchange precisely because it
+was volunteered against its own author — **nobody re-runs a claim someone has
+made against themselves.** A self-criticism is an artefact like any other, and
+this thread has been saying all round that an artefact stating its own limits
+still needs its limits checked.
+
+**AND MY OWN "INDEPENDENT VERIFICATION" WAS THE WORST LINK IN THAT CHAIN, which
+is the part that indicts the process rather than any one of us.** I compiled and
+ran a shape check to test the independence claim and reported that it held — but
+I ran the **rewritten v2**, which the false correction had already induced.
+**The artefact under dispute was v1, and nothing in the chain touched it.**
+Everyone re-ran something; nobody re-ran the thing being corrected. **A
+verification that does not load the disputed artefact is a verification of
+agreement**, and it reads as strong evidence precisely because it involved
+compiling and running real code.
+
+**So the operational rule: when checking a correction, load the artefact AS IT
+WAS WHEN THE CLAIM WAS MADE.** Name the version in the claim and in the answer.
+A "verified independently" that silently moved to the corrected version confirms
+only that the correction is self-consistent — **which is exactly what a wrong
+correction also is.**
+
+**And the failure direction is inverted from everything else in this round,
+which is why it slipped past four readers** (the Tech Lead's, and it is the
+generalisable half): every other defect today made something **absent look
+fine** — an always-false flag, a row with no branch, an unreachable variant,
+a heading over nothing. **This one made something fine look absent, and it
+cost a working instrument.** A hunt tuned to one direction is blind to the
+other, and a correction is the one artefact whose failure runs backwards.
+
+**MUTATE ONE LINE BY NUMBER, AND ASSERT THE MUTANT DIFFERS FROM THE ORIGINAL IN
+EXACTLY ONE PLACE** (the Tech Lead's rule, and it makes the failure impossible
+rather than discouraged). **A pattern that matches twice is a double mutation
+wearing a single mutation's clothes** — and the count it produces is
+indistinguishable from a real double revert, which is why it survived four
+readers.
+
+**MUTATE THE GUARD, NEVER THE MODEL THE GUARD READS — and mutate BY LOCATION,
+never by pattern.** A second false measurement in the same exchange came from
+editing `exclusionCount > 0`, the fixture predicates, instead of the guards
+themselves: **mutating the fixture changes what "correct" means, so every count
+moves and nothing is isolated.**
+
+**Two mutations whose failure SETS differ is the evidence; two mutations whose
+COUNTS match is the warning** — and the denominator rule has its seventh
+instance inside the correction itself: **"7 and 7" supported the right
+conclusion, that the fix works, so nobody put pressure on it.**
+
+**The Designer's rewritten check is a genuine improvement and is kept on its
+merits, not as a repair.** Asserting the colour channel while holding the
+string correct, plus the cross-channel relation below, is strictly stronger
+than v1. **"Mutation-verified" was never the false claim.**
 
 **And a cross-channel relation is the assertion a string-only check cannot
 express:** *the loudest signal must not disagree with the words beside it.* Its
@@ -2689,6 +2746,25 @@ absence is what let a green headline through a review that read every word —
 the `confirm.no` glyph class, one channel out. **A check scoped to one channel
 cannot see a contradiction between channels**, so the relation has to be
 asserted directly rather than implied by both halves passing.
+
+**VERIFY A DIAGNOSTIC BY READING ITS EMITTED TEXT ON A MUTANT, NOT ITS SOURCE**
+(Vector's, from two edits to a warning string that silently no-oped). The check
+fired correctly while naming the old population and the wrong file — **a true
+alarm pointing at the wrong place, which is how a reader is sent to correct
+working code.** Same class as a check that names the wrong member: the signal
+is right and the address is not, which is the citation rule arriving inside an
+instrument.
+
+**A DECLARATION MECHANISM CONVERTS A SILENT OMISSION INTO A PROMPT, NOT INTO A
+DIAGNOSIS** — and this is the honest limit of the declared-hold design, stated
+by the agent who argued for it all round. A held declaration is a **copy**, so
+it goes stale in the dangerous direction: the copy stops matching, the row
+reports **owed**, and that reads as an oversight rather than a decision. There
+is a guard for staleness now. **But no guard distinguishes a STALE hold from an
+OBSOLETE one** — `attest.body` was held while owed, then built, so its
+declaration went obsolete rather than mismatched, and both states report
+identically. **The third defect kind again, one artefact out: the branch exists
+and its condition cannot tell two cases apart.**
 
 **A fix that removes an over-claim can create a LEGIBILITY hazard, and only
 one of the two is visible from inside the tree.** Labelling §6.1's headline
