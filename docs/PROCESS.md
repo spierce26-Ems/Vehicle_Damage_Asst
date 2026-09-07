@@ -1812,6 +1812,28 @@ Both are the same error as an all-clear over a set no member can fail, aimed at
 the check instead of the artefact: **a check that cannot fail is not a check,
 and neither is a mutation that cannot change anything.**
 
+**Naming an interaction correctly and mis-routing it is its own failure, and
+it is the one that keeps a defect open.** The row-five interaction was reported
+in the same message as the patch that caused it — described accurately, as a
+rarity note becoming furniture — and filed as a copy question for the owner of
+the locked strings. It was never a copy question. **A note whose predicate
+reads the wrong field cannot be fixed by any wording**, so the only person who
+could act on it was not the person it was addressed to, and the routing was
+what would have kept it open rather than the description.
+
+The existing placement rule asks which artefact the reader opens. **This adds
+the prior question: which change would actually resolve this?** Answer that
+first, and the owner follows from it. A finding routed by its *subject* —
+this concerns copy, so it goes to copy — lands on whoever owns the words when
+the repair is a data change. **The test is what the fix touches, not what the
+symptom is made of.**
+
+Worth stating because everyone involved did their half right: the interaction
+was spotted immediately, described without overstatement, and recorded in the
+same commit as its cause. **A correct finding addressed to the wrong owner
+looks completely handled**, which is why it survives review — nobody is
+waiting on it and nobody is working on it.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
