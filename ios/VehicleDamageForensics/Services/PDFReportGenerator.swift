@@ -347,10 +347,44 @@ struct PDFReportGenerator {
         return notes
     }
 
-    private func captureConditionNotesExist(in c: ForensicCase) -> Bool {
-        (c.victimVehicle.photos + (c.suspectVehicle?.photos ?? []))
+    /// Every photograph the Capture Conditions appendix considers, for both
+    /// vehicles.
+    ///
+    /// NOTE(AI Developer), 2026-09-07. `scarPhoto` is included and that is
+    /// the whole point of this helper existing. It lives in its own
+    /// `Vehicle.scarPhoto` field rather than in `photos` -- deliberately,
+    /// since it is independent of protocol progress and is overwritten on a
+    /// retake -- and it is the ONLY photograph in the app that ever carries
+    /// `gateOverridden`, `frameConfirmedClear`, `sharpnessScore`, or a
+    /// measured `isBlurry`/`isTooFar`. `ScarCaptureView` is the only site
+    /// that passes them; the 30-shot path and the library imports pass none
+    /// of them, and `CameraService.buildQualityFlags` sets exposure and roll
+    /// only.
+    ///
+    /// So a set built from `photos` alone contains no photograph that can
+    /// produce a note, `anyNotes` can never become true, and the page
+    /// unconditionally prints its sec.2.3 all-clear -- "All analysis
+    /// photographs met the app's capture-quality checks at the time of
+    /// capture" -- including on a case whose scar photo was taken through
+    /// the manual override with every gate failing. **An all-clear computed
+    /// over a set that excludes the only photograph that can fail is an
+    /// absence asserting the clean case** (PROCESS.md sec.5), and it asserts
+    /// it about the shot the analysis actually runs on.
+    ///
+    /// Both the renderer and `captureConditionNotesExist` call this, for the
+    /// same reason they both call `captureNotes(for:)`: two independent
+    /// answers to "which photographs does this page cover" would agree until
+    /// someone edited one, and the disagreement would be a cross-reference
+    /// pointing at a page that omits the photograph it was raised for.
+    private func captureConditionPhotos(in c: ForensicCase) -> [CapturedPhoto] {
+        let vehicles = [c.victimVehicle] + (c.suspectVehicle.map { [$0] } ?? [])
+        return vehicles
+            .flatMap { $0.photos + ($0.scarPhoto.map { [$0] } ?? []) }
             .filter { $0.photoType.isAnalysisShot }
-            .contains { !captureNotes(for: $0).isEmpty }
+    }
+
+    private func captureConditionNotesExist(in c: ForensicCase) -> Bool {
+        captureConditionPhotos(in: c).contains { !captureNotes(for: $0).isEmpty }
     }
 
     // NOTE(AI Developer), added 2026-07 per Sean's explicit request ("can
@@ -915,8 +949,7 @@ struct PDFReportGenerator {
     /// ruler is WANTED in a height-reference shot, so its frame was never
     /// meant to be clear and there is nothing to attest.
     private func drawCaptureConditions(ctx: UIGraphicsPDFRendererContext, rect: CGRect, case c: ForensicCase) {
-        let photos = (c.victimVehicle.photos + (c.suspectVehicle?.photos ?? []))
-            .filter { $0.photoType.isAnalysisShot }
+        let photos = captureConditionPhotos(in: c)
         guard !photos.isEmpty else { return }
 
         ctx.beginPage()
@@ -936,6 +969,12 @@ struct PDFReportGenerator {
             anyNotes = true
 
             if y > rect.height - 120 { ctx.beginPage(); y = 50 }
+            // `index + 1` is the position in THIS page's list, not
+            // `sequenceIndex`, and it was already so before `scarPhoto`
+            // joined the set -- stated because the scar photo has no
+            // protocol shot number to agree with, so a reader must not
+            // read this as one. Each vehicle's own photos keep their
+            // previous positions: the scar photo is appended after them.
             y += drawWrapping("\(photo.photoType.displayName) — photo \(index + 1)",
                               at: CGPoint(x: 50, y: y), font: .boldSystemFont(ofSize: 11),
                               maxWidth: rect.width - 100) + 4

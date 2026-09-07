@@ -158,6 +158,29 @@ nothing in this document able to catch it.
 Emit this rather than omitting the section. A silent section is
 indistinguishable from a section that was never generated.
 
+**The all-clear's precondition is the INPUT SET, not the note logic, and that
+is where it failed.** This sentence is only true if the set it was computed
+over contains every photograph that could have carried a note. The first
+implementation built the set from `Vehicle.photos` alone — and `scarPhoto`
+lives in its own field, is never appended to `photos`, and is the **only**
+photograph in the app that ever carries `gateOverridden`,
+`frameConfirmedClear`, `sharpnessScore`, or a measured `isBlurry`/`isTooFar`.
+Every photograph that *was* in the set comes from the 30-shot path or a
+library import, and none of those pass any of those fields. So no note could
+ever be produced, `anyNotes` could never become true, and this all-clear
+printed unconditionally — including on a case whose scar photo was captured
+through the manual override with every gate failing.
+
+**An all-clear computed over a set that excludes the only photograph that can
+fail is an absence asserting the clean case** (§5), and here it asserted it
+about the shot the analysis actually runs on.
+
+The rule, for this section and any other all-clear: **state the population,
+then the predicate.** An all-clear is a claim about a set, so the set is half
+the claim, and a reader cannot see the set from the sentence. §1's condition
+table is the predicate; the population is *every analysis shot on both
+vehicles, including each vehicle's `scarPhoto`*.
+
 ### 2.4 Cross-reference from the findings section
 
 Where a factor's score was computed from photographs that carry any note above,

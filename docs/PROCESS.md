@@ -1172,6 +1172,52 @@ measurement ran* — and if the answer is a claim, derive it from a
 rule where the type can express it.
 
 
+**An all-clear is a claim about a SET, so the set is half the claim — and the
+set is invisible in the sentence.** The Capture Conditions appendix emitted
+*"All analysis photographs met the app's capture-quality checks at the time of
+capture"* whenever no photograph in its input set carried a note. Every note
+condition was individually correct, `captureNotes(for:)` was correctly the
+single source of them, and the renderer and the cross-reference predicate
+correctly shared it. The input set was built from `Vehicle.photos` — and the
+scar photograph lives in `Vehicle.scarPhoto`, is never appended to `photos`,
+and is the *only* photograph in the app that can carry any of the note
+conditions. Every photograph that was in the set comes from a path that passes
+none of them.
+
+**So the all-clear was unfalsifiable: not "no problems found" but "no
+photograph capable of having a problem was examined"** — printed on a case
+whose scar photo may have been captured through the manual override with every
+gate failing. This is §5's absence-asserting-the-clean-case with the absence
+one level up from the fields: not a flag that is never written, but a
+*population* that excludes the only member that can fail.
+
+Why no review caught it: **every reviewable unit was correct.** The
+conditions, the shared predicate, the copy, the tri-state handling, the
+locked-word audit. The defect was in the one expression nobody reads as a
+claim — the collection the predicate is mapped over. **A filter reads as
+scoping, not as asserting.**
+
+The habits, both cheap:
+
+- **For any all-clear, aggregate, count or summary, state the population
+  before the predicate** — in the code, in the doc, and in the review. "All X
+  met Y" needs X written down somewhere a reader can check against the thing
+  that produces X.
+- **Ask which members of the population can actually fail the predicate, and
+  confirm at least one is in the set.** A predicate no member of the set can
+  trip is indistinguishable from a predicate that passes. Same discrimination
+  question as checking that a reduced-shape typecheck FAILS when the property
+  under test is removed, and as verifying a gate through the gate rather than
+  through the thing it wraps: **a check that cannot fail is not a check.**
+
+Storing one instance of a type outside the collection of that type is what
+makes this reachable, and it is worth flagging on sight. `scarPhoto` is
+correctly separate from `photos` — independent of protocol progress,
+overwritten on retake — so the answer is not to merge them but for every
+whole-case traversal to come from one helper that names both. **One traversal
+that forgets the outlier is a defect; the fix is that there is only one
+traversal.**
+
 ## 5. House rule: never let an absence assert something
 
 A missing value means "we do not know." It must never be rendered, decoded, or
