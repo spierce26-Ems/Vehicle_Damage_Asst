@@ -1765,6 +1765,33 @@ about**, and the correct figure is smaller, which does not weaken the finding:
 four notes per vehicle on every case is already a note that carries no
 information.
 
+**When a quantity has two plausible sources, the richer-looking one is the
+wrong one by default.** The interaction finding above shipped with a population
+figure of seven analysis shots per vehicle. It is four. Seven came from
+`CaptureProtocolStep.fullProtocol`, a 30-step **coaching-metadata lookup
+table**; the population is `PhotoType.requiredCaptureProtocol`, the 10-shot v1
+list that `CaptureViewModel.protocolShots` derives from. **The doc comment on
+the correct source exists precisely because that count was once duplicated
+inconsistently across three places** — so the tree already carried a warning
+against the mistake, attached to the very constant that answers it.
+
+Two independent errors produced one figure, and they are worth separating.
+**The first was reading a summarising comment instead of the array**: "ids 5, 6,
+7, 11-13, 21, 26" was miscounted as seven where it enumerates eight, which
+`grep -c` on the array settles in one command. **The second was choosing the
+wrong array**, and no amount of care counting the first one would have caught
+it. **A verified count of the wrong population is still wrong, and it looks
+more trustworthy for having been counted.**
+
+So: **name the source of every quantity you write down, in the same sentence as
+the quantity.** Not for provenance — because naming it is what surfaces the
+question of whether it is the right source, which counting never does. The
+general form of both halves: **derive a figure from the definition the code
+executes, not from prose about it** — a comment enumerating a list, a docstring
+summarising a range, and a table describing a schema are all representations,
+and this document has now been wrong three times in one day by trusting one
+where the executable definition was one line away.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
