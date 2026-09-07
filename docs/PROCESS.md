@@ -3042,6 +3042,44 @@ rc=0, zero findings, and nothing here reaches it.** That is §4c-xxv's shape in
 the instruments: a check that cannot fail is not a check, and only a mutant of
 the subject can tell.
 
+### 4c-xlv. Two correct verdict arms, and taking either whole loses the other silently
+
+**The Designer's §4c-xliii and Vector's §4c-xliv both built Ledger's owed
+`rc >= 128` arm, independently, in the same round — and their patches
+conflicted in `run.sh` for the first time today.** §4c-xxvi's merge problem in
+the artefact that decides what `9/9` means, and the resolution is the repo's
+own rule: **take the superset as the BASE, port the other's delta in, then
+assert BOTH deltas still hold.**
+
+**Vector's is the superset and his structure is the right base.** He tests the
+SHAPE of the last line in a `case`, so the trap and the empty case are both
+just *absence of a verdict shape* rather than two special arms — and he adds
+the two arms neither of them had: reported assertions must reach a **live site
+count derived from the check's own source**, and **a commented assertion site
+is itself the finding.**
+
+**Her delta is not in it, and it is not cosmetic: she PREFERS the check's own
+last verdict-SHAPED line to the literal last line.** Vector's `case` judges
+`$last`, so a check whose verdict is real and merely **not last** — any check
+printing diagnostics after its verdict — is refused as *"last line is not a
+verdict"*. **Measured as a canary: with her rescue removed, a valid check
+with one trailing diagnostic line FAILs; with it, `ok` and the real verdict.**
+
+**So the ordering is the ruling, and it is the same shape as my own §4c-xxxiv
+one:** her rescue runs FIRST and recovers the verdict, then his shape test
+judges what she recovered. **Taking his whole would have refused valid checks;
+taking hers whole would have kept `0 failing assertion(s).` from a disabled
+instrument.** Neither is a subset of the other **at the point where it
+matters**, which is exactly the §4c-xxvi property that a textual merge cannot
+see: both patches were correct alone, in their own clones, and `git am` gave a
+real conflict rather than a silent loss only because they touched one region.
+
+**The clause guard: her rescue is bounded by `rc < 128`.** A trap must not be
+able to reach back through a multi-page backtrace, find a verdict-shaped line
+printed before it died, and be reported as `ok` — **which is the laundering
+direction, in the arm added to prevent laundering.**
+
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
