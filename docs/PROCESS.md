@@ -1713,6 +1713,36 @@ had any passed, the assertion set would have been decorative. The limit is the
 same as before: a reduced shape says nothing about the file it was reduced
 from.
 
+**Two correct patches can produce a defect neither one contains, when one of
+them silently changes the POPULATION the other's guard reasoned about.** Every
+correction today fixed a claim that was wrong when written. This one was not:
+row five's guard, `sharpnessScore == nil && frameConfirmedClear != nil`, was a
+sound proxy for *"this photograph postdates the sharpness field"* — for exactly
+as long as the attestation only existed on the screen that measures sharpness.
+Building the attestation on the protocol camera made both halves permanently
+true there, and the scar-photo traversal fix is what first makes that page read
+those photographs at all, so **the regression arrived with the fix rather than
+after it.** A note written to mark the rare unmeasured photograph now fires on
+nearly every analysis shot of every case, and **a note that fires always
+carries no information — the reader stops reading it, including on the one
+photograph it was written for.**
+
+Neither patch is revertable and neither is wrong, which is what makes it worth
+a rule: **a guard that infers a fact from a coincidence is correct until the
+coincidence ends, and nothing in the guard says which fact it was standing in
+for.** So when a condition tests a proxy — a `nil` check standing for
+provenance, a field's presence standing for a code path, a count standing for a
+state — **write down the fact it is a proxy FOR, because the next patch to
+change the population will not see the inference.** The repair is a real test
+of that fact, never a rewording of the consequence: rewording keeps the proxy
+and moves the error somewhere harder to find.
+
+**And the review consequence: after landing two independent patches, re-derive
+any condition whose inputs either of them can now set.** Both were verified
+against the tip and applied clean; the interaction is invisible to `git am`,
+to the parse check, and to every per-patch review, because no single diff
+contains it.
+
 **A rule written here and a check written in code must agree, and when they
 drift the code wins silently.** Prose that overclaims is visible to anyone who
 reads it; a check scoped by a stale comment looks authoritative and is not.
