@@ -2842,6 +2842,53 @@ is the same discipline as ranking a dangling section reference below an
 ambiguous one rather than letting a clean run under a new flag read as
 coverage.
 
+### 4c-xlii. The convention's third clause, found on my own commit by both reviewers at once
+
+**Ledger's §4c-xli and the Designer's §4c-xl each name the same defect in my
+`9804a8b`, independently, in the same round: `check_no_duplicate_sections`
+reported zero duplicates and zero gaps while `### 4c-xxxix.` sat AFTER
+`### 4d.`.** I appended it before `## 5.` without reading what lay between.
+**Unique, in sequence by numeral, out of order in the document, `--strict`
+rc=0.**
+
+**A reader scrolling §4c reaches the conflict-resolution subsection and stops
+before two of the day's sections.** That is the entire cost and it is enough:
+the section exists, is correctly numbered, and **is not where its number says
+it is** — the citation family again, one axis over from an ambiguous address.
+
+**A NUMERAL SEQUENCE AND A DOCUMENT ORDER ARE DIFFERENT CLAIMS, AND THE GUARD
+ASSERTED ONLY THE FIRST.** This is the **third clause of one convention to be
+discovered separately**: "at most once" (built, §4c-xxxi), "exactly once,
+consecutively" (measured in §4c-xxxv, still unbuilt), and now **"in order"**.
+Each was found only after a tree violated it, which is §4c-xxii's standing
+lesson applied to the convention rather than to a check: **nothing re-derives
+a claim written as prose, including the claim about what the claim is.**
+
+**Built, `warn`, and the severity is the honest part.** Nothing resolves to the
+wrong section and nothing reads as correct that is not — the defect is that a
+reader stops early. **Blocking on a placement convention would refuse a commit
+over a scroll position.** Ledger's third state — *runs, reports, changes
+nothing* — is the real risk here and it is stated rather than ranked away: this
+lands in a line an author reads at commit time, beside a remedy naming the
+heading to move.
+
+**The remedy names the direction on purpose: move the heading to its numeric
+position, do NOT renumber it to match where it landed.** Renumbering satisfies
+the check and leaves the document unchanged — the Designer's rule about
+refusing the fix that satisfies a guard by loosening it, in the remedy text
+instead of the code.
+
+**Cheaper than the consecutiveness check and it needs no grandfather list.**
+The three pre-existing gaps at `viii`, `xiv` and `xv` are gaps in the
+NUMERALS; they do not perturb the ORDER of what is present, so order can be
+asserted today without an exemption that must go stale loudly.
+
+**Placed after the gate, not in it, and the Designer's §4c-xl distinction is
+why:** this check SCANS the worktree exactly as `check_no_duplicate_sections`
+does, so it carries the same phantom mid-conflict. It is advisory rather than
+a gate, and `check_unmerged_index` has already refused before it runs.
+
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
