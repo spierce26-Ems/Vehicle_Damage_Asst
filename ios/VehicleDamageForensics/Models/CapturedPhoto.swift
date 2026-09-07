@@ -552,8 +552,14 @@ struct QualityFlags: Codable, Equatable {
     var isUnderexposed: Bool = false      // set by buildQualityFlags
     var isOverexposed: Bool = false       // set by buildQualityFlags
     var isTooFar: Bool = false            // set on the scar path (task #4); NOT on the 30-shot path
-    var isTooClose: Bool = false          // STILL NEVER ASSIGNED -- no gate measures it
-    var hasMotionBlur: Bool = false       // STILL NEVER ASSIGNED -- no gate measures it
+    // `isTooClose` and `hasMotionBlur` are still WRITTEN NOWHERE: their only
+    // occurrences are the two `issueDescriptions` reads below. A sweep that
+    // models every write form -- assignment, compound assignment, initialiser
+    // argument, `&inout`, mutating-method sinks and `$` bindings -- returns
+    // exactly these two here, where one modelling only `name =` returns
+    // thirty-three names across the tree.
+    var isTooClose: Bool = false          // STILL NEVER WRITTEN -- no gate measures it
+    var hasMotionBlur: Bool = false       // STILL NEVER WRITTEN -- no gate measures it
     var isOffAngle: Bool = false          // set by buildQualityFlags
 
     /// NOTE(AI Developer), 2026-09-07: currently reports only exposure and

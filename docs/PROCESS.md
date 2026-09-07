@@ -983,6 +983,30 @@ expression. A sweep that reads only `x = ` reports a false positive beside the
 real ones — the same disguise pointed the other way, and a census that includes
 a phantom is not a census.
 
+**Widened, because the initialiser-argument form was one of several and the
+error scales.** Swept over every `var x: T = default` in the tree, a sweep
+modelling only `name =` returns thirty-three; adding initialiser arguments
+brings it to nine; adding compound assignment (`total += …`), `inout` (`&pixel`
+handed to a data pointer), mutating-method sinks (`.store(in: &cancellables)`)
+and `$name` bindings collapses it to exactly the four. **So "never assigned" is
+not `name =` plus one exception — it is every form that writes the storage, and
+a sweep that models fewer reports phantoms in proportion.** Five phantoms
+beside four findings is not a census with noise in it; it is a census a reader
+cannot use, because the true rows are indistinguishable from the false ones.
+Same failure as reading `exists` for `runs`, one level down: the walk asks
+whether an assignment appears where the question is whether the storage is ever
+written.
+
+**And the verification recipe in this section needs one more sentence, or it
+misfires for the next person who follows it.** A `git clone --single-branch`
+inherits a `main`-only refspec and therefore reports **one** advisory — the
+`script-currency` one — while a plain `git clone` of this repository reports
+zero, because it gets the full refspec by default. Both were measured. Following
+the printed remedy clears the single-branch case to zero. So "clone by URL and
+measure" is under-specified: **name which clone, because the flag that makes a
+clone cheap is also the flag that makes the guard fire.** A recipe that is
+correct where it was run and wrong where it is repeated is this section's own
+subject aimed at its own instructions.
 **And a count of commits on a moving branch cannot be written down.** A row
 documenting the lapsed isolation guarantee recorded 99 Swift commits and
 measured 100 one commit later — the very failure the row exists to describe,
