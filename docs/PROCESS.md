@@ -1071,6 +1071,25 @@ documenting the lapsed isolation guarantee recorded 99 Swift commits and
 measured 100 one commit later — the very failure the row exists to describe,
 inside the sentence describing it. Where a number moves with the tree, record
 the command and not the figure.
+
+**And a count that SCOPES something is a worse case than a count that reports
+it, because staleness changes what the sentence authorises rather than what it
+says.** The copy lock read "the 16-string copy inventory" while the table had
+grown to 17 rows, so **the lock had silently stopped covering exactly the two
+strings that round added** — a stale report merely misinforms; a stale scope
+withdraws protection from the newest members, which are the ones most likely
+to be casually reworded. Same proxy shape as row five, in the sentence that
+defines the lock's own scope.
+
+Which distinguishes the two cases in review: **when a figure appears, ask
+whether anything is scoped BY it.** If it is, the repair is not a fresher
+number — writing "17" is the identical defect with a later expiry — it is to
+scope by the thing itself, whatever its length, and record the counting command
+for any reader who needs the figure. Swept the tree for the pattern after
+landing it: the remaining written counts (`42 tracked Swift files`, `all 43
+remedy sites`, `Totals:`) are **reports at a commit, checked by tooling that
+recomputes them**, and none of them scopes a rule. **A count under a check that
+recomputes it is safe; a count in prose that authorises something is not.**
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are
