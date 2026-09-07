@@ -2581,6 +2581,71 @@ them. **Not built: this is the measurement and the ruling, and the guard whose
 audit produced it is under a day old, which is the ordering rule saying the
 newest guard is the least likely member.**
 
+### 4c-xxxviii. Member (b) is not invisible to the compiler — it is invisible to the MODE we run it in
+
+**Numbered xxxviii: Ledger's §4c-xxxv and §4c-xxxvii and the Designer's
+§4c-xxxvi were in flight while this was measured. Ninth collision of the
+afternoon, and the count is now the argument for the guard rather than an
+anecdote.**
+
+§4c-xxv member (b) — `if true { return }` folded onto an existing line, ahead
+of the all-clear draw — has been reported all day as reachable by nothing in
+this repository, and the standing conclusion was that only a rendered page
+finds it. **That conclusion is about the tree's instruments and it was read as
+being about the defect.** Measured, on this sandbox's toolchain:
+
+```
+swift-frontend -frontend -parse       silent
+swift-frontend -frontend -typecheck   silent
+swift-frontend -frontend -emit-sil    warning: will never be executed
+swiftc -O / -Onone                    warning: will never be executed
+swiftc -O -warnings-as-errors         error: will never be executed, rc=1
+```
+
+**The compiler has reported this defect since the day it was written.**
+`check_swift_parses` stops at `-parse` — correctly, because it is the check
+that asks whether the tree is VALID and a parse needs no SDK — so the finding
+exists one stage past the only Swift stage this repository runs. **A defect
+class attributed to the absence of an instrument, where the instrument is the
+compiler in a mode nobody selected.** That is §4c-xxii from the other side
+again: not a stated limit mistaken for a covered one, but an *unstated* limit
+of a mode inherited as if it were a property of the technique.
+
+Two things this does NOT establish, and both matter more than the finding:
+
+1. **It does not close member (b).** 39 of 42 tracked Swift files need UIKit /
+   SwiftUI to reach the SIL stage; only 3 compile here at all. The reachable
+   fix is the build, and the build settings say what happens there:
+   `CLANG_WARN_UNREACHABLE_CODE = YES` is set in both configurations,
+   `SWIFT_TREAT_WARNINGS_AS_ERRORS` **is set in neither**, and the CLANG
+   setting does not govern Swift. **So on Sean's Xcode build the diagnostic
+   is emitted and is a warning** — printed into a build log next to every
+   other warning, which is the "runs, reports and changes nothing" state,
+   not the "no instrument sees it" state that has been reported all day.
+   The remedy is one build setting, and it is his to make because a
+   warnings-as-errors flip can fail a build nobody here can run.
+2. **It does not make the shape checks a proxy for the app.** They model
+   reduced shapes; a diagnostic they raise is about the model.
+
+What is buildable here is the mode, in the one place this repository compiles
+Swift at all. `scripts/shapechecks/run.sh` now compiles with
+`-warnings-as-errors`. Measured: all nine checks at `a803c0b` pass under it
+unchanged, so it costs nothing today and fires exactly when a check's own
+assertions stop being executed — **member (b)'s shape, inside the
+instruments.** Verified by folding `if true { return }` onto the first line of
+`motionblur-window.shapecheck`'s body, line-neutral: before, `ok … 9/9`, rc=0;
+after, `COMPILE FAIL` naming the line, rc=1.
+
+**And the runner counted a check that asserted nothing as a pass.** A file
+whose entire body is `func nothing() {}` reported `ok  <file> -- ` with an
+empty verdict and was included in `9/9`. Every check here prints either
+`N failing assertion(s).` or `all shape assertions hold`, so the ABSENCE of a
+verdict line was already available as a signal and was being read as the clean
+case — §5's house rule, in the artefact that decides what `9/9` means. An
+empty last line now FAILs. **Both halves are the same defect at two levels: a
+check that does not run, and a runner that cannot tell that from a check that
+ran and passed.**
+
 ### 4d. A conflict resolution is where prose goes missing
 
 The same failure with a specific and repeatable location. When two branches are

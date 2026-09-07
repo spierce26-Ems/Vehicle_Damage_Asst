@@ -37,11 +37,33 @@ fail=0; n=0
 for f in *.shapecheck; do
   n=$((n+1))
   cp "$f" "$tmp/c.swift"
-  if ! "$SWIFTC" -O "$tmp/c.swift" -o "$tmp/c" >"$tmp/err" 2>&1; then
+  # -warnings-as-errors, and it is the point of sec.4c-xxxvii rather than
+  # tidiness. `if true { return }` folded onto an existing line -- sec.4c-xxv
+  # member (b), the one item nothing in this repository reaches -- is not
+  # invisible to the compiler: swiftc reports `will never be executed` at the
+  # SIL stage. preflight's Swift instrument stops at `-frontend -parse`, which
+  # is silent on it, so the mode is why the finding never arrives, not the
+  # technique. A shape check is the one Swift here that COMPILES, so it is the
+  # one place the diagnostic can be made to cost something. Measured: all nine
+  # checks at a803c0b pass under this flag unchanged, so it is free today and
+  # only ever fires on a check whose own assertions stopped running.
+  if ! "$SWIFTC" -O -warnings-as-errors "$tmp/c.swift" -o "$tmp/c" >"$tmp/err" 2>&1; then
     echo "COMPILE FAIL  $f"; sed 's/^/    /' "$tmp/err" | head -5; fail=$((fail+1)); continue
   fi
   out=$("$tmp/c" 2>&1); rc=$?
   last=$(printf '%s\n' "$out" | tail -1)
+  # An EMPTY verdict is not a passing verdict, and this loop used to print
+  # `ok  <file> -- ` for it: rc=0, no `FAIL` in the output, nothing asserted.
+  # Measured on a file whose whole body was `func nothing() {}` -- reported
+  # `ok`, and every existing check prints either `N failing assertion(s).` or
+  # `all shape assertions hold`, so the ABSENCE of a verdict line is
+  # available as a signal and was being read as the clean case. Same shape
+  # as sec.4c-xxii: this runner is the artefact that decides what `9/9` means,
+  # and `9/9` counted a check that said nothing.
+  if [ -z "$last" ]; then
+    echo "FAIL          $f -- produced NO output; an empty verdict is not a pass"
+    fail=$((fail+1)); continue
+  fi
   if [ $rc -ne 0 ] || printf '%s\n' "$out" | grep -q 'FAIL'; then
     echo "FAIL          $f -- $last"; fail=$((fail+1))
   else
